@@ -1,0 +1,26 @@
+# XIX Restaurant Email Configuration Template
+# Copy this content to a new file called .env and fill in your actual credentials
+# DO NOT COMMIT .env TO GITHUB - IT CONTAINS SENSITIVE CREDENTIALS
+
+# Server Configuration
+PORT=3001
+
+# Email Configuration (Gmail SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password-here
+
+# Email Settings
+MAIL_FROM="XIX Restaurant <your-email@gmail.com>"
+MANAGER_EMAIL=your-email@gmail.com
+
+# Stripe Payment Configuration
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+
+# Note: SMTP_PASS should be your Gmail App Password, not your regular password
+# Get your App Password from: https://myaccount.google.com/apppasswords
+# Get your Stripe keys from: https://dashboard.stripe.com/apikeys

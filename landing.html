@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="theme-color" content="#1a1a1a">
+    <title>Choose Your Experience - XIX Restaurant Group</title>
+    <link rel="stylesheet" href="base.css">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .landing-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        .venue-side {
+            flex: 1;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            overflow: hidden;
+        }
+
+        .venue-side:hover {
+            flex: 1.2;
+        }
+
+        .venue-side:hover .venue-overlay {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .venue-side:hover .venue-content {
+            transform: translate(-50%, -50%);
+        }
+
+        .venue-side:hover .venue-title {
+            color: #d4a574;
+        }
+
+        .venue-side:hover .venue-subtitle {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .venue-side:hover .venue-description {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .venue-side:hover .venue-button {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Mobile hover class for lighter touch responsiveness */
+        .venue-side.mobile-hover {
+            flex: 1.2;
+        }
+
+        .venue-side.mobile-hover .venue-overlay {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .venue-side.mobile-hover .venue-content {
+            transform: translate(-50%, -50%);
+        }
+
+        .venue-side.mobile-hover .venue-title {
+            color: #d4a574;
+        }
+
+        .venue-side.mobile-hover .venue-subtitle {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .venue-side.mobile-hover .venue-description {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .venue-side.mobile-hover .venue-button {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .xix-side {
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
+                url('photos/XIX_main.png') center/cover;
+        }
+
+        .mirror-side {
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
+                url('photos/mirror_landing.jpg') center/cover;
+        }
+
+        .venue-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            transition: all 0.8s ease;
+        }
+
+        .venue-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #d4a574;
+            z-index: 2;
+            transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            width: 90%;
+            background: transparent;
+        }
+
+        .venue-logo {
+            font-family: 'Gilda Display', serif;
+            font-size: 4rem;
+            font-weight: 400;
+            margin-bottom: 20px;
+            transition: all 0.8s ease;
+            color: #d4a574;
+            text-shadow: none;
+            position: relative;
+            z-index: 10;
+        }
+
+        .venue-title {
+            font-family: 'Gilda Display', serif;
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            transition: all 0.8s ease;
+            color: #d4a574;
+            text-shadow: none;
+        }
+
+        .venue-subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.8s ease;
+            color: #d4a574;
+            text-shadow: none;
+        }
+
+        .venue-description {
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 40px;
+            opacity: 0;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            transform: translateY(20px);
+            transition: all 0.8s ease;
+            color: #d4a574;
+            text-shadow: none;
+        }
+
+        .venue-button {
+            display: inline-block;
+            background: transparent;
+            color: #f4e4c1;
+            /* Changed to light cream for better visibility */
+            padding: 15px 40px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            /* Made bolder */
+            font-size: 1.1rem;
+            transition: all 0.8s ease;
+            opacity: 0;
+            transform: translateY(30px);
+            border: 2px solid #f4e4c1;
+            /* Changed border color to light cream */
+            text-shadow: none;
+            box-shadow: none;
+        }
+
+        .venue-button:hover {
+            background: rgba(244, 228, 193, 0.1);
+            color: #ffffff;
+            border-color: #ffffff;
+            transform: translateY(-5px);
+        }
+
+        .divider {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 60px;
+            background: linear-gradient(to bottom, transparent, #A8871A, transparent);
+            z-index: 3;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 8px;
+            background: #A8871A;
+            border-radius: 50%;
+        }
+
+        .landing-footer {
+            position: absolute;
+            bottom: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            text-align: center;
+            z-index: 3;
+            opacity: 0.7;
+        }
+
+        .landing-footer p {
+            font-size: 0.9rem;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .landing-container {
+                flex-direction: column;
+            }
+
+            .venue-side {
+                flex: 1;
+            }
+
+            .venue-logo {
+                font-size: 3rem;
+                margin-top: 20px;
+                margin-bottom: 30px;
+                position: relative;
+                z-index: 10;
+            }
+
+            .venue-title {
+                font-size: 2rem;
+            }
+
+            .venue-subtitle {
+                font-size: 1rem;
+            }
+
+            .venue-button {
+                margin-bottom: 8rem;
+                /* Much more space below button */
+            }
+
+            .landing-footer {
+                bottom: -80px;
+                /* Move footer much lower to avoid button overlap */
+                font-size: 0.75rem;
+                opacity: 0.6;
+                /* Make footer less prominent */
+                z-index: 1;
+            }
+
+            .divider {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .venue-logo {
+                font-size: 2.5rem;
+                margin-top: 15px;
+                margin-bottom: 25px;
+                position: relative;
+                z-index: 10;
+            }
+
+            .venue-title {
+                font-size: 1.8rem;
+            }
+
+            .venue-content {
+                width: 95%;
+            }
+
+            .venue-button {
+                margin-bottom: 6rem;
+                /* Even more space on smaller screens */
+            }
+
+            .landing-footer {
+                bottom: -100px;
+                /* Move footer much lower on smaller screens to avoid button overlap */
+                font-size: 0.7rem;
+                opacity: 0.5;
+                /* Make footer even less prominent */
+                z-index: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="landing-container">
+        <!-- XIX Restaurant Side -->
+        <div class="venue-side xix-side">
+            <div class="venue-overlay"></div>
+            <div class="venue-content">
+                <div class="venue-logo">XIX</div>
+                <h2 class="venue-title">XIX Restaurant</h2>
+                <p class="venue-subtitle">Where Flavor Meets Elegance</p>
+                <p class="venue-description">
+                    Experience modern dining with Ukrainian influences.
+                    Perfect for intimate dinners, casual meals, and small celebrations.
+                </p>
+                <a href="/xix" class="venue-button">
+                    <i class="fas fa-utensils"></i> Enter XIX
+                </a>
+            </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="divider"></div>
+
+        <!-- Mirror Banquet Hall Side -->
+        <div class="venue-side mirror-side">
+            <div class="venue-overlay"></div>
+            <div class="venue-content">
+                <div class="venue-logo">Mirror</div>
+                <h2 class="venue-title">Ukrainian Banquet Hall</h2>
+                <p class="venue-subtitle">Elegant Celebrations & Events</p>
+                <p class="venue-description">
+                    Traditional Ukrainian hospitality meets modern elegance.
+                    Perfect for weddings, large celebrations, and cultural events.
+                </p>
+                <a href="/mirror" class="venue-button">
+                    <i class="fas fa-users"></i> Enter Mirror
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="landing-footer">
+        <p>Choose your experience • XIX Restaurant Group</p>
+    </div>
+
+    <script>
+        // Enhanced mobile hover effects for lighter touch
+        document.addEventListener('DOMContentLoaded', function () {
+            const venueSides = document.querySelectorAll('.venue-side');
+
+            venueSides.forEach(side => {
+                let touchStartTime = 0;
+                let isHovered = false;
+
+                // Touch start - start hover effect immediately
+                side.addEventListener('touchstart', function (e) {
+                    touchStartTime = Date.now();
+                    isHovered = true;
+                    side.classList.add('mobile-hover');
+                    // Don't prevent default to allow button clicks
+                });
+
+                // Touch end - keep hover for a moment then fade
+                side.addEventListener('touchend', function (e) {
+                    // Check if the touch was on a button/link
+                    const target = e.target;
+                    const isButton = target.closest('.venue-button') || target.closest('a');
+
+                    if (isButton) {
+                        // If it's a button, let it handle the click naturally
+                        side.classList.remove('mobile-hover');
+                        isHovered = false;
+                    } else {
+                        // If it's not a button, keep hover effect
+                        setTimeout(() => {
+                            if (isHovered) {
+                                side.classList.remove('mobile-hover');
+                                isHovered = false;
+                            }
+                        }, 200); // Keep hover for 200ms after touch
+                    }
+                });
+
+                // Touch cancel - remove hover immediately
+                side.addEventListener('touchcancel', function (e) {
+                    side.classList.remove('mobile-hover');
+                    isHovered = false;
+                });
+
+                // Mouse events for desktop
+                side.addEventListener('mouseenter', function () {
+                    side.classList.add('mobile-hover');
+                });
+
+                side.addEventListener('mouseleave', function () {
+                    side.classList.remove('mobile-hover');
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

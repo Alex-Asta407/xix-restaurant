@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservations - Mirror Ukrainian Banquet Hall</title>
+    <link rel="stylesheet" href="../base.css">
+    <link rel="stylesheet" href="../navigation.css">
+    <link rel="stylesheet" href="../reservations.css">
+    <link rel="stylesheet" href="../mirror.css">
+    <link rel="stylesheet" href="../footer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="/mirror">
+                    <h1>Mirror</h1>
+                </a>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/mirror/menu">Menu</a></li>
+                <li><a href="/mirror/events">Events</a></li>
+                <li><a href="/mirror/reservations">Reservations</a></li>
+                <li><a href="/xix" class="active">XIX</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Reservations Hero Section -->
+    <section class="reservations-hero">
+        <div class="container">
+            <div class="reservations-hero-content">
+                <h1 class="reservations-title">Book Your Ukrainian Celebration</h1>
+                <p class="reservations-subtitle">Reserve Mirror Ukrainian Banquet Hall for your special event.
+                    Experience authentic Ukrainian hospitality and cuisine.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Reservation Form Section -->
+    <section class="reservation-form-section">
+        <div class="container">
+            <div class="reservation-form-container">
+                <form id="reservationForm" class="reservation-form" method="post" action="/api/send-reservation-email"
+                    onsubmit="return false;">
+                    <div class="form-header">
+                        <h2>Book Your Event</h2>
+                        <p>Please fill out the form below to reserve Mirror Ukrainian Banquet Hall</p>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="name">Full Name *</label>
+                            <input type="text" id="name" name="name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phone">Phone Number *</label>
+                            <input type="tel" id="phone" name="phone" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="guests">Number of Guests *</label>
+                            <select id="guests" name="guests" required>
+                                <option value="">Select Guests</option>
+                                <option value="10-25">10-25 Guests</option>
+                                <option value="26-50">26-50 Guests</option>
+                                <option value="51-75">51-75 Guests</option>
+                                <option value="76-100">76-100 Guests</option>
+                                <option value="101-150">101-150 Guests</option>
+                                <option value="151-200">151-200 Guests</option>
+                                <option value="200+">200+ Guests</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="date">Preferred Date *</label>
+                            <input type="date" id="date" name="date" required min="">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="time">Preferred Time *</label>
+                            <select id="time" name="time" required>
+                                <option value="">Select Time</option>
+                                <option value="12:00">12:00 PM (Lunch)</option>
+                                <option value="13:00">1:00 PM (Lunch)</option>
+                                <option value="14:00">2:00 PM (Lunch)</option>
+                                <option value="15:00">3:00 PM (Afternoon)</option>
+                                <option value="16:00">4:00 PM (Afternoon)</option>
+                                <option value="17:00">5:00 PM (Evening)</option>
+                                <option value="18:00">6:00 PM (Evening)</option>
+                                <option value="19:00">7:00 PM (Evening)</option>
+                                <option value="20:00">8:00 PM (Evening)</option>
+                                <option value="21:00">9:00 PM (Evening)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="event-type">Event Type *</label>
+                            <select id="event-type" name="event-type" required>
+                                <option value="">Select Event Type</option>
+                                <option value="wedding">Wedding</option>
+                                <option value="birthday">Birthday Party</option>
+                                <option value="anniversary">Anniversary</option>
+                                <option value="corporate">Corporate Event</option>
+                                <option value="cultural">Cultural Celebration</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="menu-preference">Menu Preference</label>
+                            <select id="menu-preference" name="menu-preference">
+                                <option value="">Select Menu</option>
+                                <option value="set-menu-1">Mirror Set Menu 1 (£120/person)</option>
+                                <option value="set-menu-2">Mirror Set Menu 2 (£120/person)</option>
+                                <option value="custom">Custom Ukrainian Menu</option>
+                                <option value="discuss">Discuss with Chef</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="special-requests">Special Requests or Dietary Requirements</label>
+                        <textarea id="special-requests" name="special-requests" rows="4"
+                            placeholder="Please let us know about any allergies, dietary restrictions, cultural requirements, or special requests for your Ukrainian celebration..."></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="entertainment">Entertainment Preferences</label>
+                        <textarea id="entertainment" name="entertainment" rows="3"
+                            placeholder="Would you like live Ukrainian music, DJ services, traditional performances, or other entertainment options?"></textarea>
+                    </div>
+
+                    <button type="submit" class="submit-button">
+                        <i class="fas fa-calendar-check"></i>
+                        Book Event
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Mirror Info Section -->
+    <section class="restaurant-info">
+        <div class="container">
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3>Event Hours</h3>
+                    <div class="info-details">
+                        <p><strong>Lunch Events:</strong> 12:00 PM - 4:00 PM</p>
+                        <p><strong>Evening Events:</strong> 6:00 PM - 12:00 AM</p>
+                        <p><strong>All Day Events:</strong> 10:00 AM - 12:00 AM</p>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>Capacity & Pricing</h3>
+                    <div class="info-details">
+                        <p>Mirror can accommodate up to 200 guests for seated events and 250 for standing receptions.
+                        </p>
+                        <p><strong>Starting from:</strong> £120 per person</p>
+                        <p><strong>Minimum:</strong> 50 guests for private events</p>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-utensils"></i>
+                    </div>
+                    <h3>Ukrainian Cuisine</h3>
+                    <div class="info-details">
+                        <p>Authentic Ukrainian dishes prepared by our experienced chefs using traditional recipes and
+                            premium ingredients.</p>
+                        <p>Custom menus available for special dietary requirements.</p>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-music"></i>
+                    </div>
+                    <h3>Entertainment Options</h3>
+                    <div class="info-details">
+                        <p>Live Ukrainian music, traditional performances, DJ services, and cultural entertainment
+                            available.</p>
+                        <p>Sound system and dance floor included.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section">
+        <div class="container">
+            <div class="contact-content fade-in">
+                <div class="contact-left">
+                    <h2>Get in Touch</h2>
+                    <p>Have questions about booking Mirror Ukrainian Banquet Hall? Our events team is here to help plan
+                        your perfect celebration!</p>
+
+                    <div class="contact-details">
+                        <div class="contact-item">
+                            <i class="fas fa-phone"></i>
+                            <div>
+                                <h4>Phone</h4>
+                                <p>+44 20 7123 4567</p>
+                            </div>
+                        </div>
+
+                        <div class="contact-item">
+                            <i class="fas fa-envelope"></i>
+                            <div>
+                                <h4>Email</h4>
+                                <p>mirror@xixlondon.com</p>
+                            </div>
+                        </div>
+
+                        <div class="contact-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div>
+                                <h4>Address</h4>
+                                <p>Mirror Ukrainian Banquet Hall<br>London, UK</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contact-right">
+                    <div class="map-container">
+                        <div class="map-placeholder">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <p>Mirror Ukrainian Banquet Hall, London</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="confirmation-content">
+                <i class="fas fa-check-circle"></i>
+                <h2>Event Booking Confirmed!</h2>
+                <div id="reservationDetails"></div>
+                <p>You will receive a confirmation email shortly with event planning details.</p>
+                <button id="addToCalendar" class="calendar-button">Add to Google Calendar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h2>Mirror</h2>
+                    <p>Ukrainian Banquet Hall</p>
+                </div>
+                <div class="footer-links">
+                    <!-- <a href="/mirror">Home</a> -->
+                    <a href="/mirror/menu">Menu</a>
+                    <a href="/mirror/events">Events</a>
+                    <a href="/mirror/reservations">Reservations</a>
+                    <a href="/xix">XIX</a>
+                </div>
+                <div class="footer-social">
+                    <a href="https://www.instagram.com/mirror_mirrorlondon/" target="_blank" class="social-link">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.instagram.com/xix_nineteen/" target="_blank" class="social-link">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.facebook.com/xixfood?mibextid=LQQJ4d&rdid=PWIlySw1n2GjmE0E&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2FGk1tdQBeAJDy4VQC%2F%3Fmibextid%3DLQQJ4d#"
+                        target="_blank" class="social-link">
+                        <i class="fab fa-facebook"></i>
+                    </a>
+                    <a href="https://www.tiktok.com/@xix_nineteen" target="_blank" class="social-link">
+                        <i class="fab fa-tiktok"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../script.js"></script>
+    <script src="../offline.js"></script>
+
+    <script>
+        // Direct form submission handler for Mirror reservations
+        document.addEventListener('DOMContentLoaded', function () {
+            // Set minimum date to today
+            const dateInput = document.getElementById('date');
+            if (dateInput) {
+                const today = new Date().toISOString().split('T')[0];
+                dateInput.min = today;
+
+                // Check available times when date changes
+                dateInput.addEventListener('change', function () {
+                    checkAvailableTimes(this.value, 'mirror');
+                });
+            }
+
+            const form = document.getElementById('reservationForm');
+            if (form) {
+                console.log('Mirror: Found form, attaching direct handler');
+
+                // Prevent multiple submissions
+                let isSubmitting = false;
+
+                form.addEventListener('submit', async function (e) {
+                    console.log('Mirror: Form submission intercepted directly!');
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Prevent multiple submissions
+                    if (isSubmitting) {
+                        console.log('Mirror: Form already submitting, ignoring duplicate submission');
+                        return;
+                    }
+                    isSubmitting = true;
+
+                    // Get submit button and show loading state
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.textContent;
+                    submitBtn.textContent = 'Processing...';
+                    submitBtn.disabled = true;
+
+                    // Get form data
+                    const formData = new FormData(this);
+                    const reservation = {
+                        name: formData.get('name'),
+                        email: formData.get('email'),
+                        phone: formData.get('phone'),
+                        date: formData.get('date'),
+                        time: formData.get('time'),
+                        guests: formData.get('guests'),
+                        table: formData.get('table'),
+                        occasion: formData.get('occasion'),
+                        specialRequests: formData.get('special-requests'),
+                        venue: 'mirror', // Force mirror venue
+                        eventType: formData.get('event-type'),
+                        menuPreference: formData.get('menu-preference'),
+                        entertainment: formData.get('entertainment')
+                    };
+
+                    console.log('Mirror: Reservation data:', reservation);
+
+                    // Check if the selected time is still available
+                    try {
+                        const availabilityResponse = await fetch(`/api/available-times?date=${reservation.date}&venue=mirror`);
+                        const availabilityData = await availabilityResponse.json();
+
+                        if (!availabilityData.availableTimes.includes(reservation.time)) {
+                            alert('Sorry, this time slot is no longer available. Please select another time.');
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Error checking time availability:', error);
+                        alert('Error checking time availability. Please try again.');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('/api/send-reservation-email', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(reservation)
+                        });
+
+                        const result = await response.json();
+                        console.log('Mirror: Server response:', result);
+                        console.log('Mirror: Reservation data:', result.reservation);
+
+                        if (response.ok) {
+                            // Show success modal with reservation data
+                            showConfirmationModal(result.reservation);
+                            // Reset the form
+                            form.reset();
+                        } else {
+                            // Show detailed error message
+                            let errorMessage = result.error || 'Unknown error';
+                            if (result.details && Array.isArray(result.details)) {
+                                errorMessage = result.details.join('\n');
+                            }
+                            alert('Error: ' + errorMessage);
+                        }
+                    } catch (error) {
+                        console.error('Mirror: Error:', error);
+                        alert('Error submitting reservation: ' + error.message);
+                    } finally {
+                        // Reset submission flag and button state
+                        isSubmitting = false;
+                        submitBtn.textContent = originalText;
+                        submitBtn.disabled = false;
+                    }
+                });
+            }
+        });
+
+        function showConfirmationModal(data) {
+            console.log('showConfirmationModal called with data:', data);
+            console.log('Data type:', typeof data);
+            console.log('Data keys:', Object.keys(data || {}));
+
+            // Remove any existing modal first
+            const existingModal = document.getElementById('confirmationModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Force create new modal with timestamp
+            const timestamp = Date.now();
+            console.log('Creating modal with timestamp:', timestamp);
+
+            let modal = document.createElement('div');
+            modal.id = 'confirmationModal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="success-icon">✓</div>
+                    <h2>Reservation Confirmed!</h2>
+                    <div id="reservationDetails"></div>
+                    <p>You will receive a confirmation email shortly.</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                        <button id="addToCalendar" class="btn-primary">Add to Google Calendar</button>
+                        <button id="backButton" class="btn-secondary" onclick="location.reload();" style="background: #8b7355; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Back</button>
+                    </div>
+                </div>
+            `;
+
+            // Add the modal to DOM
+            document.body.appendChild(modal);
+            console.log('Modal created with Back button:', modal.innerHTML);
+            console.log('Back button element:', modal.querySelector('#backButton'));
+            console.log('Back button visible:', modal.querySelector('#backButton') ? 'YES' : 'NO');
+
+            // Populate details
+            const details = document.getElementById('reservationDetails');
+            console.log('Populating modal with data:', data);
+            console.log('Name:', data.name, 'Email:', data.email, 'Phone:', data.phone);
+
+            details.innerHTML = `
+                <div class="reservation-details">
+                    <p><strong>Name:</strong> ${data.name || 'N/A'}</p>
+                    <p><strong>Email:</strong> ${data.email || 'N/A'}</p>
+                    <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
+                    <p><strong>Date:</strong> ${data.date ? new Date(data.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
+                    <p><strong>Time:</strong> ${data.time || 'N/A'}</p>
+                    <p><strong>Guests:</strong> ${data.guests || 'N/A'}</p>
+                    <p><strong>Table:</strong> ${data.table || 'Any Available'}</p>
+                    ${data.eventType ? `<p><strong>Event Type:</strong> ${data.eventType}</p>` : ''}
+                    ${data.menuPreference ? `<p><strong>Menu Preference:</strong> ${data.menuPreference}</p>` : ''}
+                    ${data.entertainment ? `<p><strong>Entertainment:</strong> ${data.entertainment}</p>` : ''}
+                </div>
+            `;
+
+            // Add Google Calendar functionality
+            const addToCalendarBtn = document.getElementById('addToCalendar');
+            if (addToCalendarBtn) {
+                addToCalendarBtn.onclick = () => {
+                    addToGoogleCalendar(data);
+                };
+            }
+
+            // Show modal
+            modal.style.display = 'block';
+        }
+
+        function addToGoogleCalendar(reservationData) {
+            // Create Google Calendar URL
+            const startDate = new Date(reservationData.date + 'T' + reservationData.time);
+            const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // 2 hours later
+
+            const formatDate = (date) => {
+                return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+            };
+
+            const title = `Mirror Ukrainian Banquet Hall - ${reservationData.eventType || 'Event'}`;
+            const description = `Event: ${reservationData.eventType || 'N/A'}
+Guests: ${reservationData.guests}
+Menu: ${reservationData.menuPreference || 'N/A'}
+Entertainment: ${reservationData.entertainment || 'N/A'}
+Special Requests: ${reservationData.specialRequests || 'None'}`;
+
+            const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(description)}&location=Mirror Ukrainian Banquet Hall`;
+
+            // Open Google Calendar in new tab
+            window.open(googleCalendarUrl, '_blank');
+        }
+
+        async function checkAvailableTimes(date, venue) {
+            if (!date) return;
+
+            console.log('Checking available times for:', date, venue);
+
+            try {
+                const response = await fetch(`/api/available-times?date=${date}&venue=${venue}`);
+                const data = await response.json();
+
+                console.log('Available times response:', data);
+
+                const timeSelect = document.getElementById('time');
+                if (!timeSelect) {
+                    console.error('Time select element not found');
+                    return;
+                }
+
+                // Clear existing options
+                timeSelect.innerHTML = '';
+
+                if (data.availableTimes.length === 0) {
+                    console.log('No available times');
+                    // No available times
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No available times for this date';
+                    option.disabled = true;
+                    timeSelect.appendChild(option);
+
+                    // Show message
+                    showNoAvailabilityMessage();
+                } else {
+                    console.log('Available times:', data.availableTimes);
+                    // Add available times
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = 'Select Time';
+                    timeSelect.appendChild(defaultOption);
+
+                    data.availableTimes.forEach(time => {
+                        const option = document.createElement('option');
+                        option.value = time;
+                        option.textContent = time;
+                        timeSelect.appendChild(option);
+                    });
+
+                    // Hide no availability message if it exists
+                    hideNoAvailabilityMessage();
+                }
+            } catch (error) {
+                console.error('Error checking available times:', error);
+            }
+        }
+
+        function showNoAvailabilityMessage() {
+            // Remove existing message if any
+            hideNoAvailabilityMessage();
+
+            const message = document.createElement('div');
+            message.id = 'no-availability-message';
+            message.style.cssText = `
+                background: #ffebee;
+                color: #c62828;
+                padding: 1rem;
+                margin: 1rem 0;
+                border-radius: 8px;
+                border: 1px solid #ffcdd2;
+                text-align: center;
+                font-weight: 500;
+            `;
+            message.textContent = 'Sorry, no available time slots for this date. Please choose another date.';
+
+            const form = document.getElementById('reservationForm');
+            if (form) {
+                form.insertBefore(message, form.querySelector('.form-group'));
+            }
+        }
+
+        function hideNoAvailabilityMessage() {
+            const message = document.getElementById('no-availability-message');
+            if (message) {
+                message.remove();
+            }
+        }
+    </script>
+
+</body>
+
+</html>

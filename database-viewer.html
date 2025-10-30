@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Viewer - XIX Restaurant</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .db-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .db-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .db-header h1 {
+            font-family: 'Gilda Display', serif;
+            font-size: 2.5rem;
+            color: var(--very-dark-green);
+            margin-bottom: 1rem;
+        }
+        .db-actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .db-btn {
+            background: var(--very-dark-green);
+            color: var(--white);
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .db-btn:hover {
+            background: var(--gold);
+        }
+        .db-btn.secondary {
+            background: var(--light-gray);
+            color: var(--very-dark-green);
+        }
+        .db-btn.secondary:hover {
+            background: var(--medium-gray);
+        }
+        .db-table {
+            background: var(--white);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(2, 7, 2, 0.1);
+            margin-bottom: 2rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid var(--light-gray);
+        }
+        th {
+            background: var(--light-gray);
+            font-weight: 600;
+            color: var(--very-dark-green);
+            position: sticky;
+            top: 0;
+        }
+        .db-info {
+            background: var(--light-gray);
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        .export-section {
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(2, 7, 2, 0.1);
+            margin-bottom: 2rem;
+        }
+        .export-btn {
+            background: var(--gold);
+            color: var(--white);
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .export-btn:hover {
+            background: #8B6914;
+        }
+        .raw-data {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="db-container">
+        <div class="db-header">
+            <h1>Database Viewer</h1>
+            <p>View and manage the SQLite reservations database</p>
+        </div>
+
+        <div class="db-actions">
+            <button class="db-btn" onclick="loadReservations()">
+                <i class="fas fa-sync-alt"></i> Refresh Data
+            </button>
+            <button class="db-btn secondary" onclick="showRawData()">
+                <i class="fas fa-code"></i> Show Raw Data
+            </button>
+            <button class="db-btn secondary" onclick="clearDatabase()">
+                <i class="fas fa-trash"></i> Clear Database
+            </button>
+        </div>
+
+        <div class="db-info">
+            <strong>Database File:</strong> reservations.db<br>
+            <strong>Table:</strong> reservations<br>
+            <strong>Records:</strong> <span id="recordCount">-</span>
+        </div>
+
+        <div class="export-section">
+            <h3>Export Data</h3>
+            <button class="export-btn" onclick="exportToCSV()">
+                <i class="fas fa-file-csv"></i> Export to CSV
+            </button>
+            <button class="export-btn" onclick="exportToJSON()">
+                <i class="fas fa-file-code"></i> Export to JSON
+            </button>
+        </div>
+
+        <div class="db-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Guests</th>
+                        <th>Table</th>
+                        <th>Occasion</th>
+                        <th>Special Requests</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody id="dbTableBody">
+                    <tr>
+                        <td colspan="11" style="text-align: center; padding: 2rem;">
+                            <i class="fas fa-spinner fa-spin"></i> Loading database...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="rawDataSection" style="display: none;">
+            <h3>Raw Database Data</h3>
+            <div class="raw-data" id="rawData"></div>
+        </div>
+    </div>
+
+    <script>
+        let allReservations = [];
+
+        async function loadReservations() {
+            try {
+                const response = await fetch('http://localhost:3001/api/reservations');
+                allReservations = await response.json();
+                
+                displayReservations(allReservations);
+                updateRecordCount();
+            } catch (error) {
+                console.error('Error loading reservations:', error);
+                document.getElementById('dbTableBody').innerHTML = 
+                    '<tr><td colspan="11" style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading database</td></tr>';
+            }
+        }
+
+        function displayReservations(reservations) {
+            const tbody = document.getElementById('dbTableBody');
+            
+            if (reservations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 2rem;">No records found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = reservations.map(reservation => {
+                const createdDate = new Date(reservation.created_at).toLocaleString();
+                const reservationDate = new Date(reservation.date).toLocaleDateString();
+                const time = formatTime(reservation.time);
+                
+                return `
+                    <tr>
+                        <td>${reservation.id}</td>
+                        <td>${reservation.name}</td>
+                        <td>${reservation.email}</td>
+                        <td>${reservation.phone}</td>
+                        <td>${reservationDate}</td>
+                        <td>${time}</td>
+                        <td>${reservation.guests}</td>
+                        <td>${reservation.table_preference || '-'}</td>
+                        <td>${reservation.occasion || '-'}</td>
+                        <td>${reservation.special_requests || '-'}</td>
+                        <td>${createdDate}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateRecordCount() {
+            document.getElementById('recordCount').textContent = allReservations.length;
+        }
+
+        function formatTime(time24) {
+            const [hours, minutes] = time24.split(':');
+            const hour = parseInt(hours);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour % 12 || 12;
+            return `${displayHour}:${minutes} ${ampm}`;
+        }
+
+        function showRawData() {
+            const section = document.getElementById('rawDataSection');
+            const rawData = document.getElementById('rawData');
+            
+            if (section.style.display === 'none') {
+                rawData.textContent = JSON.stringify(allReservations, null, 2);
+                section.style.display = 'block';
+            } else {
+                section.style.display = 'none';
+            }
+        }
+
+        function exportToCSV() {
+            if (allReservations.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            const headers = ['ID', 'Name', 'Email', 'Phone', 'Date', 'Time', 'Guests', 'Table', 'Occasion', 'Special Requests', 'Created'];
+            const csvContent = [
+                headers.join(','),
+                ...allReservations.map(r => [
+                    r.id,
+                    `"${r.name}"`,
+                    `"${r.email}"`,
+                    `"${r.phone}"`,
+                    r.date,
+                    r.time,
+                    r.guests,
+                    `"${r.table_preference || ''}"`,
+                    `"${r.occasion || ''}"`,
+                    `"${r.special_requests || ''}"`,
+                    `"${r.created_at}"`
+                ].join(','))
+            ].join('\n');
+
+            downloadFile(csvContent, 'reservations.csv', 'text/csv');
+        }
+
+        function exportToJSON() {
+            if (allReservations.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            const jsonContent = JSON.stringify(allReservations, null, 2);
+            downloadFile(jsonContent, 'reservations.json', 'application/json');
+        }
+
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function clearDatabase() {
+            if (!confirm('Are you sure you want to clear all reservations? This cannot be undone!')) {
+                return;
+            }
+
+            try {
+                // This would need a new API endpoint to clear the database
+                alert('Database clear functionality would need to be implemented in the server');
+            } catch (error) {
+                console.error('Error clearing database:', error);
+                alert('Error clearing database');
+            }
+        }
+
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', loadReservations);
+    </script>
+</body>
+</html>

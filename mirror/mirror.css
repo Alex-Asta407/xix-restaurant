@@ -1,0 +1,3177 @@
+/* Mirror-specific styles for enhanced menu display */
+
+/* Enhanced Background */
+body {
+    background: transparent !important;
+    min-height: 100vh;
+}
+
+.menu-hero {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+    z-index: 1;
+}
+
+/* Main Menu Title Styles */
+.menu-title {
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: #2d1f15;
+    margin-bottom: 1rem;
+    text-shadow: none;
+}
+
+.menu-subtitle {
+    font-size: 1.3rem;
+    color: #2d1f15;
+    margin-bottom: 2rem;
+    font-weight: 300;
+    opacity: 0.8;
+}
+
+/* Button Text Visibility */
+.btn-primary,
+.btn-secondary,
+.event-btn,
+.private-events-btn,
+.venue-button,
+.hero-buttons a,
+.hero-buttons .btn-primary,
+.hero-buttons .btn-secondary {
+    color: #2d1f15 !important;
+    font-weight: 600 !important;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.event-btn:hover,
+.private-events-btn:hover,
+.venue-button:hover {
+    color: #1a0f08 !important;
+    background: rgba(45, 31, 21, 0.1) !important;
+}
+
+/* Enhanced Menu Highlights */
+.menu-highlights {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.highlight-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 0.8rem 1.5rem;
+    border-radius: 25px;
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 192, 203, 0.3);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.highlight-item:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 192, 203, 0.5);
+}
+
+.highlight-item i {
+    color: #d4a574;
+    font-size: 1.2rem;
+}
+
+.highlight-item span {
+    font-weight: 500;
+    color: #2d1f15;
+    font-size: 0.95rem;
+}
+
+/* Enhanced Menu Navigation */
+.menu-tabs {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin: 2rem 0;
+}
+
+.menu-tab {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+    color: #2d1f15;
+    border: 2px solid rgba(255, 192, 203, 0.3);
+    padding: 1.5rem 2rem;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 200px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.menu-tab:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    border-color: rgba(255, 192, 203, 0.6);
+    background: linear-gradient(135deg, #fefefe, #f8f6f0);
+}
+
+.menu-tab.active {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+    transform: translateY(-5px);
+    border-color: rgba(255, 192, 203, 0.8);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.menu-tab i {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #d4a574;
+}
+
+.menu-tab small {
+    font-size: 0.9rem;
+    opacity: 0.7;
+    color: #2d1f15;
+}
+
+/* Enhanced Menu Header */
+.menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+    padding: 2rem;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 192, 203, 0.2);
+}
+
+.menu-title-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.menu-badge {
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    color: white;
+    padding: 0.3rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: inline-block;
+    width: fit-content;
+}
+
+.menu-price-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.price-main {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #d4a574;
+    line-height: 1;
+}
+
+.price-per {
+    font-size: 1.1rem;
+    color: #2d1f15;
+    margin-top: -0.5rem;
+}
+
+.price-includes {
+    font-size: 0.9rem;
+    color: #d4a574;
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+/* Enhanced Category Headers */
+.category-header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.category-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 1.8rem;
+    color: #2d1f15;
+    margin-bottom: 0.5rem;
+}
+
+.category-title i {
+    color: #d4a574;
+    font-size: 1.5rem;
+}
+
+.category-description {
+    color: #2d1f15;
+    font-style: italic;
+    font-size: 1.1rem;
+}
+
+/* Enhanced Menu Items */
+.menu-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 192, 203, 0.2);
+}
+
+.menu-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 192, 203, 0.6);
+}
+
+.item-icon {
+    font-size: 2rem;
+    min-width: 3rem;
+    text-align: center;
+}
+
+.item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    flex: 1;
+}
+
+.item-name {
+    font-weight: 600;
+    color: #2d1f15;
+    font-size: 1.1rem;
+}
+
+.item-translation {
+    color: #2d1f15;
+    font-size: 0.95rem;
+    font-style: italic;
+}
+
+/* Menu Section Transitions */
+.menu-section {
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+    z-index: 1;
+}
+
+.menu-section.active {
+    display: block;
+}
+
+/* Responsive Design - Mobile First Approach */
+@media (max-width: 480px) {
+    .menu-highlights {
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .highlight-item {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.9rem;
+    }
+
+    .menu-tabs {
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .menu-tab {
+        min-width: 100%;
+        padding: 1.2rem;
+    }
+
+    .menu-header {
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: center;
+    }
+
+    .menu-price-section {
+        align-items: center;
+    }
+
+    .menu-items {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .menu-item {
+        padding: 1rem;
+    }
+
+    .item-icon {
+        font-size: 1.5rem;
+        min-width: 2.5rem;
+    }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+    .menu-highlights {
+        gap: 1.2rem;
+    }
+
+    .menu-tabs {
+        gap: 0.8rem;
+    }
+
+    .menu-tab {
+        min-width: 180px;
+        padding: 1.3rem 1.8rem;
+    }
+
+    .menu-items {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.2rem;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .menu-items {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.4rem;
+    }
+
+    .menu-tab {
+        min-width: 190px;
+    }
+}
+
+@media (min-width: 1025px) {
+    .menu-items {
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 1.6rem;
+    }
+
+    .menu-tab {
+        min-width: 220px;
+    }
+}
+
+/* Landscape orientation adjustments */
+@media (max-height: 600px) and (orientation: landscape) {
+    .menu-hero {
+        padding: 2rem 0;
+    }
+
+    .menu-highlights {
+        margin-top: 1rem;
+    }
+
+    .highlight-item {
+        padding: 0.5rem 1rem;
+    }
+
+    .menu-tabs {
+        margin: 1rem 0;
+    }
+
+    .menu-tab {
+        padding: 1rem 1.5rem;
+    }
+}
+
+/* Mirror-specific styles for all pages */
+/* Apply menu section colors to all Mirror pages */
+.hero {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+    z-index: 1;
+}
+
+.hero h1 {
+    color: #2d1f15;
+    text-shadow: none;
+}
+
+.hero p {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+/* Button Overrides with Menu Colors */
+.btn-primary {
+    background: transparent !important;
+    border: 2px solid #2d1f15 !important;
+    color: #2d1f15 !important;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: #2d1f15 !important;
+    color: #f5f2e8 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.btn-secondary {
+    background: transparent !important;
+    border: 2px solid #2d1f15 !important;
+    color: #2d1f15 !important;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: #2d1f15 !important;
+    color: #f5f2e8 !important;
+    transform: translateY(-2px);
+}
+
+/* Card Overrides with Menu Colors */
+.card {
+    background: white;
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 192, 203, 0.6);
+}
+
+/* Section Overrides with Menu Colors */
+.section-title {
+    color: #2d1f15;
+}
+
+.section-subtitle {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+/* Feature Cards with Menu Colors */
+.feature-card {
+    background: white;
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 192, 203, 0.6);
+}
+
+.feature-card i {
+    color: #d4a574;
+}
+
+.feature-card h3 {
+    color: #2d1f15;
+}
+
+.feature-card p {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+/* Event Cards with Menu Colors */
+.event-card {
+    background: white;
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.event-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 192, 203, 0.6);
+}
+
+.event-card h3 {
+    color: #2d1f15;
+}
+
+.event-card p {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+/* Form Overrides with Menu Colors */
+.form-group label {
+    color: #2d1f15;
+    font-weight: 500;
+}
+
+.form-control {
+    border: 1px solid rgba(255, 192, 203, 0.3);
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #d4a574;
+    box-shadow: 0 0 0 0.2rem rgba(212, 165, 116, 0.25);
+}
+
+/* Navigation Overrides */
+.navbar {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 192, 203, 0.2);
+}
+
+.navbar a {
+    color: #2d1f15;
+    transition: all 0.3s ease;
+}
+
+.navbar a:hover {
+    color: #d4a574;
+}
+
+/* Footer Overrides */
+.footer {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    border-top: 1px solid rgba(255, 192, 203, 0.2);
+}
+
+.footer h2 {
+    color: #2d1f15;
+}
+
+.footer p {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+.footer a {
+    color: #2d1f15;
+    transition: all 0.3s ease;
+}
+
+.footer a:hover {
+    color: #d4a574;
+}
+
+/* Events Page Specific Styling */
+/* Removed gradient background from events hero */
+.events-hero {
+    background: transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Improve Events Text Visibility */
+.events-title {
+    color: #5d4a37 !important;
+    font-weight: 700 !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.events-subtitle {
+    color: #6b5b47 !important;
+    font-weight: 500 !important;
+}
+
+.event-title {
+    color: #4a3a2a !important;
+    font-weight: 600 !important;
+}
+
+.event-description {
+    color: #5d4a37 !important;
+    font-weight: 400 !important;
+    line-height: 1.6 !important;
+}
+
+.event-detail {
+    color: #5d4a37 !important;
+    font-weight: 500 !important;
+}
+
+.event-detail span {
+    color: #4a3a2a !important;
+    font-weight: 600 !important;
+}
+
+/* Fix Events Filter Buttons Visibility */
+.filter-tab {
+    background: white !important;
+    color: #4a3a2a !important;
+    border: 2px solid #d4a574 !important;
+    font-weight: 600 !important;
+    padding: 1rem 2rem !important;
+    border-radius: 25px !important;
+    transition: all 0.3s ease !important;
+    margin: 0.5rem !important;
+}
+
+.filter-tab:hover {
+    background: linear-gradient(135deg, #d4a574, #c49b6c) !important;
+    color: white !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.filter-tab.active {
+    background: linear-gradient(135deg, #d4a574, #c49b6c) !important;
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Fix Event Date Visibility */
+.event-date {
+    background: white !important;
+    color: #4a3a2a !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    padding: 1rem !important;
+    text-align: center !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+.event-date .day {
+    font-size: 2rem !important;
+    color: #d4a574 !important;
+    font-weight: 800 !important;
+    display: block !important;
+}
+
+.event-date .month {
+    font-size: 1rem !important;
+    color: #4a3a2a !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+}
+
+.events-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+    z-index: 1;
+}
+
+.events-hero h1 {
+    color: #2d1f15;
+    text-shadow: none;
+}
+
+.events-hero p {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+/* Event Filter Buttons */
+.event-filters {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    padding: 2rem;
+    margin: 2rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.event-filters::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+}
+
+.filter-btn {
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    margin: 0.5rem;
+}
+
+.filter-btn:hover {
+    background: linear-gradient(135deg, #c49b6c, #d4a574);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.filter-btn.active {
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.filter-btn:not(.active) {
+    background: transparent;
+    color: #2d1f15;
+    border: 2px solid rgba(255, 192, 203, 0.3);
+}
+
+.filter-btn:not(.active):hover {
+    background: rgba(255, 192, 203, 0.1);
+    border-color: rgba(255, 192, 203, 0.6);
+}
+
+/* Event Cards with Menu Colors */
+.event-item {
+    background: white;
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border-radius: 20px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.event-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    transition: width 0.3s ease;
+}
+
+.event-item:hover::before {
+    width: 8px;
+}
+
+.event-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 192, 203, 0.6);
+}
+
+.event-item h3 {
+    color: #2d1f15;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.event-item p {
+    color: #2d1f15;
+    opacity: 0.8;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.event-item .event-date {
+    color: #d4a574;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.event-item .event-price {
+    color: #2d1f15;
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+/* Event Buttons */
+.event-btn {
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 25px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.event-btn:hover {
+    background: linear-gradient(135deg, #c49b6c, #d4a574);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    color: white;
+    text-decoration: none;
+}
+
+/* Private Events Section */
+.private-events {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    padding: 3rem;
+    margin: 2rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Improve Private Events Text Visibility */
+.private-events h2 {
+    color: #4a3a2a !important;
+    font-weight: 700 !important;
+    text-shadow: none !important;
+}
+
+.private-events p {
+    color: #5d4a37 !important;
+    font-weight: 500 !important;
+    line-height: 1.6 !important;
+}
+
+.private-events::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+}
+
+.private-events h2 {
+    color: #2d1f15;
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.private-events p {
+    color: #2d1f15;
+    opacity: 0.8;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.private-events-btn {
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    color: white;
+    border: none;
+    padding: 1.5rem 3rem;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+    margin: 1rem;
+}
+
+.private-events-btn:hover {
+    background: linear-gradient(135deg, #c49b6c, #d4a574);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    color: white;
+    text-decoration: none;
+}
+
+/* Feature Highlights */
+.feature {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.feature i {
+    color: #d4a574;
+    font-size: 1.5rem;
+}
+
+.feature span {
+    color: #2d1f15;
+    font-weight: 500;
+}
+
+/* Reservations Page Specific Styling */
+/* Removed gradient background from reservations hero */
+.reservations-hero {
+    background: transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+.reservations-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+    z-index: 1;
+}
+
+.reservations-hero h1 {
+    color: #2d1f15;
+    text-shadow: none;
+}
+
+.reservations-hero p {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+/* Old Mirror form styling removed - using XIX styling instead */
+
+/* Mirror Reservations - Copy XIX Styling */
+/* Reservations Hero Section */
+.reservations-hero {
+    background: transparent;
+    padding: 6rem 0 4rem 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.reservations-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+    z-index: 1;
+}
+
+.reservations-hero-content {
+    position: relative;
+    z-index: 2;
+}
+
+.reservations-title {
+    font-family: 'Gilda Display', serif;
+    font-size: 3.5rem;
+    font-weight: 400;
+    color: #2d1f15;
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.reservations-subtitle {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 1.2rem;
+    color: #2d1f15;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+    font-weight: 400;
+}
+
+/* Reservations Page */
+.reservation-form-section {
+    padding: 4rem 0;
+    background: transparent;
+}
+
+.reservation-form-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: var(--white);
+    padding: 3rem;
+    border-radius: 20px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(168, 135, 26, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.reservation-form-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--gold), #D4AF37, var(--gold));
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.form-header h2 {
+    font-family: 'Gilda Display', serif;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #2d1f15;
+}
+
+.form-header p {
+    color: #2d1f15;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #2d1f15;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 1.2rem;
+    border: 2px solid var(--light-gray);
+    border-radius: 12px;
+    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--white);
+    font-family: 'Noto Sans', sans-serif;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(168, 135, 26, 0.1), 0 4px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.submit-button {
+    width: 100%;
+    background: #8b7355;
+    color: var(--white);
+    padding: 1.2rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+}
+
+.submit-button:hover {
+    background: #A8871A;
+}
+
+/* Restaurant Info */
+.restaurant-info {
+    padding: 4rem 0;
+    background: var(--white);
+    position: relative;
+    overflow: hidden;
+}
+
+.restaurant-info::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+    pointer-events: none;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+
+.info-card {
+    text-align: center;
+    padding: 2rem;
+    background: var(--white);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(168, 135, 26, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.info-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    transition: left 0.6s ease;
+}
+
+.info-card:hover::before {
+    left: 100%;
+}
+
+.info-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+}
+
+.info-card h3 {
+    font-family: 'Gilda Display', serif;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #2d1f15;
+}
+
+.info-card p {
+    color: #2d1f15;
+    line-height: 1.6;
+}
+
+/* Mirror Reservations Specific Fixes */
+/* Add spacing between entertainment field and submit button */
+.form-group.full-width:last-of-type {
+    margin-bottom: 3rem;
+}
+
+/* Fix menu preferences font color */
+.form-group label[for="menu-preference"] {
+    color: #2d1f15 !important;
+    font-weight: 500 !important;
+}
+
+/* Fix entertainment preferences font color */
+.form-group label[for="entertainment"] {
+    color: #2d1f15 !important;
+    font-weight: 500 !important;
+}
+
+/* Ensure all form labels are visible */
+.form-group label {
+    color: #2d1f15 !important;
+    font-weight: 500 !important;
+}
+
+/* Fix dropdown options color */
+.form-group select option {
+    color: #2d1f15 !important;
+    background-color: white !important;
+    padding: 0.5rem !important;
+}
+
+/* Fix select field text color */
+.form-group select {
+    color: #2d1f15 !important;
+    background-color: white !important;
+}
+
+/* Checkbox and Radio */
+input[type="checkbox"],
+input[type="radio"] {
+    accent-color: #d4a574;
+    margin-right: 0.5rem;
+}
+
+/* Fieldset */
+fieldset {
+    border: 2px solid rgba(255, 192, 203, 0.2);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+}
+
+legend {
+    color: #2d1f15;
+    font-weight: 600;
+    padding: 0 1rem;
+    font-size: 1.1rem;
+}
+
+/* Submit Button */
+.btn-submit {
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    color: white;
+    border: none;
+    padding: 1.5rem 3rem;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    margin-top: 2rem;
+}
+
+.btn-submit:hover {
+    background: linear-gradient(135deg, #c49b6c, #d4a574);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Reservation Info Cards */
+.reservation-info {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    padding: 3rem;
+    margin: 2rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.reservation-info::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+}
+
+.reservation-info h3 {
+    color: #2d1f15;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.reservation-info p {
+    color: #2d1f15;
+    opacity: 0.8;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.reservation-info ul {
+    color: #2d1f15;
+    line-height: 1.8;
+}
+
+.reservation-info ul li {
+    margin-bottom: 0.8rem;
+    position: relative;
+}
+
+.reservation-info ul li::before {
+    content: '•';
+    color: #d4a574;
+    font-weight: bold;
+    position: absolute;
+    left: -1.5rem;
+}
+
+/* Contact Info */
+.contact-info {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+    border-radius: 15px;
+    padding: 2rem;
+    margin: 2rem 0;
+    border: 1px solid rgba(255, 192, 203, 0.2);
+}
+
+.contact-info h4 {
+    color: #2d1f15;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.contact-info p {
+    color: #2d1f15;
+    opacity: 0.8;
+    margin-bottom: 0.5rem;
+}
+
+.contact-info a {
+    color: #d4a574;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.contact-info a:hover {
+    color: #c49b6c;
+    text-decoration: underline;
+}
+
+/* Main Mirror Page Styling */
+/* Override all green backgrounds with marble theme */
+.hero {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+    z-index: 1;
+}
+
+.hero h1 {
+    color: #2d1f15;
+    text-shadow: none;
+}
+
+.hero p {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+/* Welcome Section - Cleaned up */
+.welcome-features-section {
+    position: relative;
+}
+
+.welcome-features-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+}
+
+.welcome-title {
+    color: #2d1f15;
+}
+
+.welcome-description {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+/* Feature Cards */
+.feature-card {
+    background: white;
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border-radius: 20px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.feature-card::before {
+    display: none !important;
+}
+
+.feature-card:hover::before {
+    width: 8px;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 192, 203, 0.6);
+}
+
+.feature-card h3 {
+    color: #2d1f15;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.feature-card p {
+    color: #2d1f15;
+    opacity: 0.8;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.feature-btn {
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    color: #2d1f15 !important;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 25px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.feature-btn:hover {
+    background: linear-gradient(135deg, #c49b6c, #d4a574);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    color: #1a0f08 !important;
+    text-decoration: none;
+}
+
+/* Experience Section */
+.experience-section {
+    background: transparent;
+    position: relative;
+    padding: 0;
+    min-height: 100vh;
+}
+
+.experience-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    min-height: 100vh;
+    gap: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Experience Card Styling */
+.experience-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+}
+
+.experience-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+/* Experience Content - Plain Text */
+.experience-content {
+    background: transparent !important;
+    color: white;
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    margin: 2rem;
+    max-width: 90%;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.experience-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.experience-card:hover img {
+    filter: brightness(0.4);
+    transition: filter 0.3s ease;
+}
+
+.experience-title {
+    color: #ffffff !important;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.9);
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.experience-description {
+    color: #ffffff !important;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.9);
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.experience-card {
+    background: white;
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border-radius: 20px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.experience-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    transition: width 0.3s ease;
+}
+
+.experience-card:hover::before {
+    width: 8px;
+}
+
+.experience-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 192, 203, 0.6);
+}
+
+.experience-title {
+    color: #2d1f15;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.experience-description {
+    color: #2d1f15;
+    opacity: 0.8;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+/* Gallery Section */
+.gallery-section {
+    background: white;
+    position: relative;
+}
+
+.gallery-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+}
+
+.gallery-title {
+    color: #2d1f15;
+}
+
+.gallery-subtitle {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+/* Contact Section */
+.contact-section {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+    position: relative;
+}
+
+.contact-title {
+    color: #2d1f15;
+}
+
+.contact-description {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+.book-now-btn {
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+    color: white;
+    border: none;
+    padding: 1.5rem 3rem;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+    margin: 1rem;
+}
+
+.book-now-btn:hover {
+    background: linear-gradient(135deg, #c49b6c, #d4a574);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    color: white;
+    text-decoration: none;
+}
+
+/* Contact Info */
+.contact-info {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 192, 203, 0.2);
+    padding: 3rem;
+    margin: 2rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.contact-info::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+}
+
+.contact-subtitle {
+    color: #2d1f15;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.contact-message {
+    color: #2d1f15;
+    opacity: 0.8;
+    margin-bottom: 2rem;
+}
+
+.contact-item {
+    color: #2d1f15;
+    margin-bottom: 1rem;
+}
+
+.contact-label {
+    color: #2d1f15;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.contact-value {
+    color: #2d1f15;
+    opacity: 0.8;
+}
+
+.contact-link {
+    color: #d4a574;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.contact-link:hover {
+    color: #c49b6c;
+    text-decoration: underline;
+}
+
+/* Enhanced Background */
+body {
+    background: transparent !important;
+    min-height: 100vh;
+}
+
+/* Navigation Logo Styling - Copy from XIX */
+.nav-logo h1 {
+    font-family: 'Gilda Display', serif !important;
+    font-size: 2rem !important;
+    font-weight: 400 !important;
+    color: #2d1f15 !important;
+    margin: 0 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.nav-logo a {
+    text-decoration: none !important;
+    color: inherit !important;
+    transition: all 0.3s ease !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.nav-logo a:hover {
+    transform: scale(1.05) !important;
+    color: #d4a574 !important;
+}
+
+/* Override any conflicting navigation styles */
+.navbar .nav-logo h1 {
+    color: #2d1f15 !important;
+    font-family: 'Gilda Display', serif !important;
+    font-size: 2rem !important;
+    font-weight: 400 !important;
+}
+
+/* Additional overrides for logo visibility */
+.nav-container .nav-logo h1 {
+    color: #2d1f15 !important;
+    font-family: 'Gilda Display', serif !important;
+    font-size: 2rem !important;
+    font-weight: 400 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+}
+
+/* Force logo visibility */
+.nav-logo {
+    opacity: 1 !important;
+    visibility: visible !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.nav-logo a {
+    opacity: 1 !important;
+    visibility: visible !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Apply menu section colors to all Mirror pages */
+.hero {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+    z-index: 1;
+}
+
+.hero-left {
+    background: transparent !important;
+}
+
+.hero-content {
+    background: transparent !important;
+    color: #2d1f15 !important;
+}
+
+.hero-title {
+    color: #2d1f15 !important;
+    text-shadow: none;
+}
+
+.hero-description {
+    color: #2d1f15 !important;
+    opacity: 0.8;
+}
+
+/* Removed duplicate welcome section rule */
+
+.welcome-features-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #d4a574, #c49b6c);
+}
+
+.welcome-title {
+    color: #2d1f15 !important;
+}
+
+.welcome-description {
+    color: #2d1f15 !important;
+    opacity: 0.8;
+}
+
+/* Feature Cards */
+.feature-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.feature-card::before {
+    display: none !important;
+}
+
+.feature-card:hover::before {
+    width: 8px;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: rgba(255, 192, 203, 0.6);
+}
+
+.feature-card h3 {
+    color: #2d1f15 !important;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.feature-card p {
+    color: #2d1f15 !important;
+    opacity: 0.8;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.feature-btn {
+    background: linear-gradient(135deg, #d4a574, #c49b6c) !important;
+    color: #2d1f15 !important;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 25px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.feature-btn:hover {
+    background: linear-gradient(135deg, #c49b6c, #d4a574) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    color: #1a0f08 !important;
+    text-decoration: none;
+}
+
+/* Removed gradient background from all sections */
+
+.container {
+    background: transparent !important;
+}
+
+/* Removed large commented block */
+
+/* Removed conflicting universal selector */
+
+/* Force eliminate ALL green backgrounds */
+html,
+body,
+div,
+section,
+article,
+aside,
+nav,
+header,
+/* Removed gradient background from footer and main */
+
+/* Removed duplicate override block */
+
+/* Removed duplicate container rule */
+
+/* Override any green buttons or elements */
+button,
+.btn,
+.button,
+input,
+select,
+textarea {
+    background: linear-gradient(135deg, #d4a574, #c49b6c) !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* Ensure all text uses the marble theme colors */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+div,
+a,
+li,
+ul,
+ol {
+    color: #2d1f15 !important;
+}
+
+/* Override any green buttons or elements */
+.btn-primary,
+.btn-secondary,
+.btn-submit,
+.submit-button {
+    background: transparent !important;
+    color: #2d1f15 !important;
+    border: 2px solid #2d1f15 !important;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-submit:hover,
+.submit-button:hover {
+    background: #2d1f15 !important;
+    color: #f5f2e8 !important;
+}
+
+/* ULTRA-AGGRESSIVE GREEN ELIMINATION */
+/* Removed conflicting universal selector */
+
+/* Removed gradient background from html and body */
+
+/* Removed gradient backgrounds from all text elements */
+
+/* Force all containers to use marble theme */
+.container,
+.nav-container {
+    background: transparent !important;
+}
+
+/* Override any green buttons or elements */
+button,
+.btn,
+.button,
+input,
+select,
+textarea,
+.btn-primary,
+.btn-secondary {
+    background: transparent !important;
+    color: #2d1f15 !important;
+    border: 2px solid #2d1f15 !important;
+}
+
+/* Mobile Responsive Design for Mirror Pages */
+@media (max-width: 768px) {
+    .hero {
+        flex-direction: column;
+        min-height: auto;
+        padding: 2rem 1rem;
+        padding-top: 100px;
+    }
+
+    .hero-title {
+        font-size: 2.5rem !important;
+    }
+
+    /* Mirror Reservations Mobile Styling - Match XIX Structure */
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .reservation-form-container {
+        padding: 2rem 1.5rem;
+        margin: 0 auto;
+        max-width: 90%;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .info-card {
+        padding: 1.5rem;
+    }
+
+    /* Modal responsive */
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        padding: 1.5rem;
+    }
+
+    .hero-description {
+        font-size: 1rem !important;
+    }
+
+    .nav-logo h1 {
+        font-size: 1.5rem;
+    }
+
+    /* Fix mobile hamburger menu visibility */
+    .hamburger {
+        display: flex !important;
+        flex-direction: column;
+        cursor: pointer;
+        padding: 0.5rem;
+        z-index: 1001;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 8px;
+        min-width: 44px;
+        min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .hamburger span {
+        width: 20px !important;
+        height: 2px !important;
+        background: #8b7355 !important;
+        margin: 3px 0;
+        transition: 0.3s;
+        transform-origin: center;
+        display: block !important;
+    }
+
+    .hamburger:hover {
+        background: rgba(212, 165, 116, 0.1) !important;
+        transform: scale(1.05);
+    }
+
+    /* Fix mobile menu items visibility */
+    .nav-menu {
+        position: fixed;
+        left: -100%;
+        top: 70px;
+        flex-direction: column;
+        background-color: white !important;
+        width: 100%;
+        text-align: center;
+        transition: 0.3s;
+        box-shadow: 0 10px 27px rgba(0, 0, 0, 0.05);
+        padding: 1rem 0;
+    }
+
+    .nav-menu.active {
+        left: 0;
+    }
+
+    .nav-menu li {
+        margin: 1rem 0;
+    }
+
+    .nav-menu li a {
+        color: #2d1f15 !important;
+        font-size: 1.2rem;
+        font-weight: 500;
+        padding: 1rem 2rem;
+        display: block;
+        background: white;
+        border-radius: 8px;
+        margin: 0 1rem;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(139, 115, 85, 0.1);
+    }
+
+    .nav-menu li a:hover {
+        background: rgba(212, 165, 116, 0.1) !important;
+        color: #d4a574 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .welcome-features-section {
+        padding: 2rem 1rem;
+    }
+
+    .feature-card {
+        padding: 1.5rem !important;
+        margin: 1rem 0 !important;
+    }
+
+    .experience-section {
+        padding: 0;
+    }
+
+    .experience-grid {
+        grid-template-columns: 1fr;
+        min-height: auto;
+    }
+
+    .experience-card {
+        min-height: 300px !important;
+        margin: 0 !important;
+    }
+
+    .experience-content {
+        padding: 1.5rem !important;
+        margin: 1rem !important;
+    }
+
+    .experience-title {
+        font-size: 1.5rem !important;
+    }
+
+    .experience-description {
+        font-size: 1rem !important;
+    }
+
+    .contact-section {
+        padding: 2rem 1rem;
+    }
+
+    .contact-info {
+        padding: 2rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero {
+        padding-top: 80px;
+        padding: 1rem;
+    }
+
+    .hero-title {
+        font-size: 2rem !important;
+    }
+
+    .hero-description {
+        font-size: 0.9rem !important;
+    }
+
+    /* Mirror Reservations Mobile Styling - Match XIX Structure */
+    .reservation-form-container {
+        padding: 1.5rem 1rem;
+        margin: 0 auto;
+        max-width: 95%;
+    }
+
+    .form-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .submit-button {
+        padding: 1rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    .info-card {
+        padding: 1rem;
+    }
+
+    .info-card h3 {
+        font-size: 1.2rem;
+    }
+
+    .info-card p {
+        font-size: 0.9rem;
+    }
+
+    .feature-card {
+        padding: 1rem !important;
+    }
+
+    .experience-card {
+        min-height: 250px !important;
+    }
+
+    .experience-content {
+        padding: 1rem !important;
+        margin: 0.5rem !important;
+    }
+
+    .experience-title {
+        font-size: 1.3rem !important;
+    }
+
+    .experience-description {
+        font-size: 0.9rem !important;
+    }
+}
+
+/* Override main.css hero backgrounds for Mirror pages */
+.hero {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.hero-left {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+/* Apply marble background to ALL Mirror page sections */
+section {
+    background: transparent !important;
+}
+
+.container {
+    background: transparent !important;
+}
+
+footer {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+/* Specific Mirror page sections */
+.welcome-features-section {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.experience-section {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.gallery-section {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.contact-section {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.events-content {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.private-events {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.reservation-form-section {
+    background: transparent !important;
+}
+
+.restaurant-info {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.menu-content {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.menu-nav {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+/* Universal overrides to ensure green background for menu page */
+* {
+    background-color: transparent !important;
+}
+
+html,
+body,
+div,
+section,
+article,
+aside,
+nav,
+header,
+footer,
+main {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+/* Override any remaining peach/green backgrounds */
+button,
+.btn,
+.button,
+input,
+select,
+textarea,
+.btn-primary,
+.btn-secondary {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+/* Remove backgrounds from hero text and footer text */
+.hero-title,
+.hero h1,
+.hero-content h1 {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.hero-description,
+.hero p,
+.hero-content p {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+footer,
+footer * {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.footer-links,
+.footer-links a {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Remove backgrounds from ABOUT MIRROR section */
+.welcome-features-section,
+.welcome-features-section * {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.welcome-title,
+.welcome-description {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Change button colors and remove backgrounds */
+.btn-primary,
+.btn-secondary {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 2px solid #8b7355 !important;
+    color: #2d1f15 !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover {
+    background: #8b7355 !important;
+    background-color: #2d1f15 !important;
+    color: #f5f2e8 !important;
+    border-color: #2d1f15 !important;
+}
+
+.hero-buttons .btn-primary,
+.hero-buttons .btn-secondary {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 2px solid #8b7355 !important;
+    color: #2d1f15 !important;
+}
+
+.hero-buttons .btn-primary:hover,
+.hero-buttons .btn-secondary:hover {
+    background: #8b7355 !important;
+    background-color: #2d1f15 !important;
+    color: #f5f2e8 !important;
+}
+
+/* Keep hero section background but remove text backgrounds */
+.hero-left {
+    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+}
+
+.hero-content {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Ensure all buttons are fully transparent */
+button,
+.btn,
+.button,
+.btn-primary,
+.btn-secondary {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Remove any remaining white backgrounds from containers */
+.container,
+.content,
+.main-content,
+.page-content {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Remove backgrounds from Book Your Event section and menu cards */
+.contact-section,
+.contact-section * {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.menu-card,
+.menu-item,
+.menu-tab,
+.menu-tab-content {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Make fonts brighter with green background */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+div,
+a {
+    color: #2d1f15 !important;
+}
+
+.hero-title,
+.hero h1,
+.hero-content h1 {
+    color: #2d1f15 !important;
+}
+
+.hero-description,
+.hero p,
+.hero-content p {
+    color: #2d1f15 !important;
+}
+
+.welcome-title,
+.welcome-description {
+    color: #2d1f15 !important;
+}
+
+.menu-title,
+.menu-subtitle {
+    color: #2d1f15 !important;
+}
+
+.menu-item h3,
+.menu-item p {
+    color: #5d4a37 !important;
+}
+
+/* AGGRESSIVE MENU TEXT OVERRIDE - Make all menu text pure black and highly visible */
+.menu-nav .menu-tab,
+.menu-nav .menu-tab *,
+.menu-tab,
+.menu-tab * {
+    color: #000000 !important;
+    font-weight: 700 !important;
+    font-size: 1.1rem !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.menu-nav .menu-tab.active,
+.menu-nav .menu-tab.active *,
+.menu-tab.active,
+.menu-tab.active * {
+    color: #000000 !important;
+    font-weight: 800 !important;
+    font-size: 1.2rem !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.menu-header h2,
+.menu-header h2 *,
+.menu-section-title,
+.menu-section-title * {
+    color: #000000 !important;
+    font-weight: 800 !important;
+    font-size: 2.5rem !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.menu-header p,
+.menu-header p *,
+.menu-subtitle,
+.menu-subtitle * {
+    color: #000000 !important;
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.menu-category h3,
+.menu-category h3 *,
+.category-title,
+.category-title * {
+    color: #000000 !important;
+    font-weight: 700 !important;
+    font-size: 1.4rem !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.menu-item h3,
+.menu-item h3 *,
+.item-name,
+.item-name * {
+    color: #000000 !important;
+    font-weight: 700 !important;
+    font-size: 1.2rem !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.menu-item p,
+.menu-item p *,
+.menu-description,
+.menu-description *,
+.item-description,
+.item-description *,
+.item-translation,
+.item-translation * {
+    color: #000000 !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.menu-price,
+.menu-price *,
+.item-price,
+.item-price *,
+.price,
+.price * {
+    color: #000000 !important;
+    font-weight: 800 !important;
+    font-size: 1.3rem !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Override ANY text in menu containers */
+.menu-content,
+.menu-content *,
+.menu-container,
+.menu-container *,
+.menu-section,
+.menu-section *,
+.menu-card,
+.menu-card *,
+.menu-item,
+.menu-item * {
+    color: #000000 !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Make all menu text elements darker and more visible */
+.menu-content * {
+    color: #2d1f15 !important;
+}
+
+.menu-content h1,
+.menu-content h2,
+.menu-content h3 {
+    color: #1a0f08 !important;
+    font-weight: 700 !important;
+}
+
+.menu-content p,
+.menu-content span,
+.menu-content div {
+    color: #2d1f15 !important;
+    font-weight: 500 !important;
+}
+
+/* Target the actual menu classes used in the HTML */
+.menu-section-title {
+    color: #2d1f15 !important;
+    font-weight: 700 !important;
+    font-size: 2rem !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.menu-badge {
+    color: #2d1f15 !important;
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
+    margin-bottom: 1rem !important;
+    display: block !important;
+}
+
+.price-main {
+    color: #2d1f15 !important;
+    font-weight: 700 !important;
+    font-size: 2.5rem !important;
+    line-height: 1.2 !important;
+    margin-bottom: 0.5rem !important;
+    display: block !important;
+}
+
+.price-per,
+.price-includes {
+    color: #2d1f15 !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 0.3rem !important;
+    display: block !important;
+}
+
+.price-per {
+    margin-bottom: 0.2rem !important;
+}
+
+.price-includes {
+    margin-bottom: 0 !important;
+    font-size: 0.9rem !important;
+}
+
+.category-title {
+    color: #2d1f15 !important;
+    font-weight: 600 !important;
+    font-size: 1.3rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.category-description {
+    color: #2d1f15 !important;
+    font-weight: 500 !important;
+    font-size: 1rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 1rem !important;
+}
+
+.item-name {
+    color: #2d1f15 !important;
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0.3rem !important;
+    display: block !important;
+}
+
+.item-description {
+    color: #2d1f15 !important;
+    font-weight: 500 !important;
+    font-size: 0.95rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 0.5rem !important;
+    display: block !important;
+}
+
+.menu-tab {
+    color: #2d1f15 !important;
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
+    line-height: 1.4 !important;
+    padding: 1rem 1.5rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.menu-tab.active {
+    color: #2d1f15 !important;
+    font-weight: 700 !important;
+    font-size: 1.2rem !important;
+}
+
+.menu-tab small {
+    color: #2d1f15 !important;
+    font-weight: 500 !important;
+    font-size: 0.9rem !important;
+    display: block !important;
+    margin-top: 0.3rem !important;
+    line-height: 1.3 !important;
+}
+
+.highlight-item span {
+    color: #2d1f15 !important;
+    font-weight: 500 !important;
+}
+
+/* Comprehensive Responsive Design for All Mirror Pages */
+
+/* Large Tablets and Small Desktops */
+@media (max-width: 1024px) {
+    .hero {
+        padding: 4rem 0 3rem 0;
+    }
+
+    .hero-title {
+        font-size: 2.5rem;
+    }
+
+    .hero-description {
+        font-size: 1.1rem;
+        max-width: 500px;
+    }
+
+    .experience-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    .experience-card {
+        height: 300px;
+    }
+
+    .menu-tabs {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .menu-tab {
+        flex: 1;
+        min-width: 200px;
+        max-width: 250px;
+    }
+
+    .menu-items {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+}
+
+/* Tablets */
+@media (max-width: 768px) {
+    .hero {
+        padding: 3rem 0 2rem 0;
+        padding-top: 100px;
+    }
+
+    .hero-title {
+        font-size: 2rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .hero-description {
+        font-size: 1rem;
+        max-width: 400px;
+        line-height: 1.5;
+    }
+
+    .hero-buttons {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        width: 100%;
+        max-width: 250px;
+        padding: 0.8rem 1.5rem;
+    }
+
+    .experience-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        padding: 0 1rem;
+    }
+
+    .experience-card {
+        height: 250px;
+        margin-bottom: 1rem;
+    }
+
+    .experience-title {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .experience-description {
+        font-size: 0.95rem;
+        line-height: 1.4;
+    }
+
+    .menu-content {
+        padding: 2rem 1rem;
+    }
+
+    .menu-nav {
+        padding: 1.5rem 0;
+    }
+
+    .menu-tabs {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0 1rem;
+    }
+
+    .menu-tab {
+        width: 100%;
+        max-width: 300px;
+        text-align: center;
+        padding: 0.8rem 1rem;
+        font-size: 1rem;
+    }
+
+    .menu-items {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 0 1rem;
+    }
+
+    .menu-item {
+        padding: 1.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .menu-section-title {
+        font-size: 1.8rem;
+    }
+
+    .menu-badge {
+        font-size: 1rem;
+    }
+
+    .price-main {
+        font-size: 2rem;
+    }
+
+    .category-title {
+        font-size: 1.2rem;
+    }
+
+    .item-name {
+        font-size: 1rem;
+    }
+
+    .item-description {
+        font-size: 0.9rem;
+    }
+
+    .container {
+        padding: 0 1rem;
+    }
+}
+
+/* Large Phones */
+@media (max-width: 480px) {
+    .hero {
+        padding: 2.5rem 0 1.5rem 0;
+        padding-top: 80px;
+    }
+
+    .hero-title {
+        font-size: 1.8rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .hero-description {
+        font-size: 0.95rem;
+        max-width: 350px;
+        line-height: 1.4;
+    }
+
+    .hero-buttons {
+        gap: 0.8rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        max-width: 220px;
+        padding: 0.7rem 1.2rem;
+        font-size: 0.95rem;
+    }
+
+    .experience-grid {
+        padding: 0 0.5rem;
+        gap: 1rem;
+    }
+
+    .experience-card {
+        height: 200px;
+        margin-bottom: 0.8rem;
+    }
+
+    .experience-title {
+        font-size: 1.1rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .experience-description {
+        font-size: 0.9rem;
+        line-height: 1.3;
+    }
+
+    .menu-content {
+        padding: 1.5rem 0.5rem;
+    }
+
+    .menu-nav {
+        padding: 1rem 0;
+    }
+
+    .menu-tabs {
+        padding: 0 0.5rem;
+        gap: 0.3rem;
+    }
+
+    .menu-tab {
+        max-width: 280px;
+        padding: 0.7rem 0.8rem;
+        font-size: 0.95rem;
+    }
+
+    .menu-tab small {
+        font-size: 0.8rem;
+        margin-top: 0.2rem;
+    }
+
+    .menu-items {
+        padding: 0 0.5rem;
+        gap: 0.8rem;
+    }
+
+    .menu-item {
+        padding: 1rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .menu-section-title {
+        font-size: 1.6rem;
+    }
+
+    .menu-badge {
+        font-size: 0.95rem;
+    }
+
+    .price-main {
+        font-size: 1.8rem;
+    }
+
+    .price-per,
+    .price-includes {
+        font-size: 0.9rem;
+    }
+
+    .category-title {
+        font-size: 1.1rem;
+    }
+
+    .category-description {
+        font-size: 0.9rem;
+    }
+
+    .item-name {
+        font-size: 0.95rem;
+    }
+
+    .item-description {
+        font-size: 0.85rem;
+    }
+
+    .container {
+        padding: 0 0.5rem;
+    }
+}
+
+/* Small Phones */
+@media (max-width: 360px) {
+    .hero {
+        padding: 2rem 0 1rem 0;
+        padding-top: 70px;
+    }
+
+    .hero-title {
+        font-size: 1.6rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .hero-description {
+        font-size: 0.9rem;
+        max-width: 320px;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        max-width: 200px;
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .experience-grid {
+        padding: 0 0.3rem;
+        gap: 0.8rem;
+    }
+
+    .experience-card {
+        height: 180px;
+        margin-bottom: 0.6rem;
+    }
+
+    .experience-title {
+        font-size: 1rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .experience-description {
+        font-size: 0.85rem;
+        line-height: 1.2;
+    }
+
+    .menu-content {
+        padding: 1rem 0.3rem;
+    }
+
+    .menu-nav {
+        padding: 0.8rem 0;
+    }
+
+    .menu-tabs {
+        padding: 0 0.3rem;
+    }
+
+    .menu-tab {
+        max-width: 260px;
+        padding: 0.6rem 0.7rem;
+        font-size: 0.9rem;
+    }
+
+    .menu-tab small {
+        font-size: 0.75rem;
+    }
+
+    .menu-items {
+        padding: 0 0.3rem;
+        gap: 0.6rem;
+    }
+
+    .menu-item {
+        padding: 0.8rem;
+    }
+
+    .menu-section-title {
+        font-size: 1.4rem;
+    }
+
+    .menu-badge {
+        font-size: 0.9rem;
+    }
+
+    .price-main {
+        font-size: 1.6rem;
+    }
+
+    .price-per,
+    .price-includes {
+        font-size: 0.85rem;
+    }
+
+    .category-title {
+        font-size: 1rem;
+    }
+
+    .category-description {
+        font-size: 0.85rem;
+    }
+
+    .item-name {
+        font-size: 0.9rem;
+    }
+
+    .item-description {
+        font-size: 0.8rem;
+    }
+
+    .container {
+        padding: 0 0.3rem;
+    }
+}

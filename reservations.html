@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="theme-color" content="#1a1a1a">
+    <title>Reservations - XIX Restaurant</title>
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="navigation.css">
+    <link rel="stylesheet" href="reservations.css">
+    <link rel="stylesheet" href="footer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="/xix">
+                    <h1>XIX</h1>
+                </a>
+            </div>
+            <ul class="nav-menu">
+                <!-- <li><a href="/xix">Home</a></li> -->
+                <li><a href="/menu">Menu</a></li>
+                <li><a href="/events">Events</a></li>
+                <li><a href="/reservations" class="active">Reservations</a></li>
+                <li><a href="/mirror">Mirror</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Reservations Hero Section -->
+    <section class="reservations-hero">
+        <div class="container">
+            <div class="reservations-hero-content">
+                <h1 class="reservations-title">Reserve Your Table</h1>
+                <p class="reservations-subtitle">Experience the vibrant atmosphere at XIX. Secure your spot now and
+                    indulge in our exquisite menu.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Reservation Form Section -->
+    <section class="reservation-form-section">
+        <div class="container">
+            <div class="reservation-form-container">
+                <form id="reservationForm" class="reservation-form" method="post" action="/api/send-reservation-email">
+                    <div class="form-header">
+                        <h2>Make a Reservation</h2>
+                        <p>Please fill out the form below to reserve your table</p>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="name">Full Name *</label>
+                            <input type="text" id="name" name="name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phone">Phone Number *</label>
+                            <input type="tel" id="phone" name="phone" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="guests">Number of Guests *</label>
+                            <select id="guests" name="guests" required>
+                                <option value="">Select Guests</option>
+                                <option value="1">1 Guest</option>
+                                <option value="2">2 Guests</option>
+                                <option value="3">3 Guests</option>
+                                <option value="4">4 Guests</option>
+                                <option value="5">5 Guests</option>
+                                <option value="6">6 Guests</option>
+                                <option value="7">7 Guests</option>
+                                <option value="8">8 Guests</option>
+                                <option value="9">9 Guests</option>
+                                <option value="10">10+ Guests</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="date">Preferred Date *</label>
+                            <input type="date" id="date" name="date" required min="">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="time">Preferred Time *</label>
+                            <select id="time" name="time" required>
+                                <option value="">Select Time</option>
+                                <option value="17:00">5:00 PM</option>
+                                <option value="17:30">5:30 PM</option>
+                                <option value="18:00">6:00 PM</option>
+                                <option value="18:30">6:30 PM</option>
+                                <option value="19:00">7:00 PM</option>
+                                <option value="19:30">7:30 PM</option>
+                                <option value="20:00">8:00 PM</option>
+                                <option value="20:30">8:30 PM</option>
+                                <option value="21:00">9:00 PM</option>
+                                <option value="21:30">9:30 PM</option>
+                                <option value="22:00">10:00 PM</option>
+                                <option value="22:30">10:30 PM</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="table">Table Preference</label>
+                            <select id="table" name="table">
+                                <option value="">Any Available</option>
+                                <option value="window">Window Table</option>
+                                <option value="private">Private Booth</option>
+                                <option value="outdoor">Outdoor Seating</option>
+                                <option value="bar">Bar Seating</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="occasion">Special Occasion</label>
+                            <select id="occasion" name="occasion">
+                                <option value="">None</option>
+                                <option value="birthday">Birthday</option>
+                                <option value="anniversary">Anniversary</option>
+                                <option value="business">Business Dinner</option>
+                                <option value="date">Date Night</option>
+                                <option value="celebration">Celebration</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="special-requests">Special Requests or Dietary Requirements</label>
+                        <textarea id="special-requests" name="special-requests" rows="4"
+                            placeholder="Please let us know about any allergies, dietary restrictions, or special requests..."></textarea>
+                    </div>
+
+
+                    <button type="submit" class="submit-button">
+                        <i class="fas fa-calendar-check"></i>
+                        Reserve Table
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Restaurant Info Section -->
+    <section class="restaurant-info">
+        <div class="container">
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3>Opening Hours</h3>
+                    <div class="info-details">
+                        <p><strong>Monday - Thursday:</strong> 6:00 PM - 10:00 PM</p>
+                        <p><strong>Friday - Saturday:</strong> 6:00 PM - 11:00 PM</p>
+                        <p><strong>Sunday:</strong> 5:00 PM - 9:00 PM</p>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>Group Bookings</h3>
+                    <div class="info-details">
+                        <p>For parties of 10 or more, please call us directly to discuss availability and special
+                            arrangements.</p>
+                        <p><strong>Phone:</strong> +44 7796 817690</p>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-utensils"></i>
+                    </div>
+                    <h3>Dining Experience</h3>
+                    <div class="info-details">
+                        <p>Average dining time is 2-3 hours. We recommend arriving 15 minutes early for your
+                            reservation.</p>
+                        <p>Smart casual dress code applies.</p>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">
+                        <i class="fas fa-credit-card"></i>
+                    </div>
+                    <h3>Payment & Policies</h3>
+                    <div class="info-details">
+                        <p>We accept all major credit cards. A 12.5% service charge is added to parties of 8 or more.
+                        </p>
+                        <p>Cancellations must be made 24 hours in advance.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section">
+        <div class="container">
+            <div class="contact-content fade-in">
+                <div class="contact-left">
+                    <h2>Get in Touch</h2>
+                    <p>Have questions about your reservation or need assistance? We're here to help!</p>
+
+                    <div class="contact-details">
+                        <div class="contact-item">
+                            <i class="fas fa-phone"></i>
+                            <div>
+                                <h4>Phone</h4>
+                                <p>+44 7796 817690</p>
+                            </div>
+                        </div>
+
+                        <div class="contact-item">
+                            <i class="fas fa-envelope"></i>
+                            <div>
+                                <h4>Email</h4>
+                                <p>reservations@xixlondon.com</p>
+                            </div>
+                        </div>
+
+                        <div class="contact-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div>
+                                <h4>Address</h4>
+                                <p>123 King's Road<br>London SW3 4RD</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contact-right">
+                    <div class="map-container">
+                        <div class="map-placeholder">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <p>123 King's Road, London SW3 4RD</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="confirmation-content">
+                <i class="fas fa-check-circle"></i>
+                <h2>Reservation Confirmed!</h2>
+                <div id="reservationDetails"></div>
+                <p>You will receive a confirmation email shortly.</p>
+                <button id="addToCalendar" class="calendar-button">Add to Google Calendar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h2>XIX</h2>
+                    <p>Where Flavor Meets Elegance</p>
+                </div>
+                <div class="footer-links">
+                    <!-- <a href="index.html">Home</a> -->
+                    <a href="menu.html">Menu</a>
+                    <a href="events.html">Events</a>
+                    <a href="reservations.html">Reservations</a>
+                    <a href="mirror.html">Mirror</a>
+                </div>
+                <div class="footer-social">
+                    <a href="https://www.instagram.com/xix_nineteen/" target="_blank" class="social-link">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.facebook.com/xixfood?mibextid=LQQJ4d&rdid=PWIlySw1n2GjmE0E&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2FGk1tdQBeAJDy4VQC%2F%3Fmibextid%3DLQQJ4d#"
+                        target="_blank" class="social-link">
+                        <i class="fab fa-facebook"></i>
+                    </a>
+                    <a href="https://www.tiktok.com/@xix_nineteen" target="_blank" class="social-link">
+                        <i class="fab fa-tiktok"></i>
+                    </a>
+                    <a href="https://www.ubereats.com/store/xix-nineteen-ukrainian-kitchen/Qb_tE0nYX0G5Xol7_t3LZA?diningMode=DELIVERY"
+                        target="_blank" class="social-link">
+                        <i class="fas fa-utensils"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script src="offline.js"></script>
+
+    <script>
+        // Enhanced mobile navigation for reservations page
+        document.addEventListener('DOMContentLoaded', function () {
+            // Ensure navigation logo works on mobile
+            const navLogo = document.querySelector('.nav-logo a');
+            if (navLogo) {
+                // Add touch event listeners for better mobile responsiveness
+                navLogo.addEventListener('touchstart', function (e) {
+                    // Don't prevent default to allow navigation
+                });
+
+                navLogo.addEventListener('touchend', function (e) {
+                    // Allow natural click behavior
+                });
+
+                // Ensure click events work
+                navLogo.addEventListener('click', function (e) {
+                    // Allow navigation to proceed
+                });
+            }
+        });
+
+        // Direct form submission handler for XIX reservations
+        document.addEventListener('DOMContentLoaded', function () {
+            // Set minimum date to today
+            const dateInput = document.getElementById('date');
+            if (dateInput) {
+                const today = new Date().toISOString().split('T')[0];
+                dateInput.min = today;
+
+                // Check available times when date changes
+                dateInput.addEventListener('change', function () {
+                    checkAvailableTimes(this.value, 'xix');
+                });
+            }
+
+            const form = document.getElementById('reservationForm');
+            if (form) {
+                console.log('XIX: Found form, attaching direct handler');
+
+                // Prevent multiple submissions
+                let isSubmitting = false;
+
+                form.addEventListener('submit', async function (e) {
+                    console.log('XIX: Form submission intercepted directly!');
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Prevent multiple submissions
+                    if (isSubmitting) {
+                        console.log('XIX: Form already submitting, ignoring duplicate submission');
+                        return;
+                    }
+                    isSubmitting = true;
+
+                    // Get submit button and show loading state
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.textContent;
+                    submitBtn.textContent = 'Processing...';
+                    submitBtn.disabled = true;
+
+                    // Get form data
+                    const formData = new FormData(this);
+                    const reservation = {
+                        name: formData.get('name'),
+                        email: formData.get('email'),
+                        phone: formData.get('phone'),
+                        date: formData.get('date'),
+                        time: formData.get('time'),
+                        guests: formData.get('guests'),
+                        table: formData.get('table'),
+                        occasion: formData.get('occasion'),
+                        specialRequests: formData.get('special-requests'),
+                        venue: 'xix', // Force XIX venue
+                        eventType: formData.get('event-type'),
+                        menuPreference: formData.get('menu-preference'),
+                        entertainment: formData.get('entertainment')
+                    };
+
+                    console.log('XIX: Reservation data:', reservation);
+
+                    // Check if the selected time is still available
+                    try {
+                        const availabilityResponse = await fetch(`/api/available-times?date=${reservation.date}&venue=xix`);
+                        const availabilityData = await availabilityResponse.json();
+
+                        if (!availabilityData.availableTimes.includes(reservation.time)) {
+                            alert('Sorry, this time slot is no longer available. Please select another time.');
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Error checking time availability:', error);
+                        alert('Error checking time availability. Please try again.');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('/api/send-reservation-email', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(reservation)
+                        });
+
+                        const result = await response.json();
+                        console.log('XIX: Server response:', result);
+                        console.log('XIX: Reservation data:', result.reservation);
+
+                        if (response.ok) {
+                            // Show success modal with reservation data
+                            showConfirmationModal(result.reservation);
+                            // Reset the form
+                            form.reset();
+                        } else {
+                            // Show detailed error message
+                            let errorMessage = result.error || 'Unknown error';
+                            if (result.details && Array.isArray(result.details)) {
+                                errorMessage = result.details.join('\n');
+                            }
+                            alert('Error: ' + errorMessage);
+                        }
+                    } catch (error) {
+                        console.error('XIX: Error:', error);
+                        alert('Error submitting reservation: ' + error.message);
+                    } finally {
+                        // Reset submission flag and button state
+                        isSubmitting = false;
+                        submitBtn.textContent = originalText;
+                        submitBtn.disabled = false;
+                    }
+                });
+            }
+        });
+
+        function showConfirmationModal(data) {
+            console.log('showConfirmationModal called with data:', data);
+            console.log('Data type:', typeof data);
+            console.log('Data keys:', Object.keys(data || {}));
+
+            // Remove any existing modal first
+            const existingModal = document.getElementById('confirmationModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Force create new modal with timestamp
+            const timestamp = Date.now();
+            console.log('Creating modal with timestamp:', timestamp);
+
+            let modal = document.createElement('div');
+            modal.id = 'confirmationModal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="success-icon">✓</div>
+                    <h2>Reservation Confirmed!</h2>
+                    <div id="reservationDetails"></div>
+                    <p>You will receive a confirmation email shortly.</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                        <button id="addToCalendar" class="btn-primary">Add to Google Calendar</button>
+                        <button id="backButton" class="btn-secondary" onclick="location.reload();" style="background: #8b7355; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Back</button>
+                    </div>
+                </div>
+            `;
+
+            // Add the modal to DOM
+            document.body.appendChild(modal);
+            console.log('Modal created with Back button:', modal.innerHTML);
+            console.log('Back button element:', modal.querySelector('#backButton'));
+            console.log('Back button visible:', modal.querySelector('#backButton') ? 'YES' : 'NO');
+
+            // Populate details
+            const details = document.getElementById('reservationDetails');
+            console.log('Populating modal with data:', data);
+            console.log('Name:', data.name, 'Email:', data.email, 'Phone:', data.phone);
+
+            details.innerHTML = `
+                <div class="reservation-details">
+                    <p><strong>Name:</strong> ${data.name || 'N/A'}</p>
+                    <p><strong>Email:</strong> ${data.email || 'N/A'}</p>
+                    <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
+                    <p><strong>Date:</strong> ${data.date ? new Date(data.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
+                    <p><strong>Time:</strong> ${data.time || 'N/A'}</p>
+                    <p><strong>Guests:</strong> ${data.guests || 'N/A'}</p>
+                    <p><strong>Table:</strong> ${data.table || 'Any Available'}</p>
+                    ${data.eventType ? `<p><strong>Event Type:</strong> ${data.eventType}</p>` : ''}
+                    ${data.menuPreference ? `<p><strong>Menu Preference:</strong> ${data.menuPreference}</p>` : ''}
+                    ${data.entertainment ? `<p><strong>Entertainment:</strong> ${data.entertainment}</p>` : ''}
+                </div>
+            `;
+
+            // Add Google Calendar functionality
+            const addToCalendarBtn = document.getElementById('addToCalendar');
+            if (addToCalendarBtn) {
+                addToCalendarBtn.onclick = () => {
+                    addToGoogleCalendar(data);
+                };
+            }
+
+            // Show modal
+            modal.style.display = 'block';
+        }
+
+        function addToGoogleCalendar(reservationData) {
+            // Create Google Calendar URL
+            const startDate = new Date(reservationData.date + 'T' + reservationData.time);
+            const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // 2 hours later
+
+            const formatDate = (date) => {
+                return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+            };
+
+            const title = `XIX Restaurant - ${reservationData.eventType || 'Dinner'}`;
+            const description = `Event: ${reservationData.eventType || 'N/A'}
+Guests: ${reservationData.guests}
+Menu: ${reservationData.menuPreference || 'N/A'}
+Entertainment: ${reservationData.entertainment || 'N/A'}
+Special Requests: ${reservationData.specialRequests || 'None'}`;
+
+            const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(description)}&location=XIX Restaurant`;
+
+            // Open Google Calendar in new tab
+            window.open(googleCalendarUrl, '_blank');
+        }
+
+        async function checkAvailableTimes(date, venue) {
+            if (!date) return;
+
+            console.log('Checking available times for:', date, venue);
+
+            try {
+                const response = await fetch(`/api/available-times?date=${date}&venue=${venue}`);
+                const data = await response.json();
+
+                console.log('Available times response:', data);
+
+                const timeSelect = document.getElementById('time');
+                if (!timeSelect) {
+                    console.error('Time select element not found');
+                    return;
+                }
+
+                // Clear existing options
+                timeSelect.innerHTML = '';
+
+                if (data.availableTimes.length === 0) {
+                    console.log('No available times');
+                    // No available times
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No available times for this date';
+                    option.disabled = true;
+                    timeSelect.appendChild(option);
+
+                    // Show message
+                    showNoAvailabilityMessage();
+                } else {
+                    console.log('Available times:', data.availableTimes);
+                    // Add available times
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = 'Select Time';
+                    timeSelect.appendChild(defaultOption);
+
+                    data.availableTimes.forEach(time => {
+                        const option = document.createElement('option');
+                        option.value = time;
+                        option.textContent = time;
+                        timeSelect.appendChild(option);
+                    });
+
+                    // Hide no availability message if it exists
+                    hideNoAvailabilityMessage();
+                }
+            } catch (error) {
+                console.error('Error checking available times:', error);
+            }
+        }
+
+        function showNoAvailabilityMessage() {
+            // Remove existing message if any
+            hideNoAvailabilityMessage();
+
+            const message = document.createElement('div');
+            message.id = 'no-availability-message';
+            message.style.cssText = `
+                background: #ffebee;
+                color: #c62828;
+                padding: 1rem;
+                margin: 1rem 0;
+                border-radius: 8px;
+                border: 1px solid #ffcdd2;
+                text-align: center;
+                font-weight: 500;
+            `;
+            message.textContent = 'Sorry, no available time slots for this date. Please choose another date.';
+
+            const form = document.getElementById('reservationForm');
+            if (form) {
+                form.insertBefore(message, form.querySelector('.form-group'));
+            }
+        }
+
+        function hideNoAvailabilityMessage() {
+            const message = document.getElementById('no-availability-message');
+            if (message) {
+                message.remove();
+            }
+        }
+    </script>
+
+</body>
+
+</html>

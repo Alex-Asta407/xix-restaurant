@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events - XIX Restaurant</title>
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="navigation.css">
+    <link rel="stylesheet" href="events.css">
+    <link rel="stylesheet" href="footer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="/xix">
+                    <h1>XIX</h1>
+                </a>
+            </div>
+            <ul class="nav-menu">
+                <!-- <li><a href="/xix">Home</a></li> -->
+                <li><a href="/menu">Menu</a></li>
+                <li><a href="/events" class="active">Events</a></li>
+                <li><a href="/reservations">Reservations</a></li>
+                <li><a href="/mirror">Mirror</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Events Hero Section -->
+    <section class="events-hero">
+        <div class="container">
+            <div class="events-hero-content fade-in">
+                <h1 class="events-title">Upcoming Events</h1>
+                <p class="events-subtitle">Join us for special occasions and exclusive experiences</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Events Filter -->
+    <section class="events-filter">
+        <div class="container">
+            <div class="filter-tabs fade-in">
+                <button class="filter-tab active" data-filter="all">All Events</button>
+                <button class="filter-tab" data-filter="wine">Wine Tastings</button>
+                <button class="filter-tab" data-filter="live">Live Music</button>
+                <button class="filter-tab" data-filter="special">Special Dinners</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Events Content -->
+    <section class="events-content">
+        <div class="container">
+            <div class="events-grid fade-in">
+                <!-- Event 1 -->
+                <div class="event-card fade-in" data-category="wine">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">15</span>
+                            <span class="month">JAN</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Wine & Cheese Evening</h3>
+                        <p class="event-description">Join us for an exclusive wine tasting featuring premium wines
+                            paired with artisanal cheeses from local producers.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>7:00 PM - 10:00 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>Limited to 30 guests</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>£45 per person</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=45&eventId=wine-cheese-evening" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 2 -->
+                <div class="event-card fade-in" data-category="live">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">22</span>
+                            <span class="month">JAN</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Jazz Night with Sarah Johnson</h3>
+                        <p class="event-description">Experience an intimate evening of live jazz music with acclaimed
+                            vocalist Sarah Johnson and her quartet.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>8:00 PM - 11:00 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>All tables welcome</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>No cover charge</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=0&eventId=jazz-night" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 3 -->
+                <div class="event-card fade-in" data-category="special">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">28</span>
+                            <span class="month">JAN</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Valentine's Day Special</h3>
+                        <p class="event-description">Celebrate love with our special 5-course tasting menu designed for
+                            two, complete with champagne and roses.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>6:00 PM - 11:00 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>Couples only</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>£120 per couple</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=120&eventId=valentines-special" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 4 -->
+                <div class="event-card fade-in" data-category="wine">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">05</span>
+                            <span class="month">FEB</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Burgundy Wine Masterclass</h3>
+                        <p class="event-description">Learn about the finest Burgundy wines with our sommelier, featuring
+                            rare vintages and perfect food pairings.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>6:30 PM - 9:30 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>Limited to 20 guests</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>£65 per person</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=65&eventId=burgundy-masterclass" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 5 -->
+                <div class="event-card fade-in" data-category="live">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">12</span>
+                            <span class="month">FEB</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Acoustic Sessions</h3>
+                        <p class="event-description">Relax with acoustic performances by local artists in our intimate
+                            bar area. Perfect for a laid-back evening.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>7:30 PM - 10:30 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>All tables welcome</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>No cover charge</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=0&eventId=acoustic-sessions" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 6 -->
+                <div class="event-card fade-in" data-category="special">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">18</span>
+                            <span class="month">FEB</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Chef's Table Experience</h3>
+                        <p class="event-description">Join our head chef for an exclusive 7-course tasting menu with wine
+                            pairings and behind-the-scenes kitchen access.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>7:00 PM - 11:00 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>Limited to 8 guests</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>£95 per person</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=95&eventId=chefs-table" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Private Events Section -->
+    <section class="private-events">
+        <div class="container">
+            <div class="private-events-content">
+                <div class="private-events-text fade-in">
+                    <h2>Host Your Private Event</h2>
+                    <p>From intimate celebrations to corporate gatherings, XIX provides the perfect setting for your
+                        special occasion. Our dedicated events team will work with you to create an unforgettable
+                        experience.</p>
+                    <div class="private-events-features">
+                        <div class="feature">
+                            <i class="fas fa-utensils"></i>
+                            <span>Custom Menus</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-wine-glass-alt"></i>
+                            <span>Premium Bar Service</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-music"></i>
+                            <span>Live Music Options</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-users"></i>
+                            <span>Up to 50 Guests</span>
+                        </div>
+                    </div>
+                    <a href="/payment?amount=0&eventId=private-event" class="private-events-btn">Plan Your Event</a>
+                </div>
+                <div class="private-events-image fade-in">
+                    <div class="image-placeholder">
+                        <i class="fas fa-calendar-plus"></i>
+                        <p>Private Events</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h2>XIX</h2>
+                    <p>Where Flavor Meets Elegance</p>
+                </div>
+                <div class="footer-links">
+                    <!-- <a href="/xix">Home</a> -->
+                    <a href="menu.html">Menu</a>
+                    <a href="events.html">Events</a>
+                    <a href="reservations.html">Reservations</a>
+                    <a href="mirror.html">Mirror</a>
+                </div>
+                <div class="footer-social">
+                    <a href="https://www.instagram.com/xix_nineteen/" target="_blank" class="social-link">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.facebook.com/xixfood?mibextid=LQQJ4d&rdid=PWIlySw1n2GjmE0E&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2FGk1tdQBeAJDy4VQC%2F%3Fmibextid%3DLQQJ4d#"
+                        target="_blank" class="social-link">
+                        <i class="fab fa-facebook"></i>
+                    </a>
+                    <a href="https://www.tiktok.com/@xix_nineteen" target="_blank" class="social-link">
+                        <i class="fab fa-tiktok"></i>
+                    </a>
+                    <a href="https://www.ubereats.com/store/xix-nineteen-ukrainian-kitchen/Qb_tE0nYX0G5Xol7_t3LZA?diningMode=DELIVERY"
+                        target="_blank" class="social-link">
+                        <i class="fas fa-utensils"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script src="offline.js"></script>
+
+</body>
+
+</html>

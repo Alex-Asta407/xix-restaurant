@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu - XIX Restaurant</title>
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="navigation.css">
+    <link rel="stylesheet" href="menu.css">
+    <link rel="stylesheet" href="footer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="/xix">
+                    <h1>XIX</h1>
+                </a>
+            </div>
+            <ul class="nav-menu">
+                <!-- <li><a href="/xix">Home</a></li> -->
+                <li><a href="/menu" class="active">Menu</a></li>
+                <li><a href="/events">Events</a></li>
+                <li><a href="/reservations">Reservations</a></li>
+                <li><a href="/mirror">Mirror</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Menu Hero Section -->
+    <section class="menu-hero">
+        <div class="container">
+            <div class="menu-hero-content">
+                <h1 class="menu-title">Our Menu</h1>
+                <p class="menu-subtitle">Hand-crafted dishes and signature cocktails</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Menu Navigation -->
+    <section class="menu-nav">
+        <div class="container">
+            <div class="menu-tabs">
+                <button class="menu-tab active" data-tab="breakfast">Breakfast</button>
+                <button class="menu-tab" data-tab="starters">Starters</button>
+                <button class="menu-tab" data-tab="soups">Ukrainian Soups</button>
+                <button class="menu-tab" data-tab="mains">Main Dishes</button>
+                <button class="menu-tab" data-tab="sushi">Sushi & Rolls</button>
+                <button class="menu-tab" data-tab="pizza">Pizza & More</button>
+                <button class="menu-tab" data-tab="sharing">Sharing Platters</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Menu Content -->
+    <section class="menu-content">
+        <div class="container">
+            <!-- Breakfast -->
+            <div class="menu-section active" id="breakfast">
+                <div class="section-header fade-in">
+                    <h2 class="section-title">Breakfast</h2>
+                    <p class="section-subtitle">Monday-Friday 09:00-12:00 | Saturday-Sunday All Day</p>
+                </div>
+                <div class="menu-grid">
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Full English Breakfast</h3>
+                            <p class="item-description">Scrambled or Fried Eggs, Bacon, Homemade Sausage, Hash Brown,
+                                Baked Beans, Sautéed Mushrooms, Grilled Tomato & Brown or White Toast</p>
+                            <span class="item-price">£11.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Vegetarian Breakfast</h3>
+                            <p class="item-description">Scrambled or Fried Eggs, Avocado, Hash Brown, Baked Beans,
+                                Sautéed Mushrooms, Grilled Tomato & Brown or White Toast</p>
+                            <span class="item-price">£10.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Eggs Royal</h3>
+                            <p class="item-description">Poached Eggs, Salmon, Hollandaise Sauce, Cream Cheese, Muffin
+                            </p>
+                            <span class="item-price">£11.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Eggs Benedict</h3>
+                            <p class="item-description">Poached Eggs, Ham, Hollandaise Sauce, Cream Cheese, Muffin</p>
+                            <span class="item-price">£11.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">English Sandwich</h3>
+                            <p class="item-description">Choice of Chicken / Bacon / Ham, served with Cheddar Cheese,
+                                Fresh Salad, Bechamel Sauce</p>
+                            <span class="item-price">£8.90</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Ukrainian Traditional Pancakes - Syrnyky</h3>
+                            <p class="item-description">Homemade Farm Cheese Served with Sour Cream, Salted Caramel and
+                                Seasonal Fruits</p>
+                            <span class="item-price">£13.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Homemade Ukrainian Crepes/Nalysnyky</h3>
+                            <p class="item-description">Options include Poppy Seeds, Cottage Cheese, or Caramelized
+                                Apple and Cinnamon</p>
+                            <span class="item-price">£11.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Omelette of Your Choice</h3>
+                            <p class="item-description">Choice of 3 items from Cheese, Onion, Mushrooms, Spinach, Ham or
+                                Bacon</p>
+                            <span class="item-price">£10.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Scrambled Eggs & Salmon</h3>
+                            <p class="item-description">Served with Sourdough Bread, Cream Cheese, Guacamole, Salmon,
+                                Fresh Salad</p>
+                            <span class="item-price">£11.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Banana Pancakes</h3>
+                            <p class="item-description">Delicious puff pancakes with fresh sweet banana topped with
+                                Maple Syrup and Whipped Cream</p>
+                            <span class="item-price">£8.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Caramelized Apple Pancakes</h3>
+                            <p class="item-description">Soft pancakes with juicy caramelized apple topped with Whipped
+                                Cream and Cinnamon</p>
+                            <span class="item-price">£8.99</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Starters -->
+            <div class="menu-section" id="starters">
+                <div class="section-header fade-in">
+                    <h2 class="section-title">Starters</h2>
+                </div>
+                <div class="menu-grid">
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Edamame Beans</h3>
+                            <p class="item-description">Steamed, salty or spicy</p>
+                            <span class="item-price">£4.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Shake Tataki (6pcs)</h3>
+                            <p class="item-description">Seared salmon with kizami wasabi with ponzu sauce</p>
+                            <span class="item-price">£13.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Salmon Sashimi (5pcs)</h3>
+                            <p class="item-description">Salmon, ginger, wasabi</p>
+                            <span class="item-price">£11.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Tuna Sashimi (5pcs)</h3>
+                            <p class="item-description">Tuna, ginger, wasabi</p>
+                            <span class="item-price">£14.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Mix Sashimi (9pcs)</h3>
+                            <p class="item-description">Crab, cucumber, avocado, tobiko, mayo, sesame, seaweed, rice</p>
+                            <span class="item-price">£14.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Tuna Tartare</h3>
+                            <p class="item-description">Chopped tuna with yuzu miso, spring onion avocado, tempura nori,
+                                sesame</p>
+                            <span class="item-price">£15.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Salmon Tartare</h3>
+                            <p class="item-description">Chopped salmon with yuzu miso, spring onion avocado, and tempura
+                                nori, sesame</p>
+                            <span class="item-price">£14.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Chicken Karaage</h3>
+                            <p class="item-description">Fried chicken bites, marinated in ginger, garlic served with
+                                jalapeno sauce, sesame</p>
+                            <span class="item-price">£11.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Tuna Tataki</h3>
+                            <p class="item-description">Seared tuna with hizami wasabi, daikon, crest ponzu sauce</p>
+                            <span class="item-price">£14.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Hiyashi Chuka</h3>
+                            <p class="item-description">Hiyashi wakame, sesame, sauce</p>
+                            <span class="item-price">£9.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Miso Soup</h3>
+                            <p class="item-description">Traditional Japanese miso soup</p>
+                            <span class="item-price">£4.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ukrainian Soups -->
+            <div class="menu-section" id="soups">
+                <div class="section-header fade-in">
+                    <h2 class="section-title">Ukrainian Soups</h2>
+                </div>
+                <div class="menu-grid">
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Meat Borsch</h3>
+                            <p class="item-description">Served with Sour Cream, Salo and Rye Bread</p>
+                            <span class="item-price">£9.95</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Vegan Borsch</h3>
+                            <p class="item-description">Traditional Ukrainian beetroot soup, vegan version</p>
+                            <span class="item-price">£9.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Chicken Broth</h3>
+                            <p class="item-description">Homemade chicken broth with fresh herbs</p>
+                            <span class="item-price">£8.95</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Solyanka</h3>
+                            <p class="item-description">Soup with 4 Kind of Smoked Meat</p>
+                            <span class="item-price">£9.95</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Dishes -->
+            <div class="menu-section" id="mains">
+                <div class="section-header fade-in">
+                    <h2 class="section-title">Main Dishes</h2>
+                </div>
+                <div class="menu-grid">
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">28 Day Dry Aged Beef Sirloin Steak</h3>
+                            <p class="item-description">Served with Fries, Mix Salad and Chef's Special Sauce</p>
+                            <span class="item-price">£28.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Pork Medallion</h3>
+                            <p class="item-description">Served with Bacon, Mashed Potato and White Mushroom Sauce</p>
+                            <span class="item-price">£24.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Homemade Traditional Chicken Kyiv</h3>
+                            <p class="item-description">Served with Mashed Potato, Pickled Cucumber with Chef's Special
+                                Sauce</p>
+                            <span class="item-price">£23.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Orange Glazed Grilled Salmon</h3>
+                            <p class="item-description">Served with Grilled Vegetables</p>
+                            <span class="item-price">£21.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Chicken Cutlets with Mashed Potato/Buckwheat</h3>
+                            <p class="item-description">Traditional Ukrainian chicken cutlets</p>
+                            <span class="item-price">£19.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Fish & Chips</h3>
+                            <p class="item-description">Served with Chips or Mashed Potato, Tartar Sauce, Peas</p>
+                            <span class="item-price">£12.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Vegan Falafel Box</h3>
+                            <p class="item-description">Mix of Seven Vegan Items</p>
+                            <span class="item-price">£12.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Homemade Ukrainian Cabbage Rolls</h3>
+                            <p class="item-description">Served with Pork Mince and Mushroom Sauce</p>
+                            <span class="item-price">£16.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Homemade Ukrainian Fried Potato Pancakes</h3>
+                            <p class="item-description">Served with Sour Cream and Parmesan Cheese</p>
+                            <span class="item-price">£12.75</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Homemade Ukrainian Fried Potato Meat Pancakes</h3>
+                            <p class="item-description">Served in a Pot with Mushroom Sauce and Mozzarella Cheese</p>
+                            <span class="item-price">£14.20</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Ukrainian Style Beef Stroganoff</h3>
+                            <p class="item-description">Served with Buckwheat or Mashed Potato</p>
+                            <span class="item-price">£18.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Fried Chicken Liver with Mashed Potato</h3>
+                            <p class="item-description">Traditional Ukrainian liver dish</p>
+                            <span class="item-price">£16.99</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sushi & Rolls -->
+            <div class="menu-section" id="sushi">
+                <div class="section-header fade-in">
+                    <h2 class="section-title">Sushi & Rolls</h2>
+                </div>
+                <div class="menu-grid">
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Red Dragon</h3>
+                            <p class="item-description">Philadelphia, tuna, avocado, seaweed, rice</p>
+                            <span class="item-price">£16.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Canada</h3>
+                            <p class="item-description">Philadelphia, salmon, eel, avocado, sesame, eel sauce, seaweed,
+                                rice</p>
+                            <span class="item-price">£16.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Healthy Roll (Without Rice)</h3>
+                            <p class="item-description">Salmon, crab, tuna, avocado, spring onion, tobiko, eel sauce,
+                                seaweed</p>
+                            <span class="item-price">£20.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Yellow Dragon</h3>
+                            <p class="item-description">Smoked salmon, eel, cucumber, avocado, spicy mayo, eel sauce,
+                                sesame, seaweed, rice</p>
+                            <span class="item-price">£16.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Double Ebi</h3>
+                            <p class="item-description">Fried ebi prawn, boiled ebi prawn, cucumber, spicy mayo,
+                                seaweed, rice</p>
+                            <span class="item-price">£16.49</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Thames</h3>
+                            <p class="item-description">Fried ebi prawn, seared salmon, cucumber, eel sauce, sesame,
+                                seaweed, rice</p>
+                            <span class="item-price">£14.49</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Soft Shell Crab</h3>
+                            <p class="item-description">Crab, cucumber, mixed salad, spicy mayo, eel sauce, seaweed,
+                                rice</p>
+                            <span class="item-price">£15.49</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Ikura</h3>
+                            <p class="item-description">Philadelphia, caviar, salmon, mayo, seaweed, rice</p>
+                            <span class="item-price">£16.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Cheddar Roll</h3>
+                            <p class="item-description">Fried ebi prawn, avocado, seared cheddar slices, eel sauce,
+                                sesame, seaweed, rice</p>
+                            <span class="item-price">£12.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Philadelphia Eel</h3>
+                            <p class="item-description">Philadelphia, salmon, eel, cucumber, seaweed, rice</p>
+                            <span class="item-price">£16.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pizza & More -->
+            <div class="menu-section" id="pizza">
+                <div class="section-header fade-in">
+                    <h2 class="section-title">Pizza & More</h2>
+                </div>
+                <div class="menu-grid">
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Margherita</h3>
+                            <p class="item-description">Tomato Sauce, Mozzarella, Oregano, Fresh Basil</p>
+                            <span class="item-price">£12.49</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Quattro Formaggi</h3>
+                            <p class="item-description">Tomato Sauce, Mozzarella, Parmesan, Gorgonzola, Cheese, Creamy
+                                Ricotta, Oregano</p>
+                            <span class="item-price">£14.49</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Pepperoni</h3>
+                            <p class="item-description">Tomato Sauce, Mozzarella, Pepperoni</p>
+                            <span class="item-price">£13.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Hawaiian Chicken Pizza</h3>
+                            <p class="item-description">Chicken, Pineapple, Sweet Corn, Tomato Sauce, Fresh Basil,
+                                Mozzarella</p>
+                            <span class="item-price">£13.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Chicken Burger</h3>
+                            <p class="item-description">Served with chips, 8 oz. Buttermilk Marinated Chicken Breast,
+                                Topped with House Sauce, Lettuce, American Cheese and Gherkins in a Toasted Burger Bun
+                            </p>
+                            <span class="item-price">£12.49</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Beef Burger</h3>
+                            <p class="item-description">Served with chips, 8 oz. Dry Aged Beef Patty, Topped with
+                                Ketchup, Mustard, Red Onions, American Cheese, Lettuce, Tomato and Gherkins in a Toasted
+                                Burger Bun</p>
+                            <span class="item-price">£12.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Grilled Chicken Wrap</h3>
+                            <p class="item-description">Served with Chips - Grilled Chicken Strip, Red Onion, American
+                                Cheese, Fresh Salad and Special Sauce</p>
+                            <span class="item-price">£12.70</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Halloumi Wrap</h3>
+                            <p class="item-description">Served with Chips - Grilled Halloumi, Hummus, Red Onion, Tomato,
+                                Fresh Spinach and Special Sauce</p>
+                            <span class="item-price">£12.70</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Seafood Pasta</h3>
+                            <p class="item-description">Served with Mix Seafood in Creamy Sauce with Parmesan</p>
+                            <span class="item-price">£15.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Pasta Carbonara</h3>
+                            <p class="item-description">Made with Yolk, Parmesan Cheese, Salted Bacon and Black Pepper
+                                with Parmesan</p>
+                            <span class="item-price">£14.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Spaghetti Bolognese</h3>
+                            <p class="item-description">Ultimate Pasta Recipe is a Total Classic</p>
+                            <span class="item-price">£14.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Tagliatelle Pasta</h3>
+                            <p class="item-description">Served with Chicken, Mushrooms, Creamy Parmesan Sauce</p>
+                            <span class="item-price">£15.99</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sharing Platters -->
+            <div class="menu-section" id="sharing">
+                <div class="section-header fade-in">
+                    <h2 class="section-title">Sharing Platters</h2>
+                </div>
+                <div class="menu-grid">
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Homemade Meat Platter</h3>
+                            <p class="item-description">A mix of Ham, Smoked Pork Breast, Salami, Ukrainian Homemade
+                                Salo, Fresh Red Onion, Garlic, served with Horseradish</p>
+                            <span class="item-price">£24.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Homemade Salo Plate</h3>
+                            <p class="item-description">Fresh Marinated Salo, Pickled Cucumbers, Fresh Garlic, Served
+                                with American Style Mustard</p>
+                            <span class="item-price">£13.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Herring Platter</h3>
+                            <p class="item-description">Includes Herring, Marinated Red Onion, Fried Potato and Butter
+                            </p>
+                            <span class="item-price">£22.00</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Cheese Platter</h3>
+                            <p class="item-description">A mix of cheeses, served with Honey, Mix Nuts and Fresh Grapes
+                            </p>
+                            <span class="item-price">£18.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Assorted Marinated Vegetables</h3>
+                            <p class="item-description">Features Pickled Cucumber, Marinated Tomato, Cauliflower and
+                                Pickled Cabbage</p>
+                            <span class="item-price">£15.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Fruit Platter</h3>
+                            <p class="item-description">A mix of Season Fruit</p>
+                            <span class="item-price">£17.50</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Chicken Wings BBQ Jack Daniel's</h3>
+                            <p class="item-description">Available as Single or Double, served with BBQ Jack Daniel's
+                                Sauce</p>
+                            <span class="item-price">£8.50 / £13.99</span>
+                        </div>
+                    </div>
+                    <div class="menu-item fade-in">
+                        <div class="menu-item-content">
+                            <h3 class="item-name">Hot Beer Platter</h3>
+                            <p class="item-description">Roasted Garlic Croutons, Fried Onion Rings, Chicken Nuggets,
+                                Chicken Wings, Smocked Cheese, Roasted Cabanossi Sausage Served with Creamy Garlic Sour
+                                Sauce</p>
+                            <span class="item-price">£23.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="menu-cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Ready to Experience Our Menu?</h2>
+                <p>Book your table and indulge in our culinary creations</p>
+                <a href="reservations.html" class="cta-button">Make a Reservation</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h2>XIX</h2>
+                    <p>Where Flavor Meets Elegance</p>
+                </div>
+                <div class="footer-links">
+                    <!-- <a href="/xix">Home</a> -->
+                    <a href="menu.html">Menu</a>
+                    <a href="events.html">Events</a>
+                    <a href="reservations.html">Reservations</a>
+                    <a href="mirror.html">Mirror</a>
+                </div>
+                <div class="footer-social">
+                    <a href="https://www.instagram.com/xix_nineteen/" target="_blank" class="social-link">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.facebook.com/xixfood?mibextid=LQQJ4d&rdid=PWIlySw1n2GjmE0E&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2FGk1tdQBeAJDy4VQC%2F%3Fmibextid%3DLQQJ4d#"
+                        target="_blank" class="social-link">
+                        <i class="fab fa-facebook"></i>
+                    </a>
+                    <a href="https://www.tiktok.com/@xix_nineteen" target="_blank" class="social-link">
+                        <i class="fab fa-tiktok"></i>
+                    </a>
+                    <a href="https://www.ubereats.com/store/xix-nineteen-ukrainian-kitchen/Qb_tE0nYX0G5Xol7_t3LZA?diningMode=DELIVERY"
+                        target="_blank" class="social-link">
+                        <i class="fas fa-utensils"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script src="offline.js"></script>
+
+</body>
+
+</html>

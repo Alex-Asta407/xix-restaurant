@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XIX Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--white);
+            min-height: 100vh;
+        }
+
+        .admin-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: var(--primary-green);
+            border-radius: 12px;
+        }
+
+        .admin-header h1 {
+            font-family: 'Gilda Display', serif;
+            color: var(--very-dark-green);
+            margin-bottom: 0.5rem;
+        }
+
+        .admin-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            border: 1px solid rgba(168, 135, 26, 0.1);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--gold);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--very-dark-green);
+            font-size: 0.9rem;
+        }
+
+        .reservations-table {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .table-header {
+            background: var(--primary-green);
+            padding: 1rem;
+            border-bottom: 1px solid rgba(168, 135, 26, 0.1);
+        }
+
+        .table-header h2 {
+            font-family: 'Gilda Display', serif;
+            color: var(--very-dark-green);
+            margin: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: var(--very-dark-green);
+        }
+
+        .email-status {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .email-sent {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .email-not-sent {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .refresh-btn {
+            background: var(--gold);
+            color: var(--white);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .refresh-btn:hover {
+            background: #A8871A;
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--very-dark-green);
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1><i class="fas fa-utensils"></i> XIX Admin Dashboard</h1>
+            <p>Restaurant Reservation Management</p>
+        </div>
+
+        <button class="refresh-btn" onclick="loadTodayReservations()">
+            <i class="fas fa-sync-alt"></i> Refresh Today's Reservations
+        </button>
+
+        <div class="admin-stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalToday">-</div>
+                <div class="stat-label">Today's Reservations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="emailsSent">-</div>
+                <div class="stat-label">Emails Sent</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="pendingEmails">-</div>
+                <div class="stat-label">Pending Emails</div>
+            </div>
+        </div>
+
+        <div class="reservations-table">
+            <div class="table-header">
+                <h2><i class="fas fa-calendar-day"></i> Today's Reservations</h2>
+            </div>
+            <div id="reservations-content">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Loading reservations...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get the secret key from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const secretKey = urlParams.get('key');
+
+        if (!secretKey) {
+            document.body.innerHTML = '<div class="admin-container"><div class="error">Access denied. Please provide a valid secret key.</div></div>';
+        }
+
+        async function loadTodayReservations() {
+            const content = document.getElementById('reservations-content');
+            content.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading reservations...</div>';
+
+            try {
+                const response = await fetch(`/admin/today?key=${secretKey}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayReservations(data);
+                updateStats(data);
+
+            } catch (error) {
+                console.error('Error loading reservations:', error);
+                content.innerHTML = '<div class="error">Error loading reservations. Please check your connection and try again.</div>';
+            }
+        }
+
+        function displayReservations(data) {
+            const content = document.getElementById('reservations-content');
+
+            if (data.reservations.length === 0) {
+                content.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--very-dark-green);">No reservations for today.</div>';
+                return;
+            }
+
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Guests</th>
+                            <th>Table</th>
+                            <th>Occasion</th>
+                            <th>Customer Email</th>
+                            <th>Manager Email</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            data.reservations.forEach(reservation => {
+                const time = formatTime(reservation.time);
+                const created = new Date(reservation.created_at).toLocaleString();
+
+                tableHTML += `
+                    <tr>
+                        <td><strong>${time}</strong></td>
+                        <td>${reservation.name}</td>
+                        <td>${reservation.email}</td>
+                        <td>${reservation.phone}</td>
+                        <td>${reservation.guests}</td>
+                        <td>${reservation.table_preference || 'Any'}</td>
+                        <td>${reservation.occasion || '-'}</td>
+                        <td><span class="email-status ${reservation.email_sent_to_customer ? 'email-sent' : 'email-not-sent'}">${reservation.email_sent_to_customer ? 'Sent' : 'Not Sent'}</span></td>
+                        <td><span class="email-status ${reservation.email_sent_to_manager ? 'email-sent' : 'email-not-sent'}">${reservation.email_sent_to_manager ? 'Sent' : 'Not Sent'}</span></td>
+                        <td>${created}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += '</tbody></table>';
+            content.innerHTML = tableHTML;
+        }
+
+        function updateStats(data) {
+            const totalToday = data.totalReservations;
+            const emailsSent = data.reservations.filter(r => r.email_sent_to_customer && r.email_sent_to_manager).length;
+            const pendingEmails = totalToday - emailsSent;
+
+            document.getElementById('totalToday').textContent = totalToday;
+            document.getElementById('emailsSent').textContent = emailsSent;
+            document.getElementById('pendingEmails').textContent = pendingEmails;
+        }
+
+        function formatTime(time24) {
+            const [hours, minutes] = time24.split(':');
+            const hour = parseInt(hours);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour % 12 || 12;
+            return `${displayHour}:${minutes} ${ampm}`;
+        }
+
+        // Load reservations on page load
+        if (secretKey) {
+            loadTodayReservations();
+        }
+    </script>
+</body>
+
+</html>

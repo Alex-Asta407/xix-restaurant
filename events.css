@@ -1,0 +1,362 @@
+/* Events Page Styles */
+
+/* Events Hero Section */
+.events-hero {
+    background: transparent;
+    padding: 6rem 0 4rem 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.events-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(168, 135, 26, 0.1) 0%, rgba(168, 135, 26, 0.05) 100%);
+    z-index: 1;
+}
+
+.events-hero-content {
+    position: relative;
+    z-index: 2;
+}
+
+.events-title {
+    font-family: 'Gilda Display', serif;
+    font-size: 3.5rem;
+    font-weight: 400;
+    color: var(--very-dark-green);
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.events-subtitle {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 1.2rem;
+    color: var(--dark-gray);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+    font-weight: 400;
+}
+
+
+/* Responsive Events Hero */
+@media (max-width: 768px) {
+    .events-hero {
+        padding: 4rem 0 3rem 0;
+        padding-top: 120px;
+        /* Account for fixed navbar */
+    }
+
+    .events-title {
+        font-size: 2.5rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .events-subtitle {
+        font-size: 1.1rem;
+        padding: 0 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .events-hero {
+        padding: 3rem 0 2rem 0;
+        padding-top: 100px;
+        /* Account for fixed navbar */
+    }
+
+    .events-title {
+        font-size: 2rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .events-subtitle {
+        font-size: 1rem;
+        padding: 0 1.5rem;
+    }
+}
+
+/* Events Page */
+.events-filter {
+    background: var(--primary-green);
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--light-gray);
+}
+
+.filter-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-tab {
+    padding: 0.8rem 1.5rem;
+    background: transparent;
+    border: 2px solid var(--light-gray);
+    color: var(--dark-gray);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Noto Sans', sans-serif;
+    font-weight: 500;
+    border-radius: 25px;
+}
+
+.filter-tab.active,
+.filter-tab:hover {
+    background: #A8871A;
+    color: var(--white);
+    border-color: #A8871A;
+}
+
+.events-content {
+    padding: 4rem 0;
+    background: var(--primary-green);
+}
+
+.events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+}
+
+.event-card {
+    background: var(--white);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 5px 20px rgba(2, 7, 2, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.event-card:hover {
+    transform: translateY(-5px);
+}
+
+.event-image {
+    height: 200px;
+    background: linear-gradient(135deg, var(--gold), #8B6914);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.event-date {
+    background: var(--white);
+    padding: 1rem;
+    border-radius: 10px;
+    text-align: center;
+    color: var(--very-dark-green);
+}
+
+.event-date .day {
+    display: block;
+    font-size: 2rem;
+    font-weight: 500;
+    font-family: 'Gilda Display', serif;
+}
+
+.event-date .month {
+    display: block;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.event-content {
+    padding: 2rem;
+}
+
+.event-title {
+    font-family: 'Gilda Display', serif;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--very-dark-green);
+}
+
+.event-description {
+    color: var(--dark-gray);
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.event-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.event-detail {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--dark-gray);
+    font-size: 0.9rem;
+}
+
+.event-detail i {
+    color: var(--gold);
+    width: 16px;
+}
+
+.event-btn {
+    display: inline-block;
+    padding: 0.8rem 1.5rem;
+    background: var(--very-dark-green);
+    color: var(--white);
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.event-btn:hover {
+    background: #A8871A;
+}
+
+/* Private Events */
+.private-events {
+    padding: 5rem 0;
+    background: var(--white);
+}
+
+.private-events-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+}
+
+.private-events-text h2 {
+    font-family: 'Gilda Display', serif;
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--very-dark-green);
+}
+
+.private-events-text p {
+    color: var(--dark-gray);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.private-events-features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.feature {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--dark-gray);
+}
+
+.feature i {
+    color: var(--gold);
+}
+
+.private-events-btn {
+    display: inline-block;
+    padding: 1rem 2rem;
+    background: var(--very-dark-green);
+    color: var(--white);
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.private-events-btn:hover {
+    background: #A8871A;
+}
+
+.private-events-image {
+    background: var(--light-gray);
+    border-radius: 10px;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-placeholder {
+    text-align: center;
+    color: var(--dark-gray);
+}
+
+.image-placeholder i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: var(--gold);
+}
+
+/* Responsive Design for Events */
+@media (max-width: 768px) {
+    .events-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .event-card {
+        margin: 0 auto;
+        max-width: 400px;
+    }
+
+    .private-events-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    .private-events-features {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .event-card {
+        max-width: 100%;
+    }
+
+    .event-content {
+        padding: 1.5rem;
+    }
+
+    .event-title {
+        font-size: 1.3rem;
+    }
+
+    .event-description {
+        font-size: 0.9rem;
+    }
+
+    .event-btn {
+        padding: 0.7rem 1.2rem;
+        font-size: 0.9rem;
+    }
+
+    .private-events-text h2 {
+        font-size: 2rem;
+    }
+
+    .private-events-text p {
+        font-size: 0.9rem;
+    }
+
+    .private-events-btn {
+        padding: 0.8rem 1.5rem;
+        font-size: 0.9rem;
+    }
+}

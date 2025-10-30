@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - XIX Restaurant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .offline-container {
+            text-align: center;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .logo {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #A8871A;
+            margin-bottom: 20px;
+            font-family: 'Gilda Display', serif;
+        }
+        
+        .offline-icon {
+            font-size: 3rem;
+            color: #A8871A;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #A8871A;
+        }
+        
+        p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        
+        .contact-info {
+            background: rgba(168, 135, 26, 0.2);
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+            border: 1px solid rgba(168, 135, 26, 0.3);
+        }
+        
+        .phone-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #A8871A;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .phone-link:hover {
+            background: #8B6F1A;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(168, 135, 26, 0.4);
+        }
+        
+        .hours {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .retry-button {
+            background: transparent;
+            border: 2px solid #A8871A;
+            color: #A8871A;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .retry-button:hover {
+            background: #A8871A;
+            color: white;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .feature {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .feature i {
+            font-size: 2rem;
+            color: #A8871A;
+            margin-bottom: 10px;
+        }
+        
+        .feature h3 {
+            margin-bottom: 10px;
+            color: #A8871A;
+        }
+        
+        @media (max-width: 768px) {
+            .offline-container {
+                padding: 30px 20px;
+            }
+            
+            .logo {
+                font-size: 3rem;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="offline-container">
+        <div class="logo">XIX</div>
+        <div class="offline-icon">
+            <i class="fas fa-wifi"></i>
+        </div>
+        
+        <h1>You're Currently Offline</h1>
+        <p>Don't worry! You can still get in touch with us and learn about our restaurant. We're here to help you even when the internet isn't.</p>
+        
+        <div class="contact-info">
+            <h2>Contact Us Directly</h2>
+            <p>For reservations, questions, or just to say hello:</p>
+            <a href="tel:+447796817690" class="phone-link">
+                <i class="fas fa-phone"></i>
+                +44 7796 817690
+            </a>
+            <div class="hours">
+                <strong>Opening Hours:</strong><br>
+                Monday - Sunday: 9:00 AM - 11:00 PM
+            </div>
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <i class="fas fa-utensils"></i>
+                <h3>Our Menu</h3>
+                <p>Ukrainian & International cuisine with fresh ingredients</p>
+            </div>
+            <div class="feature">
+                <i class="fas fa-calendar"></i>
+                <h3>Events</h3>
+                <p>Private dining and special occasions</p>
+            </div>
+            <div class="feature">
+                <i class="fas fa-map-marker-alt"></i>
+                <h3>Location</h3>
+                <p>123 King's Road, London SW3 4RD</p>
+            </div>
+        </div>
+        
+        <button class="retry-button" onclick="window.location.reload()">
+            <i class="fas fa-refresh"></i> Try Again
+        </button>
+    </div>
+    
+    <script>
+        // Check if we're back online
+        function checkOnlineStatus() {
+            if (navigator.onLine) {
+                window.location.href = '/';
+            }
+        }
+        
+        // Listen for online event
+        window.addEventListener('online', checkOnlineStatus);
+        
+        // Check every 5 seconds
+        setInterval(checkOnlineStatus, 5000);
+    </script>
+</body>
+</html>

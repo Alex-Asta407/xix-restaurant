@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events - Mirror Ukrainian Banquet Hall</title>
+    <link rel="stylesheet" href="../base.css">
+    <link rel="stylesheet" href="../navigation.css">
+    <link rel="stylesheet" href="../events.css">
+    <link rel="stylesheet" href="../mirror.css">
+    <link rel="stylesheet" href="../footer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="/mirror">
+                    <h1>Mirror</h1>
+                </a>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/mirror/menu">Menu</a></li>
+                <li><a href="/mirror/events" class="active">Events</a></li>
+                <li><a href="/mirror/reservations">Reservations</a></li>
+                <li><a href="/xix">XIX</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Events Hero Section -->
+    <section class="events-hero">
+        <div class="container">
+            <div class="events-hero-content fade-in">
+                <h1 class="events-title">Mirror Events & Celebrations</h1>
+                <p class="events-subtitle">Experience Ukrainian culture through our special events and cultural
+                    celebrations</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Events Filter -->
+    <section class="events-filter">
+        <div class="container">
+            <div class="filter-tabs fade-in">
+                <button class="filter-tab active" data-filter="all">All Events</button>
+                <button class="filter-tab" data-filter="cultural">Cultural Events</button>
+                <button class="filter-tab" data-filter="wedding">Weddings</button>
+                <button class="filter-tab" data-filter="corporate">Corporate</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Events Content -->
+    <section class="events-content">
+        <div class="container">
+            <div class="events-grid fade-in">
+                <!-- Event 1 -->
+                <div class="event-card fade-in" data-category="cultural">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">15</span>
+                            <span class="month">JAN</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Ukrainian New Year Celebration</h3>
+                        <p class="event-description">Join us for a traditional Ukrainian New Year celebration with
+                            authentic cuisine, folk music, and cultural performances.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>7:00 PM - 12:00 AM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>Up to 200 guests</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>£45 per person</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=45&eventId=ukrainian-new-year" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 2 -->
+                <div class="event-card fade-in" data-category="wedding">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">22</span>
+                            <span class="month">JAN</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Traditional Ukrainian Wedding</h3>
+                        <p class="event-description">Experience the beauty of a traditional Ukrainian wedding ceremony
+                            with authentic customs, music, and cuisine.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>All Day Event</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>Up to 150 guests</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>Custom pricing</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=0&eventId=ukrainian-wedding" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 3 -->
+                <div class="event-card fade-in" data-category="cultural">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">28</span>
+                            <span class="month">JAN</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Ukrainian Folk Music Night</h3>
+                        <p class="event-description">Enjoy an evening of traditional Ukrainian folk music with live
+                            performances and authentic Ukrainian cuisine.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>7:30 PM - 11:00 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>All tables welcome</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>£35 per person</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=35&eventId=ukrainian-folk-music" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 4 -->
+                <div class="event-card fade-in" data-category="corporate">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">05</span>
+                            <span class="month">FEB</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Corporate Ukrainian Dinner</h3>
+                        <p class="event-description">Host your corporate event with a unique Ukrainian twist. Perfect
+                            for team building and client entertainment.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>6:00 PM - 10:00 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>Up to 100 guests</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>£55 per person</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=55&eventId=corporate-ukrainian-dinner" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 5 -->
+                <div class="event-card fade-in" data-category="cultural">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">12</span>
+                            <span class="month">FEB</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Ukrainian Language & Culture Workshop</h3>
+                        <p class="event-description">Learn about Ukrainian language, traditions, and culture through
+                            interactive workshops and authentic cuisine.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>2:00 PM - 6:00 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>Limited to 50 guests</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>£25 per person</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=25&eventId=ukrainian-culture-workshop" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+
+                <!-- Event 6 -->
+                <div class="event-card fade-in" data-category="wedding">
+                    <div class="event-image">
+                        <div class="event-date">
+                            <span class="day">18</span>
+                            <span class="month">FEB</span>
+                        </div>
+                    </div>
+                    <div class="event-content">
+                        <h3 class="event-title">Valentine's Day Ukrainian Style</h3>
+                        <p class="event-description">Celebrate love with a romantic Ukrainian dinner featuring
+                            traditional dishes and live romantic music.</p>
+                        <div class="event-details">
+                            <div class="event-detail">
+                                <i class="fas fa-clock"></i>
+                                <span>6:00 PM - 11:00 PM</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-users"></i>
+                                <span>Couples welcome</span>
+                            </div>
+                            <div class="event-detail">
+                                <i class="fas fa-pound-sign"></i>
+                                <span>£80 per couple</span>
+                            </div>
+                        </div>
+                        <a href="/payment?amount=80&eventId=valentines-ukrainian" class="event-btn">Book Now</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Private Events Section -->
+    <section class="private-events">
+        <div class="container">
+            <div class="private-events-content">
+                <div class="private-events-text fade-in">
+                    <h2>Host Your Ukrainian Celebration</h2>
+                    <p>From intimate family gatherings to grand Ukrainian celebrations, Mirror provides the perfect
+                        setting for your special occasion. Our experienced team will work with you to create an
+                        authentic Ukrainian experience.</p>
+                    <div class="private-events-features">
+                        <div class="feature">
+                            <i class="fas fa-utensils"></i>
+                            <span>Authentic Ukrainian Menus</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-wine-glass-alt"></i>
+                            <span>Traditional Ukrainian Drinks</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-music"></i>
+                            <span>Live Ukrainian Music</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-users"></i>
+                            <span>Up to 200 Guests</span>
+                        </div>
+                    </div>
+                    <a href="/payment?amount=0&eventId=mirror-private-event" class="private-events-btn">Plan Your
+                        Event</a>
+                </div>
+                <div class="private-events-image fade-in">
+                    <div class="image-placeholder">
+                        <i class="fas fa-calendar-plus"></i>
+                        <p>Ukrainian Celebrations</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h2>Mirror</h2>
+                    <p>Ukrainian Banquet Hall</p>
+                </div>
+                <div class="footer-links">
+                    <!-- <a href="/mirror">Home</a> -->
+                    <a href="/mirror/menu">Menu</a>
+                    <a href="/mirror/events">Events</a>
+                    <a href="/mirror/reservations">Reservations</a>
+                    <a href="/xix">XIX</a>
+                </div>
+                <div class="footer-social">
+                    <a href="https://www.instagram.com/mirror_mirrorlondon/" target="_blank" class="social-link">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.instagram.com/xix_nineteen/" target="_blank" class="social-link">
+                        <i class="fab fa-instagram"></i>
+                    </a>
+                    <a href="https://www.facebook.com/xixfood?mibextid=LQQJ4d&rdid=PWIlySw1n2GjmE0E&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2FGk1tdQBeAJDy4VQC%2F%3Fmibextid%3DLQQJ4d#"
+                        target="_blank" class="social-link">
+                        <i class="fab fa-facebook"></i>
+                    </a>
+                    <a href="https://www.tiktok.com/@xix_nineteen" target="_blank" class="social-link">
+                        <i class="fab fa-tiktok"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../script.js"></script>
+    <script src="../offline.js"></script>
+
+</body>
+
+</html>
