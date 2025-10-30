@@ -120,3 +120,6 @@ ENV_SETUP.txt
 README.md
 STRIPE_INTEGRATION.md
 STRIPE_SETUP_GUIDE.md
+SECURITY.md
+security-test-plan.md 
+test-email.js

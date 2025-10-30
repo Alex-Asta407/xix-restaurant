@@ -859,7 +859,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
     });
 
     const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
+      host: process.env.SMTP_HOST,
       port: 587,
       secure: false, // true for 465, false for other ports
       auth: {
