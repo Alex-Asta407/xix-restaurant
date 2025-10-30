@@ -504,7 +504,7 @@ app.get('/health', (req, res) => {
 // Secret admin endpoint to view today's reservations
 app.get('/admin/today', (req, res) => {
   const secretKey = req.query.key;
-  const expectedKey = process.env.ADMIN_SECRET_KEY || 'xix-admin-2024';
+  const expectedKey = process.env.ADMIN_SECRET_KEY;
 
   if (secretKey !== expectedKey) {
     return res.status(403).json({ error: 'Unauthorized access' });
@@ -533,7 +533,7 @@ app.get('/admin/today', (req, res) => {
 // Secret admin endpoint to view all reservations
 app.get('/admin/all', (req, res) => {
   const secretKey = req.query.key;
-  const expectedKey = process.env.ADMIN_SECRET_KEY || 'xix-admin-2024';
+  const expectedKey = process.env.ADMIN_SECRET_KEY;
 
   if (secretKey !== expectedKey) {
     return res.status(403).json({ error: 'Unauthorized access' });
@@ -1248,7 +1248,7 @@ process.on('SIGINT', () => {
 // Serve admin dashboard
 app.get('/admin', (req, res) => {
   const secretKey = req.query.key;
-  const expectedKey = process.env.ADMIN_SECRET_KEY || 'xix-admin-2024';
+  const expectedKey = process.env.ADMIN_SECRET_KEY;
 
   if (secretKey !== expectedKey) {
     return res.status(403).send(`
