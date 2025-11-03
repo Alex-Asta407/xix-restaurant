@@ -406,15 +406,28 @@
                     // Check if the selected time is still available
                     try {
                         const availabilityResponse = await fetch(`/api/available-times?date=${reservation.date}&venue=xix`);
+
+                        if (!availabilityResponse.ok) {
+                            throw new Error('Availability check failed');
+                        }
+
                         const availabilityData = await availabilityResponse.json();
 
-                        if (!availabilityData.availableTimes.includes(reservation.time)) {
+                        if (!availabilityData.availableTimes || !availabilityData.availableTimes.includes(reservation.time)) {
                             alert('Sorry, this time slot is no longer available. Please select another time.');
+                            // Reset submission state
+                            isSubmitting = false;
+                            submitBtn.textContent = originalText;
+                            submitBtn.disabled = false;
                             return;
                         }
                     } catch (error) {
                         console.error('Error checking time availability:', error);
                         alert('Error checking time availability. Please try again.');
+                        // Reset submission state
+                        isSubmitting = false;
+                        submitBtn.textContent = originalText;
+                        submitBtn.disabled = false;
                         return;
                     }
 
@@ -584,87 +597,66 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
 
                 console.log('Available times response:', data);
 
-                const timeSelect = document.getElementById('time');
-                if (!timeSelect) {
-                    console.error('Time select element not found');
-                    return;
-                }
-
-                // Clear existing options
-                timeSelect.innerHTML = '';
-
-                if (data.availableTimes.length === 0) {
-                    console.log('No available times');
-                    // No available times
-                    const option = document.createElement('option');
-                    option.value = '';
-                    option.textContent = 'No available times for this date';
-                    option.disabled = true;
-                    timeSelect.appendChild(option);
-
-                    // Show message
-                    showNoAvailabilityMessage();
-                } else {
-                    updateTimeOptions(data);
-                } catch (error) {
-                    console.error('Error checking available times:', error);
-                    // Don't show error to user, just log it
-                }
+                updateTimeOptions(data);
+            } catch (error) {
+                console.error('Error checking available times:', error);
+                // Don't show error to user, just log it
             }
+        }
 
         function updateTimeOptions(data) {
-                const timeSelect = document.getElementById('time');
-                if (!timeSelect) {
-                    console.error('Time select element not found');
-                    return;
-                }
-
-                // Clear existing options
-                timeSelect.innerHTML = '';
-
-                if (data.availableTimes.length === 0) {
-                    console.log('No available times');
-                    // No available times
-                    const option = document.createElement('option');
-                    option.value = '';
-                    option.textContent = 'No available times for this date';
-                    option.disabled = true;
-                    timeSelect.appendChild(option);
-
-                    // Show message
-                    showNoAvailabilityMessage();
-                } else {
-                    console.log('Available times:', data.availableTimes);
-                    // Add available times
-                    const defaultOption = document.createElement('option');
-                    defaultOption.value = '';
-                    defaultOption.textContent = 'Select Time';
-                    timeSelect.appendChild(defaultOption);
-
-                    data.availableTimes.forEach(time => {
-                        const option = document.createElement('option');
-                        option.value = time;
-                        // Format time nicely (e.g., "17:00" -> "5:00 PM")
-                        const [h, m] = time.split(':');
-                        const hour = parseInt(h, 10);
-                        const ampm = hour >= 12 ? 'PM' : 'AM';
-                        const displayHour = hour % 12 || 12;
-                        option.textContent = `${displayHour}:${m} ${ampm}`;
-                        timeSelect.appendChild(option);
-                    });
-
-                    // Hide no availability message if it exists
-                    hideNoAvailabilityMessage();
-                }
+            const timeSelect = document.getElementById('time');
+            if (!timeSelect) {
+                console.error('Time select element not found');
+                return;
             }
 
-            function showNoAvailabilityMessage() {
-                // Remove existing message if any
-                hideNoAvailabilityMessage();
+            // Clear existing options
+            timeSelect.innerHTML = '';
 
-                const message = document.createElement('div');
-                message.id = 'no-availability-message';
-                message.style.cssText = `
+            if (data.availableTimes.length === 0) {
+                console.log('No available times');
+                // No available times
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No available times for this date';
+                option.disabled = true;
+                timeSelect.appendChild(option);
+
+                // Show message
+                showNoAvailabilityMessage();
+            } else {
+                console.log('Available times:', data.availableTimes);
+                // Add available times
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select Time';
+                timeSelect.appendChild(defaultOption);
+
+                data.availableTimes.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    // Format time nicely (e.g., "17:00" -> "5:00 PM")
+                    const [h, m] = time.split(':');
+                    const hour = parseInt(h, 10);
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const displayHour = hour % 12 || 12;
+                    option.textContent = `${displayHour}:${m} ${ampm}`;
+                    timeSelect.appendChild(option);
+                });
+
+                // Hide no availability message if it exists
+                hideNoAvailabilityMessage();
+            }
+        }
+
+        function showNoAvailabilityMessage() {
+            // Remove existing message if any
+            hideNoAvailabilityMessage();
+
+            const message = document.createElement('div');
+            message.id = 'no-availability-message';
+            message.style.cssText = `
                 background: #ffebee;
                 color: #c62828;
                 padding: 1rem;
@@ -674,20 +666,20 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 text-align: center;
                 font-weight: 500;
             `;
-                message.textContent = 'Sorry, no available time slots for this date. Please choose another date.';
+            message.textContent = 'Sorry, no available time slots for this date. Please choose another date.';
 
-                const form = document.getElementById('reservationForm');
-                if (form) {
-                    form.insertBefore(message, form.querySelector('.form-group'));
-                }
+            const form = document.getElementById('reservationForm');
+            if (form) {
+                form.insertBefore(message, form.querySelector('.form-group'));
             }
+        }
 
-            function hideNoAvailabilityMessage() {
-                const message = document.getElementById('no-availability-message');
-                if (message) {
-                    message.remove();
-                }
+        function hideNoAvailabilityMessage() {
+            const message = document.getElementById('no-availability-message');
+            if (message) {
+                message.remove();
             }
+        }
     </script>
 
 </body>
