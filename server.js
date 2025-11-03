@@ -10,7 +10,14 @@ const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe with error handling
+let stripe;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+} else {
+  console.warn('⚠️  STRIPE_SECRET_KEY not set in environment variables. Payment functionality will not work.');
+  stripe = null;
+}
 
 // Additional Security Imports
 const ExpressBrute = require('express-brute');
@@ -290,8 +297,18 @@ app.get('/payment', (req, res) => {
 
 // Stripe configuration endpoint
 app.get('/api/stripe-config', (req, res) => {
+  const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+
+  if (!publishableKey) {
+    console.error('STRIPE_PUBLISHABLE_KEY is not set in environment variables');
+    return res.status(500).json({
+      error: 'Stripe configuration missing. Please contact support.',
+      publishableKey: null
+    });
+  }
+
   res.json({
-    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY
+    publishableKey: publishableKey
   });
 });
 
@@ -1115,6 +1132,12 @@ app.get('/api/available-times', (req, res) => {
 // Stripe Payment Gateway Integration
 app.post('/api/create-payment', async (req, res) => {
   try {
+    // Check if Stripe is initialized
+    if (!stripe) {
+      console.error('Stripe is not initialized - STRIPE_SECRET_KEY missing');
+      return res.status(500).json({ error: 'Payment system not configured. Please contact support.' });
+    }
+
     const { amount, eventId, reservationId, customerEmail, customerName } = req.body;
 
     // Validate required fields
