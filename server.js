@@ -84,18 +84,19 @@ const reservationLimiter = rateLimit({
   }
 });
 
-// Mobile-specific rate limiting (more restrictive for mobile devices)
-const mobileLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 50 : 200, // Lower limits for mobile
-  message: {
-    error: 'Too many requests from mobile device. Please try again later.'
-  },
-  skip: (req) => {
-    const userAgent = req.get('User-Agent') || '';
-    return !/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-  }
-});
+// Mobile-specific rate limiting - REMOVED (too restrictive for legitimate restaurant reservations)
+// Mobile users should have the same access as desktop users
+// const mobileLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: process.env.NODE_ENV === 'production' ? 50 : 200, // Lower limits for mobile
+//   message: {
+//     error: 'Too many requests from mobile device. Please try again later.'
+//   },
+//   skip: (req) => {
+//     const userAgent = req.get('User-Agent') || '';
+//     return !/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+//   }
+// });
 
 // Request Size Limits
 app.use(express.json({ limit: '10mb' })); // Limit JSON payloads to 10MB
@@ -146,7 +147,8 @@ const bruteForce = new ExpressBrute(store, {
 
 // Apply security middleware
 app.use(limiter);
-app.use(mobileLimiter);
+// Mobile limiter removed - mobile users need full access for reservations
+// app.use(mobileLimiter);
 app.use('/api/reservations', reservationLimiter);
 // Temporarily disabled DDoS protection for dev tunnel compatibility
 // app.use(speedLimiter);
