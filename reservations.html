@@ -345,9 +345,16 @@
                 const today = new Date().toISOString().split('T')[0];
                 dateInput.min = today;
 
-                // Check available times when date changes
+                // Debounce availability check to reduce API calls
+                let availabilityCheckTimeout;
                 dateInput.addEventListener('change', function () {
-                    checkAvailableTimes(this.value, 'xix');
+                    clearTimeout(availabilityCheckTimeout);
+                    // Wait 500ms after user stops changing date before checking
+                    availabilityCheckTimeout = setTimeout(() => {
+                        if (this.value) {
+                            checkAvailableTimes(this.value, 'xix');
+                        }
+                    }, 500);
                 });
             }
 
@@ -541,17 +548,71 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             window.open(googleCalendarUrl, '_blank');
         }
 
+        // Cache for availability checks to reduce API calls
+        const availabilityCache = {};
+        const CACHE_DURATION = 60000; // 1 minute cache
+
         async function checkAvailableTimes(date, venue) {
             if (!date) return;
+
+            // Check cache first
+            const cacheKey = `${date}-${venue}`;
+            const cached = availabilityCache[cacheKey];
+            if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+                console.log('Using cached availability data');
+                updateTimeOptions(cached.data);
+                return;
+            }
 
             console.log('Checking available times for:', date, venue);
 
             try {
                 const response = await fetch(`/api/available-times?date=${date}&venue=${venue}`);
+
+                if (!response.ok) {
+                    console.error('Availability check failed:', response.status);
+                    return;
+                }
+
                 const data = await response.json();
+
+                // Cache the result
+                availabilityCache[cacheKey] = {
+                    data: data,
+                    timestamp: Date.now()
+                };
 
                 console.log('Available times response:', data);
 
+                const timeSelect = document.getElementById('time');
+                if (!timeSelect) {
+                    console.error('Time select element not found');
+                    return;
+                }
+
+                // Clear existing options
+                timeSelect.innerHTML = '';
+
+                if (data.availableTimes.length === 0) {
+                    console.log('No available times');
+                    // No available times
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No available times for this date';
+                    option.disabled = true;
+                    timeSelect.appendChild(option);
+
+                    // Show message
+                    showNoAvailabilityMessage();
+                } else {
+                    updateTimeOptions(data);
+                } catch (error) {
+                    console.error('Error checking available times:', error);
+                    // Don't show error to user, just log it
+                }
+            }
+
+        function updateTimeOptions(data) {
                 const timeSelect = document.getElementById('time');
                 if (!timeSelect) {
                     console.error('Time select element not found');
@@ -583,25 +644,27 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                     data.availableTimes.forEach(time => {
                         const option = document.createElement('option');
                         option.value = time;
-                        option.textContent = time;
+                        // Format time nicely (e.g., "17:00" -> "5:00 PM")
+                        const [h, m] = time.split(':');
+                        const hour = parseInt(h, 10);
+                        const ampm = hour >= 12 ? 'PM' : 'AM';
+                        const displayHour = hour % 12 || 12;
+                        option.textContent = `${displayHour}:${m} ${ampm}`;
                         timeSelect.appendChild(option);
                     });
 
                     // Hide no availability message if it exists
                     hideNoAvailabilityMessage();
                 }
-            } catch (error) {
-                console.error('Error checking available times:', error);
             }
-        }
 
-        function showNoAvailabilityMessage() {
-            // Remove existing message if any
-            hideNoAvailabilityMessage();
+            function showNoAvailabilityMessage() {
+                // Remove existing message if any
+                hideNoAvailabilityMessage();
 
-            const message = document.createElement('div');
-            message.id = 'no-availability-message';
-            message.style.cssText = `
+                const message = document.createElement('div');
+                message.id = 'no-availability-message';
+                message.style.cssText = `
                 background: #ffebee;
                 color: #c62828;
                 padding: 1rem;
@@ -611,20 +674,20 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 text-align: center;
                 font-weight: 500;
             `;
-            message.textContent = 'Sorry, no available time slots for this date. Please choose another date.';
+                message.textContent = 'Sorry, no available time slots for this date. Please choose another date.';
 
-            const form = document.getElementById('reservationForm');
-            if (form) {
-                form.insertBefore(message, form.querySelector('.form-group'));
+                const form = document.getElementById('reservationForm');
+                if (form) {
+                    form.insertBefore(message, form.querySelector('.form-group'));
+                }
             }
-        }
 
-        function hideNoAvailabilityMessage() {
-            const message = document.getElementById('no-availability-message');
-            if (message) {
-                message.remove();
+            function hideNoAvailabilityMessage() {
+                const message = document.getElementById('no-availability-message');
+                if (message) {
+                    message.remove();
+                }
             }
-        }
     </script>
 
 </body>

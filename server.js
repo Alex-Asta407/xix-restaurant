@@ -78,7 +78,7 @@ const limiter = rateLimit({
 
 const reservationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: process.env.NODE_ENV === 'production' ? 20 : 100, // Very high limits
+  max: process.env.NODE_ENV === 'production' ? 100 : 500, // Increased for legitimate use (users may try multiple dates/times)
   message: {
     error: 'Too many reservation attempts. Please try again later.'
   }
@@ -1070,6 +1070,7 @@ Reservation made through ${venueName} website.`;
 });
 
 // API endpoint to check available times for a specific date
+// Optimized: Only queries for specific date/venue instead of all reservations
 app.get('/api/available-times', (req, res) => {
   const { date, venue } = req.query;
 
@@ -1085,20 +1086,16 @@ app.get('/api/available-times', (req, res) => {
     '17:00', '18:00', '19:00', '20:00', '21:00'
   ];
 
-  // Get all reservations using the same logic as the reservations endpoint
-  db.all('SELECT * FROM reservations ORDER BY created_at DESC', (err, allReservations) => {
+  // Optimized: Only query reservations for this specific date and venue
+  db.all('SELECT time FROM reservations WHERE date = ? AND venue = ?', [date, detectedVenue], (err, rows) => {
     if (err) {
+      console.error('Database error checking availability:', err);
       res.status(500).json({ error: err.message });
       return;
     }
 
-    // Filter by date and venue in JavaScript
-    const reservations = allReservations.filter(r =>
-      r.date === date && r.venue === detectedVenue
-    );
-
     // Get booked times - filter out null values
-    const bookedTimes = reservations
+    const bookedTimes = rows
       .map(r => r.time)
       .filter(time => time !== null && time !== undefined);
 
@@ -1110,7 +1107,7 @@ app.get('/api/available-times', (req, res) => {
       venue: detectedVenue,
       availableTimes: availableTimes,
       bookedTimes: bookedTimes,
-      totalReservations: reservations.length
+      totalReservations: rows.length
     });
   });
 });
