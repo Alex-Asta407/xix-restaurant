@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Database Viewer - XIX Restaurant</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .db-container {
@@ -13,22 +19,26 @@
             margin: 0 auto;
             padding: 2rem;
         }
+
         .db-header {
             text-align: center;
             margin-bottom: 3rem;
         }
+
         .db-header h1 {
             font-family: 'Gilda Display', serif;
             font-size: 2.5rem;
             color: var(--very-dark-green);
             margin-bottom: 1rem;
         }
+
         .db-actions {
             display: flex;
             gap: 1rem;
             margin-bottom: 2rem;
             flex-wrap: wrap;
         }
+
         .db-btn {
             background: var(--very-dark-green);
             color: var(--white);
@@ -38,16 +48,20 @@
             cursor: pointer;
             font-weight: 500;
         }
+
         .db-btn:hover {
             background: var(--gold);
         }
+
         .db-btn.secondary {
             background: var(--light-gray);
             color: var(--very-dark-green);
         }
+
         .db-btn.secondary:hover {
             background: var(--medium-gray);
         }
+
         .db-table {
             background: var(--white);
             border-radius: 10px;
@@ -55,16 +69,20 @@
             box-shadow: 0 2px 10px rgba(2, 7, 2, 0.1);
             margin-bottom: 2rem;
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.9rem;
         }
-        th, td {
+
+        th,
+        td {
             padding: 0.8rem;
             text-align: left;
             border-bottom: 1px solid var(--light-gray);
         }
+
         th {
             background: var(--light-gray);
             font-weight: 600;
@@ -72,12 +90,14 @@
             position: sticky;
             top: 0;
         }
+
         .db-info {
             background: var(--light-gray);
             padding: 1rem;
             border-radius: 5px;
             margin-bottom: 1rem;
         }
+
         .export-section {
             background: var(--white);
             padding: 1.5rem;
@@ -85,6 +105,7 @@
             box-shadow: 0 2px 10px rgba(2, 7, 2, 0.1);
             margin-bottom: 2rem;
         }
+
         .export-btn {
             background: var(--gold);
             color: var(--white);
@@ -95,9 +116,11 @@
             margin-right: 1rem;
             margin-bottom: 0.5rem;
         }
+
         .export-btn:hover {
             background: #8B6914;
         }
+
         .raw-data {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
@@ -111,6 +134,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="db-container">
         <div class="db-header">
@@ -186,19 +210,19 @@
             try {
                 const response = await fetch('http://localhost:3001/api/reservations');
                 allReservations = await response.json();
-                
+
                 displayReservations(allReservations);
                 updateRecordCount();
             } catch (error) {
                 console.error('Error loading reservations:', error);
-                document.getElementById('dbTableBody').innerHTML = 
+                document.getElementById('dbTableBody').innerHTML =
                     '<tr><td colspan="11" style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading database</td></tr>';
             }
         }
 
         function displayReservations(reservations) {
             const tbody = document.getElementById('dbTableBody');
-            
+
             if (reservations.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 2rem;">No records found</td></tr>';
                 return;
@@ -208,7 +232,7 @@
                 const createdDate = new Date(reservation.created_at).toLocaleString();
                 const reservationDate = new Date(reservation.date).toLocaleDateString();
                 const time = formatTime(reservation.time);
-                
+
                 return `
                     <tr>
                         <td>${reservation.id}</td>
@@ -242,7 +266,7 @@
         function showRawData() {
             const section = document.getElementById('rawDataSection');
             const rawData = document.getElementById('rawData');
-            
+
             if (section.style.display === 'none') {
                 rawData.textContent = JSON.stringify(allReservations, null, 2);
                 section.style.display = 'block';
@@ -318,4 +342,5 @@
         document.addEventListener('DOMContentLoaded', loadReservations);
     </script>
 </body>
+
 </html>

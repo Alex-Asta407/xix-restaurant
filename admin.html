@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XIX Restaurant - Admin Panel</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .admin-container {
@@ -13,22 +19,26 @@
             margin: 0 auto;
             padding: 2rem;
         }
+
         .admin-header {
             text-align: center;
             margin-bottom: 3rem;
         }
+
         .admin-header h1 {
             font-family: 'Gilda Display', serif;
             font-size: 2.5rem;
             color: var(--very-dark-green);
             margin-bottom: 1rem;
         }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
             margin-bottom: 2rem;
         }
+
         .stat-card {
             background: var(--white);
             padding: 1.5rem;
@@ -36,41 +46,50 @@
             text-align: center;
             box-shadow: 0 2px 10px rgba(2, 7, 2, 0.1);
         }
+
         .stat-number {
             font-size: 2rem;
             font-weight: bold;
             color: var(--gold);
         }
+
         .reservations-table {
             background: var(--white);
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 2px 10px rgba(2, 7, 2, 0.1);
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
         }
-        th, td {
+
+        th,
+        td {
             padding: 1rem;
             text-align: left;
             border-bottom: 1px solid var(--light-gray);
         }
+
         th {
             background: var(--light-gray);
             font-weight: 600;
             color: var(--very-dark-green);
         }
+
         .status-badge {
             padding: 0.25rem 0.5rem;
             border-radius: 15px;
             font-size: 0.8rem;
             font-weight: 500;
         }
+
         .status-confirmed {
             background: #d4edda;
             color: #155724;
         }
+
         .refresh-btn {
             background: var(--very-dark-green);
             color: var(--white);
@@ -80,11 +99,13 @@
             cursor: pointer;
             margin-bottom: 1rem;
         }
+
         .refresh-btn:hover {
             background: var(--gold);
         }
     </style>
 </head>
+
 <body>
     <div class="admin-container">
         <div class="admin-header">
@@ -142,19 +163,19 @@
             try {
                 const response = await fetch('http://localhost:3001/api/reservations');
                 const reservations = await response.json();
-                
+
                 displayReservations(reservations);
                 updateStats(reservations);
             } catch (error) {
                 console.error('Error loading reservations:', error);
-                document.getElementById('reservationsTableBody').innerHTML = 
+                document.getElementById('reservationsTableBody').innerHTML =
                     '<tr><td colspan="9" style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading reservations</td></tr>';
             }
         }
 
         function displayReservations(reservations) {
             const tbody = document.getElementById('reservationsTableBody');
-            
+
             if (reservations.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem;">No reservations found</td></tr>';
                 return;
@@ -167,9 +188,9 @@
                     month: 'short',
                     day: 'numeric'
                 });
-                
+
                 const time = formatTime(reservation.time);
-                
+
                 return `
                     <tr>
                         <td>${date}</td>
@@ -189,10 +210,10 @@
         function updateStats(reservations) {
             const today = new Date().toISOString().split('T')[0];
             const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            
+
             const todayReservations = reservations.filter(r => r.date === today).length;
             const thisWeekReservations = reservations.filter(r => r.date >= oneWeekAgo).length;
-            
+
             document.getElementById('totalReservations').textContent = reservations.length;
             document.getElementById('todayReservations').textContent = todayReservations;
             document.getElementById('thisWeekReservations').textContent = thisWeekReservations;
@@ -210,4 +231,5 @@
         document.addEventListener('DOMContentLoaded', loadReservations);
     </script>
 </body>
+
 </html>
