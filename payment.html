@@ -294,19 +294,36 @@
 
         async function initializeStripe() {
             try {
+                // Check if Stripe.js library is loaded
+                if (typeof Stripe === 'undefined') {
+                    console.error('Stripe.js library not loaded. Check if CSP is blocking it.');
+                    throw new Error('Stripe.js library failed to load. Please check browser console.');
+                }
+
                 // Get publishable key from server
                 const response = await fetch('/api/stripe-config');
                 if (!response.ok) {
-                    throw new Error('Failed to get Stripe configuration');
+                    throw new Error('Failed to get Stripe configuration: ' + response.status);
                 }
-                const { publishableKey } = await response.json();
+                const data = await response.json();
 
-                if (!publishableKey) {
-                    throw new Error('No publishable key provided');
+                if (!data || !data.publishableKey) {
+                    console.error('Invalid response from server:', data);
+                    throw new Error('No publishable key provided from server');
                 }
+
+                const { publishableKey } = data;
+                console.log('Received publishable key:', publishableKey ? 'Yes (starts with ' + publishableKey.substring(0, 10) + '...)' : 'No');
 
                 stripe = Stripe(publishableKey);
+                if (!stripe) {
+                    throw new Error('Failed to initialize Stripe object');
+                }
+
                 elements = stripe.elements();
+                if (!elements) {
+                    throw new Error('Failed to create Stripe Elements');
+                }
 
                 // Create card element
                 cardElement = elements.create('card', {
@@ -321,15 +338,22 @@
                     },
                 });
 
+                const cardElementDiv = document.getElementById('card-element');
+                if (!cardElementDiv) {
+                    throw new Error('Card element container not found');
+                }
+
                 cardElement.mount('#card-element');
 
                 // Handle real-time validation errors
                 cardElement.on('change', function (event) {
                     const displayError = document.getElementById('card-errors');
-                    if (event.error) {
-                        displayError.textContent = event.error.message;
-                    } else {
-                        displayError.textContent = '';
+                    if (displayError) {
+                        if (event.error) {
+                            displayError.textContent = event.error.message;
+                        } else {
+                            displayError.textContent = '';
+                        }
                     }
                 });
 
@@ -337,7 +361,12 @@
 
             } catch (error) {
                 console.error('Stripe initialization failed:', error);
-                showError('Failed to initialize payment system. Please try again later.');
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    StripeLoaded: typeof Stripe !== 'undefined'
+                });
+                showError('Failed to initialize payment system: ' + error.message);
             }
         }
 
