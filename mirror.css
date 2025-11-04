@@ -434,49 +434,47 @@ body {
     opacity: 0.8;
 }
 
-/* Button Overrides - Match XIX Style: Transparent by default, fill on hover */
+/* Button Overrides - Match base.css exactly (same as menu.html) */
 .btn-primary,
 .btn-secondary {
     padding: 1rem 2rem !important;
+    text-decoration: none !important;
     border-radius: 0 !important;
     font-weight: 400 !important;
-    font-size: 1rem !important;
-    text-decoration: none !important;
+    transition: all 0.4s ease !important;
     display: inline-block !important;
     text-align: center !important;
-    transition: all 0.4s ease !important;
-    border: 2px solid #2d1f15 !important;
 }
 
-/* Desktop: Both buttons transparent by default (like XIX) */
+/* Match base.css button styles exactly */
 .btn-primary {
     background: transparent !important;
-    color: #2d1f15 !important;
-    border-color: #2d1f15 !important;
+    color: var(--very-dark-green, #020702) !important;
+    border: 2px solid var(--very-dark-green, #020702) !important;
 }
 
 .btn-primary:hover,
 .btn-primary:focus {
-    background: #8b7355 !important;
-    color: #f5f2e8 !important;
-    border-color: #8b7355 !important;
+    background: var(--gold, #A8871A) !important;
+    color: var(--white, #FFFFFF) !important;
+    border-color: var(--gold, #A8871A) !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 8px 20px rgba(45, 31, 21, 0.3) !important;
+    box-shadow: 0 8px 20px rgba(2, 7, 2, 0.3) !important;
 }
 
 .btn-secondary {
     background: transparent !important;
-    color: #2d1f15 !important;
-    border-color: #2d1f15 !important;
+    color: var(--very-dark-green, #020702) !important;
+    border: 2px solid var(--very-dark-green, #020702) !important;
 }
 
 .btn-secondary:hover,
 .btn-secondary:focus {
-    background: #8b7355 !important;
-    color: #f5f2e8 !important;
-    border-color: #8b7355 !important;
+    background: var(--gold, #A8871A) !important;
+    color: var(--white, #FFFFFF) !important;
+    border-color: var(--gold, #A8871A) !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 8px 20px rgba(45, 31, 21, 0.3) !important;
+    box-shadow: 0 8px 20px rgba(168, 135, 26, 0.3) !important;
 }
 
 /* Remove shaky transforms on touch devices */
@@ -586,25 +584,25 @@ body {
     border-bottom: none !important;
 }
 
-/* Ensure navigation menu links are simple text links (no button styling) */
+/* Ensure navigation menu links are simple text links (no button styling) - Match menu.html exactly */
 .nav-menu a,
 .navbar .nav-menu a,
 .nav-menu li a {
     text-decoration: none !important;
-    color: var(--very-dark-green, #2d1f15) !important;
+    color: var(--very-dark-green, #020702) !important;
     font-weight: 400 !important;
     background: transparent !important;
     border: none !important;
     display: inline !important;
     transition: color 0.3s ease !important;
     position: relative !important;
-    /* Allow natural padding from navigation.css, but no button borders/backgrounds */
+    /* Match navigation.css exactly - simple text links */
 }
 
 .nav-menu a:hover,
 .navbar .nav-menu a:hover,
 .nav-menu li a:hover {
-    color: var(--gold, #d4a574) !important;
+    color: var(--gold, #A8871A) !important;
     background: transparent !important;
     border: none !important;
     transform: none !important;
@@ -614,18 +612,18 @@ body {
 .nav-menu a.active,
 .navbar .nav-menu a.active,
 .nav-menu li a.active {
-    color: var(--gold, #d4a574) !important;
+    color: var(--gold, #A8871A) !important;
     background: transparent !important;
     border: none !important;
 }
 
 .navbar a {
-    color: var(--very-dark-green, #2d1f15) !important;
+    color: var(--very-dark-green, #020702) !important;
     transition: color 0.3s ease !important;
 }
 
 .navbar a:hover {
-    color: var(--gold, #d4a574) !important;
+    color: var(--gold, #A8871A) !important;
 }
 
 /* Footer Overrides */
