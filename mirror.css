@@ -2189,7 +2189,7 @@ ol {
         flex-direction: column;
         cursor: pointer;
         padding: 0.5rem;
-        z-index: 1001;
+        z-index: 1001 !important;
         background: rgba(255, 255, 255, 0.9);
         border-radius: 8px;
         min-width: 44px;
@@ -2197,6 +2197,8 @@ ol {
         align-items: center;
         justify-content: center;
         transition: all 0.3s ease;
+        pointer-events: auto !important;
+        position: relative !important;
     }
 
     .hamburger span {
@@ -2214,9 +2216,22 @@ ol {
         transform: scale(1.05);
     }
 
+    /* Hamburger active state - animation when clicked */
+    .hamburger.active span:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px) !important;
+    }
+
+    .hamburger.active span:nth-child(2) {
+        opacity: 0 !important;
+    }
+
+    .hamburger.active span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -6px) !important;
+    }
+
     /* Fix mobile menu items visibility */
     .nav-menu {
-        position: fixed;
+        position: fixed !important;
         left: -100%;
         top: 70px;
         flex-direction: column;
@@ -2226,6 +2241,8 @@ ol {
         transition: 0.3s;
         box-shadow: 0 10px 27px rgba(0, 0, 0, 0.05);
         padding: 1rem 0;
+        z-index: 999 !important;
+        pointer-events: auto !important;
     }
 
     .nav-menu.active {
