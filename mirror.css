@@ -2094,9 +2094,16 @@ ol {
         max-height: 450px !important;
         border-radius: 15px !important;
         box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25) !important;
+        transform: scale(1) !important;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         display: block !important;
         position: relative !important;
         overflow: hidden !important;
+    }
+
+    .hero-image:hover {
+        transform: scale(1.02) translateY(-5px) !important;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35) !important;
     }
 
     .hero-img {
@@ -2359,9 +2366,16 @@ ol {
         max-height: 600px !important;
         border-radius: 12px !important;
         box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2) !important;
+        transform: scale(1) !important;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         display: block !important;
         position: relative !important;
         overflow: hidden !important;
+    }
+
+    .hero-image:hover {
+        transform: scale(1.03) translateY(-3px) !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
     }
 
     .hero-img {
@@ -2445,42 +2459,44 @@ ol {
 }
 
 /* Desktop hero-right styling - match XIX layout */
-.hero-right {
-    flex: 0.8 !important;
-    position: relative !important;
-    min-height: 100vh !important;
-    background: transparent !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 2rem !important;
-}
+@media (min-width: 769px) {
+    .hero-right {
+        flex: 0.8 !important;
+        position: relative !important;
+        min-height: 100vh !important;
+        background: transparent !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 2rem !important;
+    }
 
-.hero-image {
-    width: 95% !important;
-    height: 85vh !important;
-    max-width: 600px !important;
-    max-height: 900px !important;
-    min-height: 500px !important;
-    border-radius: 15px !important;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important;
-    display: flex !important;
-    align-items: flex-end !important;
-    justify-content: flex-end !important;
-    position: relative !important;
-    overflow: hidden !important;
-    z-index: 1 !important;
-}
+    .hero-image {
+        width: 95% !important;
+        height: 85vh !important;
+        max-width: 600px !important;
+        max-height: 900px !important;
+        min-height: 500px !important;
+        border-radius: 15px !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important;
+        display: flex !important;
+        align-items: flex-end !important;
+        justify-content: flex-end !important;
+        position: relative !important;
+        overflow: hidden !important;
+        z-index: 1 !important;
+    }
 
-.hero-img {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-    border-radius: 15px !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    z-index: 1 !important;
+    .hero-img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        border-radius: 15px !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 1 !important;
+    }
 }
 
 /* Apply marble background to ALL Mirror page sections */
