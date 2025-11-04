@@ -582,7 +582,39 @@ body {
 .navbar {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255, 192, 203, 0.2);
+    border-bottom: 1px solid rgba(255, 192, 192, 0.2);
+}
+
+/* Ensure navigation menu links are simple text links (no button styling) */
+.nav-menu a,
+.navbar .nav-menu a,
+.nav-menu li a {
+    text-decoration: none !important;
+    color: var(--very-dark-green, #2d1f15) !important;
+    font-weight: 400 !important;
+    background: transparent !important;
+    border: none !important;
+    display: inline !important;
+    transition: color 0.3s ease !important;
+    /* Allow natural padding from navigation.css, but no button borders/backgrounds */
+}
+
+.nav-menu a:hover,
+.navbar .nav-menu a:hover,
+.nav-menu li a:hover {
+    color: var(--gold, #d4a574) !important;
+    background: transparent !important;
+    border: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.nav-menu a.active,
+.navbar .nav-menu a.active,
+.nav-menu li a.active {
+    color: var(--gold, #d4a574) !important;
+    background: transparent !important;
+    border: none !important;
 }
 
 .navbar a {
