@@ -10,14 +10,9 @@ const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
-// Initialize Stripe with error handling
-let stripe;
-if (process.env.STRIPE_SECRET_KEY) {
-  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-} else {
-  console.warn('⚠️  STRIPE_SECRET_KEY not set in environment variables. Payment functionality will not work.');
-  stripe = null;
-}
+
+// Load environment variables FIRST before using them
+dotenv.config();
 
 // Additional Security Imports
 const ExpressBrute = require('express-brute');
@@ -26,7 +21,14 @@ const morgan = require('morgan');
 const csrf = require('csurf');
 const slowDown = require('express-slow-down');
 
-dotenv.config();
+// Initialize Stripe with error handling (AFTER dotenv.config())
+let stripe;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+} else {
+  console.warn('⚠️  STRIPE_SECRET_KEY not set in environment variables. Payment functionality will not work.');
+  stripe = null;
+}
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -292,8 +294,9 @@ app.get('/offline', (req, res) => {
   res.sendFile(__dirname + '/offline.html');
 });
 
+// Payment page route - using Stripe Checkout (hosted page)
 app.get('/payment', (req, res) => {
-  res.sendFile(__dirname + '/payment.html');
+  res.sendFile(__dirname + '/payment-checkout.html');
 });
 
 // Stripe configuration endpoint
@@ -1130,7 +1133,11 @@ app.get('/api/available-times', (req, res) => {
   });
 });
 
-// Stripe Payment Gateway Integration
+// Stripe Payment Gateway Integration - Two Options:
+// 1. Stripe Elements (embedded form) - current implementation
+// 2. Stripe Checkout (hosted page) - alternative implementation
+
+// Option 1: Stripe Elements - Create Payment Intent (current)
 app.post('/api/create-payment', async (req, res) => {
   try {
     // Check if Stripe is initialized
@@ -1189,6 +1196,192 @@ app.post('/api/create-payment', async (req, res) => {
   }
 });
 
+// Option 2: Stripe Checkout - Create Checkout Session (hosted page)
+app.post('/api/create-checkout-session', async (req, res) => {
+  try {
+    // Check if Stripe is initialized
+    if (!stripe) {
+      console.error('Stripe is not initialized - STRIPE_SECRET_KEY missing');
+      return res.status(500).json({ error: 'Payment system not configured. Please contact support.' });
+    }
+
+    const { amount, eventId, reservationId, customerEmail, customerName } = req.body;
+
+    // Validate required fields
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Valid amount is required' });
+    }
+
+    // Get base URL from request
+    const baseUrl = req.protocol + '://' + req.get('host');
+    const successUrl = `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${baseUrl}/payment?amount=${amount}&reservationId=${reservationId || ''}&eventId=${eventId || ''}`;
+
+    // Create Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'gbp',
+            product_data: {
+              name: eventId ? 'Event Booking' : 'Restaurant Reservation',
+              description: `XIX Restaurant - ${eventId ? 'Event' : 'Reservation'} Payment`,
+            },
+            unit_amount: Math.round(amount * 100), // Convert to pence
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      customer_email: customerEmail || undefined,
+      metadata: {
+        eventId: eventId || '',
+        reservationId: reservationId || '',
+        customerName: customerName || '',
+      },
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+
+    // Log checkout session creation
+    logger.info('Checkout session created', {
+      sessionId: session.id,
+      amount: amount,
+      currency: 'gbp',
+      eventId: eventId,
+      reservationId: reservationId,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({
+      sessionId: session.id,
+      url: session.url
+    });
+
+  } catch (error) {
+    console.error('Stripe Checkout creation error:', error);
+    logger.error('Checkout session creation failed', {
+      error: error.message,
+      amount: req.body.amount,
+      eventId: req.body.eventId,
+      timestamp: new Date().toISOString()
+    });
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// Stripe Checkout Success Page - Verify payment and update reservation
+app.get('/payment-success', async (req, res) => {
+  try {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+      return res.status(400).send('Missing session_id parameter');
+    }
+
+    // Retrieve the Checkout Session
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    if (session.payment_status === 'paid') {
+      // Update reservation status in database
+      if (session.metadata.reservationId) {
+        db.run(
+          'UPDATE reservations SET payment_status = "paid", payment_intent_id = ? WHERE id = ?',
+          [session.payment_intent, session.metadata.reservationId],
+          (err) => {
+            if (err) {
+              console.error('Error updating reservation payment status:', err);
+            } else {
+              console.log('Reservation payment status updated');
+            }
+          }
+        );
+      }
+
+      // Log successful payment
+      logger.info('Payment succeeded via Checkout', {
+        sessionId: session.id,
+        paymentIntentId: session.payment_intent,
+        amount: session.amount_total / 100,
+        currency: session.currency,
+        customerEmail: session.customer_email,
+        reservationId: session.metadata.reservationId,
+        timestamp: new Date().toISOString()
+      });
+
+      // Send success page
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Payment Successful - XIX Restaurant</title>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <link rel="stylesheet" href="base.css">
+          <link rel="stylesheet" href="navigation.css">
+          <link rel="stylesheet" href="footer.css">
+          <style>
+            .success-container {
+              max-width: 600px;
+              margin: 4rem auto;
+              padding: 2rem;
+              text-align: center;
+              background: var(--white);
+              border-radius: 12px;
+              box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            }
+            .success-icon {
+              font-size: 4rem;
+              color: #28a745;
+              margin-bottom: 1rem;
+            }
+            .success-message {
+              font-family: 'Gilda Display', serif;
+              font-size: 2rem;
+              color: var(--very-dark-green);
+              margin-bottom: 1rem;
+            }
+            .success-details {
+              color: var(--dark-gray);
+              margin-bottom: 2rem;
+            }
+            .btn-primary {
+              padding: 1rem 2rem;
+              background: var(--gold);
+              color: var(--white);
+              text-decoration: none;
+              border-radius: 8px;
+              display: inline-block;
+            }
+          </style>
+        </head>
+        <body>
+          <nav class="navbar">
+            <div class="nav-container">
+              <div class="nav-logo">
+                <a href="/xix"><h1>XIX</h1></a>
+              </div>
+            </div>
+          </nav>
+          <div class="success-container">
+            <div class="success-icon">✓</div>
+            <h1 class="success-message">Payment Successful!</h1>
+            <p class="success-details">Your reservation has been confirmed. You will receive a confirmation email shortly.</p>
+            <a href="/xix" class="btn-primary">Return to Home</a>
+          </div>
+        </body>
+        </html>
+      `);
+    } else {
+      res.status(400).send('Payment not completed');
+    }
+  } catch (error) {
+    console.error('Error retrieving checkout session:', error);
+    res.status(500).send('Error verifying payment');
+  }
+});
+
 // Webhook endpoint for Stripe events
 app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
@@ -1233,6 +1426,38 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         currency: paymentIntent.currency,
         customerEmail: paymentIntent.metadata.customerEmail,
         reservationId: paymentIntent.metadata.reservationId,
+        timestamp: new Date().toISOString()
+      });
+      break;
+
+    case 'checkout.session.completed':
+      // Handle Stripe Checkout (hosted page) completion
+      const session = event.data.object;
+      console.log('Checkout session completed:', session.id);
+
+      // Update reservation status in database
+      if (session.metadata.reservationId) {
+        db.run(
+          'UPDATE reservations SET payment_status = "paid", payment_intent_id = ? WHERE id = ?',
+          [session.payment_intent, session.metadata.reservationId],
+          (err) => {
+            if (err) {
+              console.error('Error updating reservation payment status:', err);
+            } else {
+              console.log('Reservation payment status updated via Checkout');
+            }
+          }
+        );
+      }
+
+      // Log successful payment via Checkout
+      logger.info('Payment succeeded via Checkout', {
+        sessionId: session.id,
+        paymentIntentId: session.payment_intent,
+        amount: session.amount_total / 100,
+        currency: session.currency,
+        customerEmail: session.customer_email,
+        reservationId: session.metadata.reservationId,
         timestamp: new Date().toISOString()
       });
       break;
