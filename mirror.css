@@ -51,18 +51,7 @@ body {
     opacity: 0.8;
 }
 
-/* Button Text Visibility */
-.btn-primary,
-.btn-secondary,
-.event-btn,
-.private-events-btn,
-.venue-button,
-.hero-buttons a,
-.hero-buttons .btn-primary,
-.hero-buttons .btn-secondary {
-    color: #2d1f15 !important;
-    font-weight: 600 !important;
-}
+/* Button Text Visibility - Removed conflicting rules, using base button styles */
 
 .btn-primary:hover,
 .btn-secondary:hover,
@@ -2029,23 +2018,7 @@ ol {
     color: #2d1f15 !important;
 }
 
-/* Override any green buttons or elements */
-.btn-primary,
-.btn-secondary,
-.btn-submit,
-.submit-button {
-    background: transparent !important;
-    color: #2d1f15 !important;
-    border: 2px solid #2d1f15 !important;
-}
-
-.btn-primary:hover,
-.btn-secondary:hover,
-.btn-submit:hover,
-.submit-button:hover {
-    background: #2d1f15 !important;
-    color: #f5f2e8 !important;
-}
+/* Button styles are defined in Button Overrides section above - removed duplicate */
 
 /* ULTRA-AGGRESSIVE GREEN ELIMINATION */
 /* Removed conflicting universal selector */
@@ -2158,6 +2131,44 @@ textarea,
     .hero-buttons .btn-secondary:active {
         transform: scale(0.98) !important;
         transition: transform 0.1s ease !important;
+    }
+
+    /* Fix hero-right and hero-image on mobile - make image visible */
+    .hero-right {
+        min-height: 400px !important;
+        flex: none !important;
+        padding: 1rem !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
+        z-index: 1 !important;
+        margin-bottom: 2rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .hero-image {
+        width: 100% !important;
+        height: 50vh !important;
+        min-height: 350px !important;
+        max-height: 450px !important;
+        border-radius: 15px !important;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25) !important;
+        display: block !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    .hero-img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        border-radius: 15px !important;
+        display: block !important;
+        position: relative !important;
+        z-index: 10 !important;
     }
 
     /* Mirror Reservations Mobile Styling - Match XIX Structure */
@@ -2387,6 +2398,44 @@ textarea,
         transform: none !important;
     }
 
+    /* Fix hero-right and hero-image on mobile - make image visible */
+    .hero-right {
+        min-height: 300px !important;
+        flex: none !important;
+        padding: 1rem !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
+        z-index: 1 !important;
+        margin-bottom: 2rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .hero-image {
+        width: 100% !important;
+        height: 45vh !important;
+        min-height: 300px !important;
+        max-height: 600px !important;
+        border-radius: 12px !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2) !important;
+        display: block !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    .hero-img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        border-radius: 12px !important;
+        display: block !important;
+        position: relative !important;
+        z-index: 10 !important;
+    }
+
     /* Mirror Reservations Mobile Styling - Match XIX Structure */
     .reservation-form-container {
         padding: 1.5rem 1rem;
@@ -2447,10 +2496,53 @@ textarea,
 /* Override main.css hero backgrounds for Mirror pages */
 .hero {
     background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    display: flex !important;
+    align-items: center !important;
 }
 
 .hero-left {
     background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    flex: 1.2 !important;
+    padding: 4rem 2rem !important;
+}
+
+/* Desktop hero-right styling - match XIX layout */
+.hero-right {
+    flex: 0.8 !important;
+    position: relative !important;
+    min-height: 100vh !important;
+    background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 2rem !important;
+}
+
+.hero-image {
+    width: 95% !important;
+    height: 85vh !important;
+    max-width: 600px !important;
+    max-height: 900px !important;
+    min-height: 500px !important;
+    border-radius: 15px !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: flex-end !important;
+    position: relative !important;
+    overflow: hidden !important;
+    z-index: 1 !important;
+}
+
+.hero-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 15px !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 1 !important;
 }
 
 /* Apply marble background to ALL Mirror page sections */
@@ -2577,48 +2669,7 @@ footer * {
     background-color: transparent !important;
 }
 
-/* Change button colors and remove backgrounds */
-.btn-primary,
-.btn-secondary {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: 2px solid #8b7355 !important;
-    color: #2d1f15 !important;
-    transition: all 0.3s ease !important;
-}
-
-.btn-primary:hover,
-.btn-secondary:hover {
-    background: #8b7355 !important;
-    background-color: #2d1f15 !important;
-    color: #f5f2e8 !important;
-    border-color: #2d1f15 !important;
-}
-
-.hero-buttons {
-    display: flex !important;
-    gap: 1rem !important;
-    flex-wrap: wrap !important;
-}
-
-/* Hero buttons match base button style - transparent by default */
-.hero-buttons .btn-primary,
-.hero-buttons .btn-secondary {
-    background: transparent !important;
-    color: #2d1f15 !important;
-    border-color: #2d1f15 !important;
-}
-
-.hero-buttons .btn-primary:hover,
-.hero-buttons .btn-primary:focus,
-.hero-buttons .btn-secondary:hover,
-.hero-buttons .btn-secondary:focus {
-    background: #8b7355 !important;
-    color: #f5f2e8 !important;
-    border-color: #8b7355 !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 8px 20px rgba(45, 31, 21, 0.3) !important;
-}
+/* Button styles are defined in Button Overrides section above - removed duplicate */
 
 /* Keep hero section background but remove text backgrounds */
 .hero-left {
