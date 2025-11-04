@@ -52,15 +52,7 @@ body {
 }
 
 /* Button Text Visibility - Removed conflicting rules, using base button styles */
-
-.btn-primary:hover,
-.btn-secondary:hover,
-.event-btn:hover,
-.private-events-btn:hover,
-.venue-button:hover {
-    color: #1a0f08 !important;
-    background: rgba(45, 31, 21, 0.1) !important;
-}
+/* Note: Button hover states are now defined in the "Button Overrides" section below */
 
 /* Enhanced Menu Highlights */
 .menu-highlights {
@@ -1403,34 +1395,7 @@ legend {
 }
 
 /* Main Mirror Page Styling */
-/* Override all green backgrounds with marble theme */
-.hero {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
-    position: relative;
-    overflow: hidden;
-}
-
-.hero::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-    opacity: 0.3;
-    z-index: 1;
-}
-
-.hero h1 {
-    color: #2d1f15;
-    text-shadow: none;
-}
-
-.hero p {
-    color: #2d1f15;
-    opacity: 0.8;
-}
+/* REMOVED: Duplicate .hero definition - already defined above */
 
 /* Welcome Section - Cleaned up */
 .welcome-features-section {
@@ -1844,23 +1809,7 @@ body {
 }
 
 /* Apply menu section colors to all Mirror pages */
-.hero {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
-    position: relative;
-    overflow: hidden;
-}
-
-.hero::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-    opacity: 0.3;
-    z-index: 1;
-}
+/* REMOVED: Duplicate .hero definition - already defined above at line 417 */
 
 .hero-left {
     background: transparent !important;
@@ -2033,19 +1982,8 @@ ol {
     background: transparent !important;
 }
 
-/* Override any green buttons or elements */
-button,
-.btn,
-.button,
-input,
-select,
-textarea,
-.btn-primary,
-.btn-secondary {
-    background: transparent !important;
-    color: #2d1f15 !important;
-    border: 2px solid #2d1f15 !important;
-}
+/* Override any green buttons or elements - REMOVED: Too broad, breaks forms */
+/* Specific button styles are defined in "Button Overrides" section above */
 
 /* Mobile Responsive Design for Mirror Pages */
 @media (max-width: 768px) {
@@ -2493,9 +2431,9 @@ textarea,
     }
 }
 
-/* Override main.css hero backgrounds for Mirror pages */
+/* Override main.css hero backgrounds for Mirror pages - Desktop layout */
+/* Note: Base .hero styles are defined above. This adds flex layout for desktop */
 .hero {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
     display: flex !important;
     align-items: center !important;
 }
@@ -2617,17 +2555,8 @@ main {
     background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
 }
 
-/* Override any remaining peach/green backgrounds */
-button,
-.btn,
-.button,
-input,
-select,
-textarea,
-.btn-primary,
-.btn-secondary {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
-}
+/* Override any remaining peach/green backgrounds - REMOVED: Conflicted with transparent button style */
+/* Button styles are properly defined in "Button Overrides" section */
 
 /* Remove backgrounds from hero text and footer text */
 .hero-title,
