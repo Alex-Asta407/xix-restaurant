@@ -443,32 +443,61 @@ body {
     opacity: 0.8;
 }
 
-/* Button Overrides with Menu Colors */
-.btn-primary {
-    background: transparent !important;
+/* Button Overrides with Menu Colors - Improved Design */
+.btn-primary,
+.btn-secondary {
+    padding: 1rem 2.5rem !important;
+    border-radius: 0 !important;
+    font-weight: 500 !important;
+    font-size: 1rem !important;
+    text-decoration: none !important;
+    display: inline-block !important;
+    text-align: center !important;
+    position: relative !important;
+    overflow: hidden !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     border: 2px solid #2d1f15 !important;
-    color: #2d1f15 !important;
-    transition: all 0.3s ease;
+    min-width: 160px !important;
+    box-shadow: none !important;
 }
 
-.btn-primary:hover {
+.btn-primary {
     background: #2d1f15 !important;
     color: #f5f2e8 !important;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    border-color: #2d1f15 !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background: #8b7355 !important;
+    border-color: #8b7355 !important;
+    color: #f5f2e8 !important;
+    transform: none !important;
+    box-shadow: 0 4px 12px rgba(45, 31, 21, 0.2) !important;
 }
 
 .btn-secondary {
     background: transparent !important;
-    border: 2px solid #2d1f15 !important;
     color: #2d1f15 !important;
-    transition: all 0.3s ease;
+    border-color: #2d1f15 !important;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover,
+.btn-secondary:focus {
     background: #2d1f15 !important;
     color: #f5f2e8 !important;
-    transform: translateY(-2px);
+    border-color: #2d1f15 !important;
+    transform: none !important;
+    box-shadow: 0 4px 12px rgba(45, 31, 21, 0.2) !important;
+}
+
+/* Remove shaky transforms on touch devices */
+@media (hover: none) and (pointer: coarse) {
+
+    .btn-primary:hover,
+    .btn-secondary:hover {
+        transform: none !important;
+    }
 }
 
 /* Card Overrides with Menu Colors */
@@ -2051,6 +2080,36 @@ textarea,
         font-size: 2.5rem !important;
     }
 
+    .hero-description {
+        font-size: 1rem !important;
+        margin-bottom: 2rem !important;
+    }
+
+    /* Fix mobile buttons - no shaky transforms */
+    .hero-buttons {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 1rem !important;
+    }
+
+    .hero-buttons .btn-primary,
+    .hero-buttons .btn-secondary {
+        width: 100% !important;
+        padding: 1.2rem 2rem !important;
+        font-size: 1rem !important;
+        min-height: 52px !important;
+        display: block !important;
+        text-align: center !important;
+        transform: none !important;
+        transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
+    }
+
+    .hero-buttons .btn-primary:active,
+    .hero-buttons .btn-secondary:active {
+        transform: scale(0.98) !important;
+        transition: transform 0.1s ease !important;
+    }
+
     /* Mirror Reservations Mobile Styling - Match XIX Structure */
     .form-grid {
         grid-template-columns: 1fr;
@@ -2152,11 +2211,12 @@ textarea,
         border: 1px solid rgba(139, 115, 85, 0.1);
     }
 
-    .nav-menu li a:hover {
+    .nav-menu li a:hover,
+    .nav-menu li a:active {
         background: rgba(212, 165, 116, 0.1) !important;
         color: #d4a574 !important;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: none !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
     }
 
     .welcome-features-section {
@@ -2212,10 +2272,25 @@ textarea,
 
     .hero-title {
         font-size: 2rem !important;
+        margin-bottom: 1rem !important;
     }
 
     .hero-description {
-        font-size: 0.9rem !important;
+        font-size: 0.95rem !important;
+        margin-bottom: 1.5rem !important;
+        line-height: 1.6 !important;
+    }
+
+    /* Improve mobile buttons */
+    .hero-buttons {
+        gap: 0.8rem !important;
+    }
+
+    .hero-buttons .btn-primary,
+    .hero-buttons .btn-secondary {
+        padding: 1rem 1.5rem !important;
+        font-size: 0.95rem !important;
+        min-height: 48px !important;
     }
 
     /* Mirror Reservations Mobile Styling - Match XIX Structure */
@@ -2426,19 +2501,38 @@ footer * {
     border-color: #2d1f15 !important;
 }
 
-.hero-buttons .btn-primary,
-.hero-buttons .btn-secondary {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: 2px solid #8b7355 !important;
-    color: #2d1f15 !important;
+.hero-buttons {
+    display: flex !important;
+    gap: 1rem !important;
+    flex-wrap: wrap !important;
+}
+
+.hero-buttons .btn-primary {
+    background: #2d1f15 !important;
+    color: #f5f2e8 !important;
+    border-color: #2d1f15 !important;
 }
 
 .hero-buttons .btn-primary:hover,
-.hero-buttons .btn-secondary:hover {
+.hero-buttons .btn-primary:focus {
     background: #8b7355 !important;
-    background-color: #2d1f15 !important;
+    border-color: #8b7355 !important;
     color: #f5f2e8 !important;
+    transform: none !important;
+}
+
+.hero-buttons .btn-secondary {
+    background: transparent !important;
+    color: #2d1f15 !important;
+    border-color: #2d1f15 !important;
+}
+
+.hero-buttons .btn-secondary:hover,
+.hero-buttons .btn-secondary:focus {
+    background: #2d1f15 !important;
+    color: #f5f2e8 !important;
+    border-color: #2d1f15 !important;
+    transform: none !important;
 }
 
 /* Keep hero section background but remove text backgrounds */
@@ -2451,16 +2545,7 @@ footer * {
     background-color: transparent !important;
 }
 
-/* Ensure all buttons are fully transparent */
-button,
-.btn,
-.button,
-.btn-primary,
-.btn-secondary {
-    background: transparent !important;
-    background-color: transparent !important;
-    box-shadow: none !important;
-}
+/* Button base styles - removed conflicting transparent override */
 
 /* Remove any remaining white backgrounds from containers */
 .container,
