@@ -625,6 +625,41 @@ app.get('/api/reservations', (req, res) => {
   });
 });
 
+// Get all payments (for admin)
+app.get('/api/payments', (req, res) => {
+  db.all('SELECT * FROM payments ORDER BY created_at DESC', (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
+// Get payments with reservation details (joined query)
+app.get('/api/payments/with-reservations', (req, res) => {
+  db.all(`
+    SELECT 
+      p.*,
+      r.name as reservation_name,
+      r.email as reservation_email,
+      r.phone as reservation_phone,
+      r.date as reservation_date,
+      r.time as reservation_time,
+      r.guests as reservation_guests,
+      r.venue
+    FROM payments p
+    LEFT JOIN reservations r ON p.reservation_id = r.id
+    ORDER BY p.created_at DESC
+  `, (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
 // Get reservations by date
 app.get('/api/reservations/:date', (req, res) => {
   const { date } = req.params;

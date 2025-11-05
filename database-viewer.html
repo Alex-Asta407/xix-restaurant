@@ -62,6 +62,11 @@
             background: var(--medium-gray);
         }
 
+        .db-btn.active {
+            background: var(--gold);
+            color: var(--white);
+        }
+
         .db-table {
             background: var(--white);
             border-radius: 10px;
@@ -139,24 +144,27 @@
     <div class="db-container">
         <div class="db-header">
             <h1>Database Viewer</h1>
-            <p>View and manage the SQLite reservations database</p>
+            <p>View and manage the SQLite database (Reservations & Payments)</p>
         </div>
 
         <div class="db-actions">
-            <button class="db-btn" onclick="loadReservations()">
-                <i class="fas fa-sync-alt"></i> Refresh Data
+            <button class="db-btn" onclick="switchTable('reservations')" id="btnReservations">
+                <i class="fas fa-calendar-alt"></i> Reservations
+            </button>
+            <button class="db-btn" onclick="switchTable('payments')" id="btnPayments">
+                <i class="fas fa-credit-card"></i> Payments
+            </button>
+            <button class="db-btn secondary" onclick="loadCurrentTable()">
+                <i class="fas fa-sync-alt"></i> Refresh
             </button>
             <button class="db-btn secondary" onclick="showRawData()">
                 <i class="fas fa-code"></i> Show Raw Data
-            </button>
-            <button class="db-btn secondary" onclick="clearDatabase()">
-                <i class="fas fa-trash"></i> Clear Database
             </button>
         </div>
 
         <div class="db-info">
             <strong>Database File:</strong> reservations.db<br>
-            <strong>Table:</strong> reservations<br>
+            <strong>Current Table:</strong> <span id="currentTable">reservations</span><br>
             <strong>Records:</strong> <span id="recordCount">-</span>
         </div>
 
@@ -204,47 +212,167 @@
     </div>
 
     <script>
-        let allReservations = [];
+        let allData = [];
+        let currentTable = 'reservations';
 
         async function loadReservations() {
             try {
-                const response = await fetch('http://localhost:3001/api/reservations');
-                allReservations = await response.json();
+                const response = await fetch('/api/reservations');
+                allData = await response.json();
+                currentTable = 'reservations';
 
-                displayReservations(allReservations);
+                displayReservations(allData);
                 updateRecordCount();
+                updateTableInfo('reservations');
             } catch (error) {
                 console.error('Error loading reservations:', error);
                 document.getElementById('dbTableBody').innerHTML =
-                    '<tr><td colspan="11" style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading database</td></tr>';
+                    '<tr><td colspan="11" style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading database: ' + error.message + '</td></tr>';
             }
+        }
+
+        async function loadPayments() {
+            try {
+                const response = await fetch('/api/payments/with-reservations');
+                allData = await response.json();
+                currentTable = 'payments';
+
+                displayPayments(allData);
+                updateRecordCount();
+                updateTableInfo('payments');
+            } catch (error) {
+                console.error('Error loading payments:', error);
+                document.getElementById('dbTableBody').innerHTML =
+                    '<tr><td colspan="12" style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading database: ' + error.message + '</td></tr>';
+            }
+        }
+
+        function switchTable(table) {
+            currentTable = table;
+            if (table === 'reservations') {
+                loadReservations();
+                document.getElementById('btnReservations').classList.add('active');
+                document.getElementById('btnPayments').classList.remove('active');
+            } else {
+                loadPayments();
+                document.getElementById('btnPayments').classList.add('active');
+                document.getElementById('btnReservations').classList.remove('active');
+            }
+        }
+
+        function loadCurrentTable() {
+            if (currentTable === 'reservations') {
+                loadReservations();
+            } else {
+                loadPayments();
+            }
+        }
+
+        function updateTableInfo(table) {
+            document.getElementById('currentTable').textContent = table;
         }
 
         function displayReservations(reservations) {
             const tbody = document.getElementById('dbTableBody');
+            const thead = document.getElementById('tableHead');
+
+            // Update header
+            thead.innerHTML = `
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Guests</th>
+                    <th>Venue</th>
+                    <th>Table</th>
+                    <th>Occasion</th>
+                    <th>Special Requests</th>
+                    <th>Created</th>
+                </tr>
+            `;
 
             if (reservations.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 2rem;">No records found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 2rem;">No reservations found</td></tr>';
                 return;
             }
 
             tbody.innerHTML = reservations.map(reservation => {
                 const createdDate = new Date(reservation.created_at).toLocaleString();
-                const reservationDate = new Date(reservation.date).toLocaleDateString();
+                const dateParts = reservation.date ? reservation.date.split('-') : [];
+                const reservationDate = dateParts.length === 3
+                    ? new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])).toLocaleDateString()
+                    : 'N/A';
                 const time = formatTime(reservation.time);
 
                 return `
                     <tr>
                         <td>${reservation.id}</td>
-                        <td>${reservation.name}</td>
-                        <td>${reservation.email}</td>
-                        <td>${reservation.phone}</td>
+                        <td>${reservation.name || '-'}</td>
+                        <td>${reservation.email || '-'}</td>
+                        <td>${reservation.phone || '-'}</td>
                         <td>${reservationDate}</td>
                         <td>${time}</td>
-                        <td>${reservation.guests}</td>
+                        <td>${reservation.guests || '-'}</td>
+                        <td>${reservation.venue || '-'}</td>
                         <td>${reservation.table_preference || '-'}</td>
                         <td>${reservation.occasion || '-'}</td>
-                        <td>${reservation.special_requests || '-'}</td>
+                        <td>${(reservation.special_requests || '').substring(0, 50)}${reservation.special_requests && reservation.special_requests.length > 50 ? '...' : ''}</td>
+                        <td>${createdDate}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function displayPayments(payments) {
+            const tbody = document.getElementById('dbTableBody');
+            const thead = document.getElementById('tableHead');
+
+            // Update header
+            thead.innerHTML = `
+                <tr>
+                    <th>ID</th>
+                    <th>Reservation ID</th>
+                    <th>Customer Name</th>
+                    <th>Customer Email</th>
+                    <th>Amount</th>
+                    <th>Currency</th>
+                    <th>Status</th>
+                    <th>Event Type</th>
+                    <th>Payment Intent</th>
+                    <th>Stripe Session</th>
+                    <th>Reservation Date</th>
+                    <th>Created</th>
+                </tr>
+            `;
+
+            if (payments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 2rem;">No payments found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = payments.map(payment => {
+                const createdDate = new Date(payment.created_at).toLocaleString();
+                const dateParts = payment.reservation_date ? payment.reservation_date.split('-') : [];
+                const reservationDate = dateParts.length === 3
+                    ? new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])).toLocaleDateString()
+                    : 'N/A';
+
+                return `
+                    <tr>
+                        <td>${payment.id}</td>
+                        <td>${payment.reservation_id || '-'}</td>
+                        <td>${payment.reservation_name || payment.customer_name || '-'}</td>
+                        <td>${payment.reservation_email || payment.customer_email || '-'}</td>
+                        <td>£${parseFloat(payment.amount_paid || 0).toFixed(2)}</td>
+                        <td>${payment.currency || 'GBP'}</td>
+                        <td><strong style="color: ${payment.payment_status === 'paid' ? 'green' : 'orange'}">${payment.payment_status || 'pending'}</strong></td>
+                        <td>${payment.event_type || '-'}</td>
+                        <td style="font-size: 0.8em; font-family: monospace;">${(payment.payment_intent_id || '').substring(0, 20)}...</td>
+                        <td style="font-size: 0.8em; font-family: monospace;">${(payment.stripe_session_id || '').substring(0, 20)}...</td>
+                        <td>${reservationDate}</td>
                         <td>${createdDate}</td>
                     </tr>
                 `;
@@ -252,7 +380,7 @@
         }
 
         function updateRecordCount() {
-            document.getElementById('recordCount').textContent = allReservations.length;
+            document.getElementById('recordCount').textContent = allData.length;
         }
 
         function formatTime(time24) {
@@ -268,7 +396,7 @@
             const rawData = document.getElementById('rawData');
 
             if (section.style.display === 'none') {
-                rawData.textContent = JSON.stringify(allReservations, null, 2);
+                rawData.textContent = JSON.stringify(allData, null, 2);
                 section.style.display = 'block';
             } else {
                 section.style.display = 'none';
@@ -276,40 +404,66 @@
         }
 
         function exportToCSV() {
-            if (allReservations.length === 0) {
+            if (allData.length === 0) {
                 alert('No data to export');
                 return;
             }
 
-            const headers = ['ID', 'Name', 'Email', 'Phone', 'Date', 'Time', 'Guests', 'Table', 'Occasion', 'Special Requests', 'Created'];
-            const csvContent = [
-                headers.join(','),
-                ...allReservations.map(r => [
-                    r.id,
-                    `"${r.name}"`,
-                    `"${r.email}"`,
-                    `"${r.phone}"`,
-                    r.date,
-                    r.time,
-                    r.guests,
-                    `"${r.table_preference || ''}"`,
-                    `"${r.occasion || ''}"`,
-                    `"${r.special_requests || ''}"`,
-                    `"${r.created_at}"`
-                ].join(','))
-            ].join('\n');
+            let headers, csvContent;
+            const filename = currentTable === 'reservations' ? 'reservations.csv' : 'payments.csv';
 
-            downloadFile(csvContent, 'reservations.csv', 'text/csv');
+            if (currentTable === 'reservations') {
+                headers = ['ID', 'Name', 'Email', 'Phone', 'Date', 'Time', 'Guests', 'Venue', 'Table', 'Occasion', 'Special Requests', 'Created'];
+                csvContent = [
+                    headers.join(','),
+                    ...allData.map(r => [
+                        r.id,
+                        `"${r.name || ''}"`,
+                        `"${r.email || ''}"`,
+                        `"${r.phone || ''}"`,
+                        r.date || '',
+                        r.time || '',
+                        r.guests || '',
+                        r.venue || '',
+                        `"${r.table_preference || ''}"`,
+                        `"${r.occasion || ''}"`,
+                        `"${(r.special_requests || '').replace(/"/g, '""')}"`,
+                        `"${r.created_at || ''}"`
+                    ].join(','))
+                ].join('\n');
+            } else {
+                headers = ['ID', 'Reservation ID', 'Customer Name', 'Customer Email', 'Amount', 'Currency', 'Status', 'Event Type', 'Payment Intent', 'Stripe Session', 'Reservation Date', 'Created'];
+                csvContent = [
+                    headers.join(','),
+                    ...allData.map(p => [
+                        p.id,
+                        p.reservation_id || '',
+                        `"${p.reservation_name || p.customer_name || ''}"`,
+                        `"${p.reservation_email || p.customer_email || ''}"`,
+                        p.amount_paid || '0',
+                        p.currency || 'GBP',
+                        p.payment_status || 'pending',
+                        p.event_type || '',
+                        p.payment_intent_id || '',
+                        p.stripe_session_id || '',
+                        p.reservation_date || '',
+                        `"${p.created_at || ''}"`
+                    ].join(','))
+                ].join('\n');
+            }
+
+            downloadFile(csvContent, filename, 'text/csv');
         }
 
         function exportToJSON() {
-            if (allReservations.length === 0) {
+            if (allData.length === 0) {
                 alert('No data to export');
                 return;
             }
 
-            const jsonContent = JSON.stringify(allReservations, null, 2);
-            downloadFile(jsonContent, 'reservations.json', 'application/json');
+            const filename = currentTable === 'reservations' ? 'reservations.json' : 'payments.json';
+            const jsonContent = JSON.stringify(allData, null, 2);
+            downloadFile(jsonContent, filename, 'application/json');
         }
 
         function downloadFile(content, filename, mimeType) {
@@ -339,7 +493,10 @@
         }
 
         // Load data on page load
-        document.addEventListener('DOMContentLoaded', loadReservations);
+        document.addEventListener('DOMContentLoaded', function () {
+            loadReservations();
+            document.getElementById('btnReservations').classList.add('active');
+        });
     </script>
 </body>
 
