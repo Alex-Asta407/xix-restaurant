@@ -356,11 +356,28 @@ const validateName = (name) => {
 };
 
 const validateDate = (date) => {
-  const inputDate = new Date(date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+  if (!date) return false;
 
-  return inputDate >= today;
+  // Parse date string (YYYY-MM-DD format) and compare date-only (ignore time/timezone)
+  const inputDateParts = date.split('-');
+  if (inputDateParts.length !== 3) return false;
+
+  const inputYear = parseInt(inputDateParts[0], 10);
+  const inputMonth = parseInt(inputDateParts[1], 10) - 1; // Month is 0-indexed
+  const inputDay = parseInt(inputDateParts[2], 10);
+
+  // Get today's date in local timezone (date-only, no time)
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+  const todayDay = today.getDate();
+
+  // Create date objects for comparison (date-only, no time)
+  const inputDateOnly = new Date(inputYear, inputMonth, inputDay);
+  const todayDateOnly = new Date(todayYear, todayMonth, todayDay);
+
+  // Compare dates (input date should be today or later)
+  return inputDateOnly >= todayDateOnly;
 };
 
 const validateTime = (time) => {
@@ -650,7 +667,13 @@ app.get('/api/availability/:date', (req, res) => {
   const { venue = 'XIX' } = req.query;
 
   // Get all time slots for the day of week and venue
-  const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
+  // Parse date string (YYYY-MM-DD) to avoid timezone issues
+  const dateParts = date.split('-');
+  const dateYear = parseInt(dateParts[0], 10);
+  const dateMonth = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+  const dateDay = parseInt(dateParts[2], 10);
+  const dateObj = new Date(dateYear, dateMonth, dateDay);
+  const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
 
   // XIX Restaurant time slots (evening dining)
   const xixTimeSlots = {
@@ -912,7 +935,14 @@ app.post('/api/send-reservation-email', async (req, res) => {
       }
     });
 
-    const date = new Date(sanitizedReservation.date).toLocaleDateString('en-US', {
+    // Parse date string (YYYY-MM-DD) to avoid timezone issues
+    const dateParts = sanitizedReservation.date.split('-');
+    const dateYear = parseInt(dateParts[0], 10);
+    const dateMonth = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+    const dateDay = parseInt(dateParts[2], 10);
+    const dateObj = new Date(dateYear, dateMonth, dateDay);
+
+    const date = dateObj.toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
 
@@ -1579,7 +1609,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
                 reservationId,
                 session.payment_intent,
                 amountPaid,
-                session.currency || 'gbp',
+                session.currency || 'gbp', 'usd', 'eur',
                 'paid',
                 eventType,
                 session.customer_email,
@@ -1632,7 +1662,14 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
                 }
               });
 
-              const date = new Date(reservation.date).toLocaleDateString('en-US', {
+              // Parse date string (YYYY-MM-DD) to avoid timezone issues
+              const dateParts = reservation.date.split('-');
+              const dateYear = parseInt(dateParts[0], 10);
+              const dateMonth = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+              const dateDay = parseInt(dateParts[2], 10);
+              const dateObj = new Date(dateYear, dateMonth, dateDay);
+
+              const date = dateObj.toLocaleDateString('en-US', {
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
               });
 

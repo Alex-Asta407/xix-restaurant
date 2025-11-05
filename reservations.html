@@ -521,7 +521,14 @@
                     <p><strong>Name:</strong> ${data.name || 'N/A'}</p>
                     <p><strong>Email:</strong> ${data.email || 'N/A'}</p>
                     <p><strong>Phone:</strong> ${data.phone || 'N/A'}</p>
-                    <p><strong>Date:</strong> ${data.date ? new Date(data.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
+                    <p><strong>Date:</strong> ${data.date ? (() => {
+                    const dateParts = data.date.split('-');
+                    const dateYear = parseInt(dateParts[0], 10);
+                    const dateMonth = parseInt(dateParts[1], 10) - 1;
+                    const dateDay = parseInt(dateParts[2], 10);
+                    const dateObj = new Date(dateYear, dateMonth, dateDay);
+                    return dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                })() : 'N/A'}</p>
                     <p><strong>Time:</strong> ${data.time || 'N/A'}</p>
                     <p><strong>Guests:</strong> ${data.guests || 'N/A'}</p>
                     <p><strong>Table:</strong> ${data.table || 'Any Available'}</p>

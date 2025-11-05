@@ -76,11 +76,28 @@ const validatePhone = (phone) => {
 };
 
 const validateDate = (date) => {
-    const inputDate = new Date(date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+    if (!date) return false;
 
-    return inputDate >= today;
+    // Parse date string (YYYY-MM-DD format) and compare date-only (ignore time/timezone)
+    const inputDateParts = date.split('-');
+    if (inputDateParts.length !== 3) return false;
+
+    const inputYear = parseInt(inputDateParts[0], 10);
+    const inputMonth = parseInt(inputDateParts[1], 10) - 1; // Month is 0-indexed
+    const inputDay = parseInt(inputDateParts[2], 10);
+
+    // Get today's date in local timezone (date-only, no time)
+    const today = new Date();
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth();
+    const todayDay = today.getDate();
+
+    // Create date objects for comparison (date-only, no time)
+    const inputDateOnly = new Date(inputYear, inputMonth, inputDay);
+    const todayDateOnly = new Date(todayYear, todayMonth, todayDay);
+
+    // Compare dates (input date should be today or later)
+    return inputDateOnly >= todayDateOnly;
 };
 
 const validateTime = (time) => {
