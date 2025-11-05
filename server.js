@@ -1878,6 +1878,11 @@ app.get('/admin', (req, res) => {
   res.sendFile(__dirname + '/admin-dashboard.html');
 });
 
+// Database viewer route (without .html extension)
+app.get('/database-viewer', (req, res) => {
+  res.sendFile(__dirname + '/database-viewer.html');
+});
+
 // Serve static files (HTML, CSS, JS, images) - AFTER all explicit routes
 // Disable default index.html serving to allow our explicit routes to work
 app.use(express.static('.', { index: false }));

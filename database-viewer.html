@@ -179,8 +179,8 @@
         </div>
 
         <div class="db-table">
-            <table>
-                <thead>
+            <table id="dataTable">
+                <thead id="tableHead">
                     <tr>
                         <th>ID</th>
                         <th>Name</th>
@@ -189,6 +189,7 @@
                         <th>Date</th>
                         <th>Time</th>
                         <th>Guests</th>
+                        <th>Venue</th>
                         <th>Table</th>
                         <th>Occasion</th>
                         <th>Special Requests</th>
@@ -197,7 +198,7 @@
                 </thead>
                 <tbody id="dbTableBody">
                     <tr>
-                        <td colspan="11" style="text-align: center; padding: 2rem;">
+                        <td colspan="12" style="text-align: center; padding: 2rem;">
                             <i class="fas fa-spinner fa-spin"></i> Loading database...
                         </td>
                     </tr>
@@ -276,6 +277,11 @@
             const tbody = document.getElementById('dbTableBody');
             const thead = document.getElementById('tableHead');
 
+            if (!tbody || !thead) {
+                console.error('Table elements not found');
+                return;
+            }
+
             // Update header
             thead.innerHTML = `
                 <tr>
@@ -329,6 +335,11 @@
         function displayPayments(payments) {
             const tbody = document.getElementById('dbTableBody');
             const thead = document.getElementById('tableHead');
+
+            if (!tbody || !thead) {
+                console.error('Table elements not found');
+                return;
+            }
 
             // Update header
             thead.innerHTML = `
