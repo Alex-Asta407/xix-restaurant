@@ -499,22 +499,40 @@ db.serialize(() => {
     }
   });
 
-  // Add payment-related columns
-  db.run(`ALTER TABLE reservations ADD COLUMN payment_status TEXT DEFAULT 'pending'`, (err) => {
-    if (err && !err.message.includes('duplicate column name')) {
-      console.error('Error adding payment_status column:', err.message);
+  // Create payments table (separate from reservations for better database design)
+  db.run(`CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reservation_id INTEGER NOT NULL,
+    payment_intent_id TEXT NOT NULL UNIQUE,
+    amount_paid DECIMAL(10,2) NOT NULL,
+    currency TEXT DEFAULT 'gbp',
+    payment_status TEXT DEFAULT 'pending',
+    event_type TEXT,
+    customer_email TEXT,
+    customer_name TEXT,
+    stripe_session_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reservation_id) REFERENCES reservations(id)
+  )`, (err) => {
+    if (err) {
+      console.error('Error creating payments table:', err.message);
+    } else {
+      console.log('Payments table created/verified');
     }
   });
 
-  db.run(`ALTER TABLE reservations ADD COLUMN payment_intent_id TEXT`, (err) => {
-    if (err && !err.message.includes('duplicate column name')) {
-      console.error('Error adding payment_intent_id column:', err.message);
+  // Add UNIQUE constraint on payment_intent_id if it doesn't exist
+  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_intent_id ON payments(payment_intent_id)`, (err) => {
+    if (err && !err.message.includes('already exists')) {
+      console.error('Error creating unique index on payment_intent_id:', err.message);
     }
   });
 
-  db.run(`ALTER TABLE reservations ADD COLUMN amount_paid DECIMAL(10,2)`, (err) => {
+  // Add event_type column if it doesn't exist (for existing payments tables)
+  db.run(`ALTER TABLE payments ADD COLUMN event_type TEXT`, (err) => {
     if (err && !err.message.includes('duplicate column name')) {
-      console.error('Error adding amount_paid column:', err.message);
+      console.error('Error adding event_type column to payments:', err.message);
     }
   });
 });
@@ -1284,19 +1302,62 @@ app.get('/payment-success', async (req, res) => {
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
     if (session.payment_status === 'paid') {
-      // Update reservation status in database
+      // Insert payment record into payments table
       if (session.metadata.reservationId) {
-        db.run(
-          'UPDATE reservations SET payment_status = "paid", payment_intent_id = ? WHERE id = ?',
-          [session.payment_intent, session.metadata.reservationId],
-          (err) => {
-            if (err) {
-              console.error('Error updating reservation payment status:', err);
-            } else {
-              console.log('Reservation payment status updated');
-            }
+        const reservationId = session.metadata.reservationId;
+        const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
+        const eventType = session.metadata.eventId ? 'event' : null;
+
+        // Check if payment already exists, then insert or update
+        db.get('SELECT id FROM payments WHERE payment_intent_id = ?', [session.payment_intent], (err, existing) => {
+          if (err) {
+            console.error('Error checking existing payment:', err);
+            return;
           }
-        );
+
+          if (existing) {
+            // Update existing payment
+            db.run(
+              `UPDATE payments SET 
+                payment_status = 'paid',
+                amount_paid = ?,
+                updated_at = CURRENT_TIMESTAMP
+               WHERE payment_intent_id = ?`,
+              [amountPaid, session.payment_intent],
+              (err) => {
+                if (err) {
+                  console.error('Error updating payment record:', err);
+                } else {
+                  console.log('Payment record updated in payments table');
+                }
+              }
+            );
+          } else {
+            // Insert new payment
+            db.run(
+              `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                reservationId,
+                session.payment_intent,
+                amountPaid,
+                session.currency || 'gbp',
+                'paid',
+                eventType,
+                session.customer_email,
+                session.metadata.customerName || '',
+                session.id
+              ],
+              (err) => {
+                if (err) {
+                  console.error('Error saving payment record:', err);
+                } else {
+                  console.log('Payment record saved to payments table');
+                }
+              }
+            );
+          }
+        });
       }
 
       // Log successful payment
@@ -1404,19 +1465,61 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       const paymentIntent = event.data.object;
       console.log('Payment succeeded:', paymentIntent.id);
 
-      // Update reservation status in database
+      // Insert payment record into payments table
       if (paymentIntent.metadata.reservationId) {
-        db.run(
-          'UPDATE reservations SET payment_status = "paid", payment_intent_id = ? WHERE id = ?',
-          [paymentIntent.id, paymentIntent.metadata.reservationId],
-          (err) => {
-            if (err) {
-              console.error('Error updating reservation payment status:', err);
-            } else {
-              console.log('Reservation payment status updated');
-            }
+        const reservationId = paymentIntent.metadata.reservationId;
+        const amountPaid = paymentIntent.amount / 100; // Convert from pence/cents to pounds/dollars
+        const eventType = paymentIntent.metadata.eventId ? 'event' : null;
+
+        // Check if payment already exists, then insert or update
+        db.get('SELECT id FROM payments WHERE payment_intent_id = ?', [paymentIntent.id], (err, existing) => {
+          if (err) {
+            console.error('Error checking existing payment:', err);
+            return;
           }
-        );
+
+          if (existing) {
+            // Update existing payment
+            db.run(
+              `UPDATE payments SET 
+                payment_status = 'paid',
+                amount_paid = ?,
+                updated_at = CURRENT_TIMESTAMP
+               WHERE payment_intent_id = ?`,
+              [amountPaid, paymentIntent.id],
+              (err) => {
+                if (err) {
+                  console.error('Error updating payment record:', err);
+                } else {
+                  console.log('Payment record updated in payments table');
+                }
+              }
+            );
+          } else {
+            // Insert new payment
+            db.run(
+              `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                reservationId,
+                paymentIntent.id,
+                amountPaid,
+                paymentIntent.currency || 'gbp',
+                'paid',
+                eventType,
+                paymentIntent.metadata.customerEmail || '',
+                paymentIntent.metadata.customerName || ''
+              ],
+              (err) => {
+                if (err) {
+                  console.error('Error saving payment record:', err);
+                } else {
+                  console.log('Payment record saved to payments table');
+                }
+              }
+            );
+          }
+        });
       }
 
       // Log successful payment
@@ -1435,16 +1538,206 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       const session = event.data.object;
       console.log('Checkout session completed:', session.id);
 
-      // Update reservation status in database
+      // Update reservation status in database and send confirmation email
       if (session.metadata.reservationId) {
-        db.run(
-          'UPDATE reservations SET payment_status = "paid", payment_intent_id = ? WHERE id = ?',
-          [session.payment_intent, session.metadata.reservationId],
-          (err) => {
+        const reservationId = session.metadata.reservationId;
+
+        // Insert payment record into payments table
+        const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
+        const eventType = session.metadata.eventId ? 'event' : null;
+
+        // Check if payment already exists, then insert or update
+        db.get('SELECT id FROM payments WHERE payment_intent_id = ?', [session.payment_intent], (err, existing) => {
+          if (err) {
+            console.error('Error checking existing payment:', err);
+            return;
+          }
+
+          if (existing) {
+            // Update existing payment
+            db.run(
+              `UPDATE payments SET 
+                payment_status = 'paid',
+                amount_paid = ?,
+                updated_at = CURRENT_TIMESTAMP
+               WHERE payment_intent_id = ?`,
+              [amountPaid, session.payment_intent],
+              (err) => {
+                if (err) {
+                  console.error('Error updating payment record:', err);
+                } else {
+                  console.log('Payment record updated in payments table via Checkout');
+                }
+              }
+            );
+          } else {
+            // Insert new payment
+            db.run(
+              `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                reservationId,
+                session.payment_intent,
+                amountPaid,
+                session.currency || 'gbp',
+                'paid',
+                eventType,
+                session.customer_email,
+                session.metadata.customerName || '',
+                session.id
+              ],
+              (err) => {
+                if (err) {
+                  console.error('Error saving payment record:', err);
+                } else {
+                  console.log('Payment record saved to payments table via Checkout');
+                }
+              }
+            );
+          }
+        });
+
+        // Retrieve reservation data from database to send confirmation email
+        db.get(
+          'SELECT * FROM reservations WHERE id = ?',
+          [reservationId],
+          async (err, reservation) => {
             if (err) {
-              console.error('Error updating reservation payment status:', err);
-            } else {
-              console.log('Reservation payment status updated via Checkout');
+              console.error('Error retrieving reservation for email:', err);
+              logger.error('Failed to retrieve reservation for email', {
+                reservationId: reservationId,
+                error: err.message,
+                timestamp: new Date().toISOString()
+              });
+              return;
+            }
+
+            if (!reservation) {
+              console.error('Reservation not found:', reservationId);
+              return;
+            }
+
+            // Send confirmation email
+            try {
+              const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: 587,
+                secure: false,
+                auth: {
+                  user: process.env.SMTP_USER,
+                  pass: process.env.SMTP_PASS,
+                },
+                tls: {
+                  rejectUnauthorized: false
+                }
+              });
+
+              const date = new Date(reservation.date).toLocaleDateString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+              });
+
+              const time24 = reservation.time || '19:00';
+              const [h, m] = time24.split(':');
+              const hh = parseInt(h, 10);
+              const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
+
+              const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+              const managerEmail = process.env.MANAGER_EMAIL || process.env.SMTP_USER;
+
+              // Determine venue details
+              const isMirror = reservation.venue === 'Mirror' || reservation.venue === 'mirror';
+              const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
+              const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
+              const eventDuration = isMirror ? 8 : 2;
+
+              // Customer confirmation email
+              const customerSubject = `${venueName} Reservation Confirmed - ${date} at ${time12}`;
+              const customerHtml = `
+                <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
+                  <h2 style="font-family: 'Gilda Display', Georgia, serif;">Reservation Confirmed!</h2>
+                  <p>Dear ${reservation.name},</p>
+                  <p>Thank you for your reservation at ${venueName}. We're excited to welcome you!</p>
+                  
+                  <div style="background-color:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
+                    <h3 style="margin-top:0;color:#A8871A;">Reservation Details</h3>
+                    <p><strong>Date:</strong> ${date}</p>
+                    <p><strong>Time:</strong> ${time12}</p>
+                    <p><strong>Number of Guests:</strong> ${reservation.guests}</p>
+                    ${reservation.table_preference ? `<p><strong>Table Preference:</strong> ${reservation.table_preference}</p>` : ''}
+                    ${reservation.occasion ? `<p><strong>Occasion:</strong> ${reservation.occasion}</p>` : ''}
+                    ${reservation.special_requests ? `<p><strong>Special Requests:</strong> ${reservation.special_requests}</p>` : ''}
+                    <p><strong>Location:</strong> ${venueAddress}</p>
+                  </div>
+
+                  <p><strong>Payment Status:</strong> ✅ Paid</p>
+                  
+                  <p>If you need to make any changes to your reservation, please contact us at your earliest convenience.</p>
+                  <p>We look forward to serving you!</p>
+                  <p>Best regards,<br>The ${venueName} Team</p>
+                </div>
+              `;
+
+              // Manager notification email
+              const managerSubject = `New Paid Reservation - ${reservation.name} - ${date} at ${time12}`;
+              const managerHtml = `
+                <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
+                  <h2 style="font-family: 'Gilda Display', Georgia, serif;">New Paid Reservation</h2>
+                  <div style="background-color:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
+                    <h3 style="margin-top:0;color:#A8871A;">Reservation Details</h3>
+                    <p><strong>Name:</strong> ${reservation.name}</p>
+                    <p><strong>Email:</strong> ${reservation.email}</p>
+                    <p><strong>Phone:</strong> ${reservation.phone}</p>
+                    <p><strong>Date:</strong> ${date}</p>
+                    <p><strong>Time:</strong> ${time12}</p>
+                    <p><strong>Number of Guests:</strong> ${reservation.guests}</p>
+                    <p><strong>Venue:</strong> ${venueName}</p>
+                    ${reservation.table_preference ? `<p><strong>Table Preference:</strong> ${reservation.table_preference}</p>` : ''}
+                    ${reservation.occasion ? `<p><strong>Occasion:</strong> ${reservation.occasion}</p>` : ''}
+                    ${reservation.special_requests ? `<p><strong>Special Requests:</strong> ${reservation.special_requests}</p>` : ''}
+                    <p><strong>Payment Status:</strong> ✅ Paid (Stripe Checkout)</p>
+                    <p><strong>Payment Intent ID:</strong> ${session.payment_intent}</p>
+                  </div>
+                </div>
+              `;
+
+              // Send both emails
+              const customerInfo = await transporter.sendMail({
+                from,
+                to: reservation.email || session.customer_email,
+                subject: customerSubject,
+                html: customerHtml
+              });
+              console.log('Confirmation email sent to customer:', customerInfo.messageId);
+
+              const managerInfo = await transporter.sendMail({
+                from,
+                to: managerEmail,
+                subject: managerSubject,
+                html: managerHtml
+              });
+              console.log('Notification email sent to manager:', managerInfo.messageId);
+
+              // Update email status in database
+              db.run(
+                'UPDATE reservations SET email_sent_to_customer = 1, email_sent_to_manager = 1 WHERE id = ?',
+                [reservationId],
+                (err) => {
+                  if (err) {
+                    console.error('Error updating email status:', err);
+                  } else {
+                    console.log('Email status updated for reservation ID:', reservationId);
+                  }
+                }
+              );
+
+            } catch (emailError) {
+              console.error('Error sending confirmation email after payment:', emailError);
+              logger.error('Failed to send confirmation email after payment', {
+                reservationId: reservationId,
+                customerEmail: reservation.email || session.customer_email,
+                error: emailError.message,
+                timestamp: new Date().toISOString()
+              });
             }
           }
         );
