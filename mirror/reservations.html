@@ -458,7 +458,7 @@
                     <p>You will receive a confirmation email shortly.</p>
                     <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
                         <button id="addToCalendar" class="btn-primary">Add to Google Calendar</button>
-                        <button id="backButton" class="btn-secondary" onclick="location.reload();" style="background: #8b7355; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Back</button>
+                        <button id="backButton" class="btn-secondary" style="background: #8b7355; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; pointer-events: auto; z-index: 1001; position: relative;">Back</button>
                     </div>
                 </div>
             `;
@@ -495,6 +495,20 @@
                 addToCalendarBtn.onclick = () => {
                     addToGoogleCalendar(data);
                 };
+            }
+
+            // Add Back button functionality
+            const backButton = document.getElementById('backButton');
+            if (backButton) {
+                backButton.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    location.reload();
+                });
+                // Ensure button is clickable
+                backButton.style.pointerEvents = 'auto';
+                backButton.style.zIndex = '1001';
+                backButton.style.position = 'relative';
             }
 
             // Show modal
