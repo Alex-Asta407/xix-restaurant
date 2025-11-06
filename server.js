@@ -1277,6 +1277,379 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
+// Helper function to send payment confirmation emails
+async function sendPaymentConfirmationEmails(session, reservation) {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+    const managerEmail = process.env.MANAGER_EMAIL || process.env.SMTP_USER;
+    const amountPaid = session.amount_total / 100;
+    const paymentDate = new Date().toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const paymentTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    // Parse reservation date
+    const dateParts = reservation.date.split('-');
+    const dateYear = parseInt(dateParts[0], 10);
+    const dateMonth = parseInt(dateParts[1], 10) - 1;
+    const dateDay = parseInt(dateParts[2], 10);
+    const dateObj = new Date(dateYear, dateMonth, dateDay);
+    const formattedDate = dateObj.toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    const time24 = reservation.time || '19:00';
+    const [h, m] = time24.split(':');
+    const hh = parseInt(h, 10);
+    const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
+
+    // Determine venue details
+    const isMirror = reservation.venue === 'Mirror' || reservation.venue === 'mirror';
+    const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
+    const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
+
+    // Generate invoice number (using session ID)
+    const invoiceNumber = `INV-${session.id.substring(0, 12).toUpperCase()}`;
+
+    // Customer Ticket/Invoice Email
+    const customerSubject = `${venueName} - Payment Confirmation & Invoice #${invoiceNumber}`;
+    const customerHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; color: #020702; line-height: 1.6; }
+          .invoice-container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+          .invoice-header { background: linear-gradient(135deg, #A8871A 0%, #8B6F1A 100%); color: white; padding: 30px; text-align: center; }
+          .invoice-header h1 { font-family: 'Gilda Display', Georgia, serif; margin: 0; font-size: 28px; }
+          .invoice-body { padding: 30px; }
+          .invoice-section { margin-bottom: 25px; }
+          .invoice-section h2 { font-family: 'Gilda Display', Georgia, serif; color: #A8871A; border-bottom: 2px solid #A8871A; padding-bottom: 10px; margin-bottom: 15px; }
+          .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .info-label { font-weight: 600; color: #333; }
+          .info-value { color: #666; }
+          .ticket-box { background: #f8f9fa; border: 2px solid #A8871A; border-radius: 8px; padding: 20px; margin: 20px 0; }
+          .ticket-box h3 { margin-top: 0; color: #A8871A; }
+          .payment-summary { background: #f8f9fa; border-left: 4px solid #A8871A; padding: 20px; margin: 20px 0; }
+          .payment-summary h3 { margin-top: 0; color: #A8871A; }
+          .total-amount { font-size: 24px; font-weight: bold; color: #A8871A; text-align: center; padding: 15px; background: white; border-radius: 8px; margin-top: 15px; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; border-top: 1px solid #eee; margin-top: 30px; }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-container">
+          <div class="invoice-header">
+            <h1>✓ Payment Confirmed</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">Invoice #${invoiceNumber}</p>
+          </div>
+          
+          <div class="invoice-body">
+            <div class="invoice-section">
+              <h2>Reservation Ticket</h2>
+              <div class="ticket-box">
+                <h3>${venueName}</h3>
+                <div class="info-row">
+                  <span class="info-label">Date:</span>
+                  <span class="info-value">${formattedDate}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Time:</span>
+                  <span class="info-value">${time12}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Number of Guests:</span>
+                  <span class="info-value">${reservation.guests}</span>
+                </div>
+                ${reservation.table_preference ? `
+                <div class="info-row">
+                  <span class="info-label">Table Preference:</span>
+                  <span class="info-value">${reservation.table_preference}</span>
+                </div>
+                ` : ''}
+                ${reservation.occasion ? `
+                <div class="info-row">
+                  <span class="info-label">Occasion:</span>
+                  <span class="info-value">${reservation.occasion}</span>
+                </div>
+                ` : ''}
+                ${reservation.event_type ? `
+                <div class="info-row">
+                  <span class="info-label">Event Type:</span>
+                  <span class="info-value">${reservation.event_type}</span>
+                </div>
+                ` : ''}
+                <div class="info-row">
+                  <span class="info-label">Location:</span>
+                  <span class="info-value">${venueAddress}</span>
+                </div>
+                ${reservation.special_requests ? `
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                  <strong>Special Requests:</strong>
+                  <p style="margin: 5px 0 0 0; color: #666;">${reservation.special_requests}</p>
+                </div>
+                ` : ''}
+              </div>
+            </div>
+
+            <div class="invoice-section">
+              <h2>Payment Invoice</h2>
+              <div class="payment-summary">
+                <div class="info-row">
+                  <span class="info-label">Customer Name:</span>
+                  <span class="info-value">${reservation.name}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Customer Email:</span>
+                  <span class="info-value">${reservation.email}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Payment Date:</span>
+                  <span class="info-value">${paymentDate} at ${paymentTime}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Payment Method:</span>
+                  <span class="info-value">Stripe (Card Payment)</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Transaction ID:</span>
+                  <span class="info-value">${session.payment_intent || session.id}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Session ID:</span>
+                  <span class="info-value">${session.id}</span>
+                </div>
+                <div class="total-amount">
+                  Total Paid: £${amountPaid.toFixed(2)}
+                </div>
+                <p style="text-align: center; color: #28a745; font-weight: 600; margin-top: 10px;">
+                  ✓ Payment Status: Confirmed
+                </p>
+              </div>
+            </div>
+
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <strong>Important Information:</strong>
+              <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+                <li>Please arrive 15 minutes before your reservation time</li>
+                <li>This email serves as your confirmation ticket</li>
+                <li>If you need to make changes, please contact us at least 24 hours in advance</li>
+                <li>Keep this email for your records</li>
+              </ul>
+            </div>
+
+            <p style="margin-top: 30px;">Thank you for choosing ${venueName}. We look forward to serving you!</p>
+            <p>Best regards,<br><strong>The ${venueName} Team</strong></p>
+          </div>
+
+          <div class="footer">
+            <p>${venueAddress}</p>
+            <p>For inquiries, please contact: ${managerEmail}</p>
+            <p style="margin-top: 10px; font-size: 10px; color: #999;">This is an automated email. Please do not reply directly to this message.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Manager Notification Email
+    const managerSubject = `💰 New Paid Reservation - ${reservation.name} - ${formattedDate} at ${time12}`;
+    const managerHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; color: #020702; line-height: 1.6; }
+          .notification-container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+          .notification-header { background: #28a745; color: white; padding: 20px; text-align: center; }
+          .notification-header h1 { font-family: 'Gilda Display', Georgia, serif; margin: 0; }
+          .notification-body { padding: 30px; }
+          .info-section { background: #f8f9fa; border-left: 4px solid #A8871A; padding: 20px; margin: 15px 0; border-radius: 4px; }
+          .info-section h3 { margin-top: 0; color: #A8871A; }
+          .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .info-label { font-weight: 600; color: #333; }
+          .info-value { color: #666; }
+          .payment-highlight { background: #d4edda; border: 2px solid #28a745; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }
+          .payment-highlight h3 { margin-top: 0; color: #28a745; }
+          .amount { font-size: 32px; font-weight: bold; color: #28a745; margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="notification-container">
+          <div class="notification-header">
+            <h1>💰 New Paid Reservation</h1>
+            <p style="margin: 10px 0 0 0;">Payment Received Successfully</p>
+          </div>
+          
+          <div class="notification-body">
+            <div class="payment-highlight">
+              <h3>Payment Confirmed</h3>
+              <div class="amount">£${amountPaid.toFixed(2)}</div>
+              <p style="margin: 5px 0;">Transaction ID: ${session.payment_intent || session.id}</p>
+              <p style="margin: 5px 0;">Session ID: ${session.id}</p>
+            </div>
+
+            <div class="info-section">
+              <h3>Customer Information</h3>
+              <div class="info-row">
+                <span class="info-label">Name:</span>
+                <span class="info-value">${reservation.name}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email:</span>
+                <span class="info-value"><a href="mailto:${reservation.email}">${reservation.email}</a></span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Phone:</span>
+                <span class="info-value"><a href="tel:${reservation.phone}">${reservation.phone}</a></span>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <h3>Reservation Details</h3>
+              <div class="info-row">
+                <span class="info-label">Venue:</span>
+                <span class="info-value">${venueName}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Date:</span>
+                <span class="info-value">${formattedDate}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Time:</span>
+                <span class="info-value">${time12}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Number of Guests:</span>
+                <span class="info-value">${reservation.guests}</span>
+              </div>
+              ${reservation.table_preference ? `
+              <div class="info-row">
+                <span class="info-label">Table Preference:</span>
+                <span class="info-value">${reservation.table_preference}</span>
+              </div>
+              ` : ''}
+              ${reservation.occasion ? `
+              <div class="info-row">
+                <span class="info-label">Occasion:</span>
+                <span class="info-value">${reservation.occasion}</span>
+              </div>
+              ` : ''}
+              ${reservation.event_type ? `
+              <div class="info-row">
+                <span class="info-label">Event Type:</span>
+                <span class="info-value">${reservation.event_type}</span>
+              </div>
+              ` : ''}
+              ${reservation.menu_preference ? `
+              <div class="info-row">
+                <span class="info-label">Menu Preference:</span>
+                <span class="info-value">${reservation.menu_preference}</span>
+              </div>
+              ` : ''}
+              ${reservation.entertainment ? `
+              <div class="info-row">
+                <span class="info-label">Entertainment:</span>
+                <span class="info-value">${reservation.entertainment}</span>
+              </div>
+              ` : ''}
+              ${reservation.special_requests ? `
+              <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                <strong>Special Requests:</strong>
+                <p style="margin: 5px 0 0 0; color: #666;">${reservation.special_requests}</p>
+              </div>
+              ` : ''}
+            </div>
+
+            <div class="info-section">
+              <h3>Payment Information</h3>
+              <div class="info-row">
+                <span class="info-label">Amount Paid:</span>
+                <span class="info-value" style="font-weight: bold; color: #28a745;">£${amountPaid.toFixed(2)}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Payment Date:</span>
+                <span class="info-value">${paymentDate} at ${paymentTime}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Payment Method:</span>
+                <span class="info-value">Stripe Checkout</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Invoice Number:</span>
+                <span class="info-value">${invoiceNumber}</span>
+              </div>
+            </div>
+
+            <p style="margin-top: 30px; padding: 15px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px;">
+              <strong>Action Required:</strong> Please prepare for this reservation and ensure all special requests are noted.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Send customer email
+    const customerInfo = await transporter.sendMail({
+      from,
+      to: reservation.email || session.customer_email,
+      subject: customerSubject,
+      html: customerHtml
+    });
+    console.log('✓ Payment confirmation email sent to customer:', customerInfo.messageId);
+
+    // Send manager email
+    const managerInfo = await transporter.sendMail({
+      from,
+      to: managerEmail,
+      subject: managerSubject,
+      html: managerHtml
+    });
+    console.log('✓ Payment notification email sent to manager:', managerInfo.messageId);
+
+    // Update email status in database
+    db.run(
+      'UPDATE reservations SET email_sent_to_customer = 1, email_sent_to_manager = 1 WHERE id = ?',
+      [reservation.id],
+      (err) => {
+        if (err) {
+          console.error('Error updating email status:', err);
+        } else {
+          console.log('✓ Email status updated for reservation ID:', reservation.id);
+        }
+      }
+    );
+
+    return { customerInfo, managerInfo };
+  } catch (error) {
+    console.error('Error sending payment confirmation emails:', error);
+    logger.error('Failed to send payment confirmation emails', {
+      sessionId: session.id,
+      reservationId: reservation.id,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
+}
+
 // Stripe Checkout Success Page - Verify payment and update reservation
 app.get('/payment-success', async (req, res) => {
   try {
@@ -1298,10 +1671,10 @@ app.get('/payment-success', async (req, res) => {
         const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
         // Check if payment already exists, then insert or update
-        db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
+        db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], async (err, existing) => {
           if (err) {
             console.error('Error checking existing payment:', err);
-            return;
+            // Continue anyway to send emails
           }
 
           if (existing) {
@@ -1347,6 +1720,31 @@ app.get('/payment-success', async (req, res) => {
               }
             );
           }
+
+          // Retrieve reservation data and send confirmation emails
+          db.get(
+            'SELECT * FROM reservations WHERE id = ?',
+            [reservationId],
+            async (err, reservation) => {
+              if (err) {
+                console.error('Error retrieving reservation for email:', err);
+                logger.error('Failed to retrieve reservation for email', {
+                  reservationId: reservationId,
+                  error: err.message,
+                  timestamp: new Date().toISOString()
+                });
+              } else if (reservation) {
+                try {
+                  await sendPaymentConfirmationEmails(session, reservation);
+                } catch (emailError) {
+                  console.error('Error sending payment confirmation emails:', emailError);
+                  // Don't fail the request if email fails
+                }
+              } else {
+                console.warn('Reservation not found for ID:', reservationId);
+              }
+            }
+          );
         });
       } else {
         console.warn('Payment success but no reservationId in session metadata:', session.metadata);
@@ -1513,7 +1911,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           }
         });
 
-        // Retrieve reservation data from database to send confirmation email
+        // Retrieve reservation data from database to send confirmation email (Payment Intent webhook)
         db.get(
           'SELECT * FROM reservations WHERE id = ?',
           [reservationId],
@@ -1533,130 +1931,23 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
               return;
             }
 
-            // Send confirmation email
+            // Create a mock session object from payment intent to reuse the same email function
+            const mockSession = {
+              id: paymentIntent.id,
+              payment_intent: paymentIntent.id,
+              amount_total: paymentIntent.amount,
+              currency: paymentIntent.currency || 'gbp',
+              customer_email: paymentIntent.metadata.customerEmail || reservation.email,
+              metadata: paymentIntent.metadata
+            };
+
+            // Send confirmation email using the same function (Payment Intent webhook)
             try {
-              const transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: 587,
-                secure: false,
-                auth: {
-                  user: process.env.SMTP_USER,
-                  pass: process.env.SMTP_PASS,
-                },
-                tls: {
-                  rejectUnauthorized: false
-                }
-              });
-
-              // Parse date string (YYYY-MM-DD) to avoid timezone issues
-              const dateParts = reservation.date.split('-');
-              const dateYear = parseInt(dateParts[0], 10);
-              const dateMonth = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
-              const dateDay = parseInt(dateParts[2], 10);
-              const dateObj = new Date(dateYear, dateMonth, dateDay);
-
-              const date = dateObj.toLocaleDateString('en-US', {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-              });
-
-              const time24 = reservation.time || '19:00';
-              const [h, m] = time24.split(':');
-              const hh = parseInt(h, 10);
-              const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
-
-              const from = process.env.MAIL_FROM || process.env.SMTP_USER;
-              const managerEmail = process.env.MANAGER_EMAIL || process.env.SMTP_USER;
-
-              // Determine venue details
-              const isMirror = reservation.venue === 'Mirror' || reservation.venue === 'mirror';
-              const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
-              const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
-              const amountPaid = paymentIntent.amount / 100;
-
-              // Customer confirmation email
-              const customerSubject = `${venueName} Reservation Confirmed - Payment Received - ${date} at ${time12}`;
-              const customerHtml = `
-                <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
-                  <h2 style="font-family: 'Gilda Display', Georgia, serif;">Reservation Confirmed - Payment Received!</h2>
-                  <p>Dear ${reservation.name},</p>
-                  <p>Thank you for your reservation at ${venueName}. Your payment has been successfully processed!</p>
-                  
-                  <div style="background-color:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
-                    <h3 style="margin-top:0;color:#A8871A;">Reservation Details</h3>
-                    <p><strong>Date:</strong> ${date}</p>
-                    <p><strong>Time:</strong> ${time12}</p>
-                    <p><strong>Number of Guests:</strong> ${reservation.guests}</p>
-                    ${reservation.table_preference ? `<p><strong>Table Preference:</strong> ${reservation.table_preference}</p>` : ''}
-                    ${reservation.occasion ? `<p><strong>Occasion:</strong> ${reservation.occasion}</p>` : ''}
-                    ${reservation.special_requests ? `<p><strong>Special Requests:</strong> ${reservation.special_requests}</p>` : ''}
-                    <p><strong>Location:</strong> ${venueAddress}</p>
-                    <p><strong>Payment Status:</strong> ✅ Paid (£${amountPaid.toFixed(2)})</p>
-                    <p><strong>Payment Intent ID:</strong> ${paymentIntent.id}</p>
-                  </div>
-
-                  <p>If you need to make any changes to your reservation, please contact us at your earliest convenience.</p>
-                  <p>We look forward to serving you!</p>
-                  <p>Best regards,<br>The ${venueName} Team</p>
-                </div>
-              `;
-
-              // Manager notification email
-              const managerSubject = `New Paid Reservation - ${reservation.name} - ${date} at ${time12}`;
-              const managerHtml = `
-                <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
-                  <h2 style="font-family: 'Gilda Display', Georgia, serif;">New Paid Reservation</h2>
-                  <div style="background-color:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
-                    <h3 style="margin-top:0;color:#A8871A;">Reservation Details</h3>
-                    <p><strong>Name:</strong> ${reservation.name}</p>
-                    <p><strong>Email:</strong> ${reservation.email}</p>
-                    <p><strong>Phone:</strong> ${reservation.phone}</p>
-                    <p><strong>Date:</strong> ${date}</p>
-                    <p><strong>Time:</strong> ${time12}</p>
-                    <p><strong>Number of Guests:</strong> ${reservation.guests}</p>
-                    <p><strong>Venue:</strong> ${venueName}</p>
-                    ${reservation.table_preference ? `<p><strong>Table Preference:</strong> ${reservation.table_preference}</p>` : ''}
-                    ${reservation.occasion ? `<p><strong>Occasion:</strong> ${reservation.occasion}</p>` : ''}
-                    ${reservation.special_requests ? `<p><strong>Special Requests:</strong> ${reservation.special_requests}</p>` : ''}
-                    <p><strong>Payment Status:</strong> ✅ Paid (Stripe Payment Intent)</p>
-                    <p><strong>Amount Paid:</strong> £${amountPaid.toFixed(2)}</p>
-                    <p><strong>Payment Intent ID:</strong> ${paymentIntent.id}</p>
-                  </div>
-                </div>
-              `;
-
-              // Send both emails
-              const customerInfo = await transporter.sendMail({
-                from,
-                to: reservation.email || paymentIntent.metadata.customerEmail,
-                subject: customerSubject,
-                html: customerHtml
-              });
-              console.log('Confirmation email sent to customer:', customerInfo.messageId);
-
-              const managerInfo = await transporter.sendMail({
-                from,
-                to: managerEmail,
-                subject: managerSubject,
-                html: managerHtml
-              });
-              console.log('Notification email sent to manager:', managerInfo.messageId);
-
-              // Update email status in database
-              db.run(
-                'UPDATE reservations SET email_sent_to_customer = 1, email_sent_to_manager = 1 WHERE id = ?',
-                [reservationId],
-                (err) => {
-                  if (err) {
-                    console.error('Error updating email status:', err);
-                  } else {
-                    console.log('Email status updated for reservation ID:', reservationId);
-                  }
-                }
-              );
-
+              await sendPaymentConfirmationEmails(mockSession, reservation);
+              console.log('✓ Webhook (Payment Intent): Payment confirmation emails sent successfully');
             } catch (emailError) {
-              console.error('Error sending confirmation email after payment:', emailError);
-              logger.error('Failed to send confirmation email after payment', {
+              console.error('Error sending confirmation email after payment (Payment Intent webhook):', emailError);
+              logger.error('Failed to send confirmation email after payment (Payment Intent webhook)', {
                 reservationId: reservationId,
                 customerEmail: reservation.email || paymentIntent.metadata.customerEmail,
                 error: emailError.message,
@@ -1744,7 +2035,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           }
         });
 
-        // Retrieve reservation data from database to send confirmation email
+        // Retrieve reservation data from database to send confirmation email (webhook backup)
         db.get(
           'SELECT * FROM reservations WHERE id = ?',
           [reservationId],
@@ -1764,129 +2055,13 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
               return;
             }
 
-            // Send confirmation email
+            // Send confirmation email using the same function (webhook backup)
             try {
-              const transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST,
-                port: 587,
-                secure: false,
-                auth: {
-                  user: process.env.SMTP_USER,
-                  pass: process.env.SMTP_PASS,
-                },
-                tls: {
-                  rejectUnauthorized: false
-                }
-              });
-
-              // Parse date string (YYYY-MM-DD) to avoid timezone issues
-              const dateParts = reservation.date.split('-');
-              const dateYear = parseInt(dateParts[0], 10);
-              const dateMonth = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
-              const dateDay = parseInt(dateParts[2], 10);
-              const dateObj = new Date(dateYear, dateMonth, dateDay);
-
-              const date = dateObj.toLocaleDateString('en-US', {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-              });
-
-              const time24 = reservation.time || '19:00';
-              const [h, m] = time24.split(':');
-              const hh = parseInt(h, 10);
-              const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
-
-              const from = process.env.MAIL_FROM || process.env.SMTP_USER;
-              const managerEmail = process.env.MANAGER_EMAIL || process.env.SMTP_USER;
-
-              // Determine venue details
-              const isMirror = reservation.venue === 'Mirror' || reservation.venue === 'mirror';
-              const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
-              const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
-              const eventDuration = isMirror ? 8 : 2;
-
-              // Customer confirmation email
-              const customerSubject = `${venueName} Reservation Confirmed - ${date} at ${time12}`;
-              const customerHtml = `
-                <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
-                  <h2 style="font-family: 'Gilda Display', Georgia, serif;">Reservation Confirmed!</h2>
-                  <p>Dear ${reservation.name},</p>
-                  <p>Thank you for your reservation at ${venueName}. We're excited to welcome you!</p>
-                  
-                  <div style="background-color:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
-                    <h3 style="margin-top:0;color:#A8871A;">Reservation Details</h3>
-                    <p><strong>Date:</strong> ${date}</p>
-                    <p><strong>Time:</strong> ${time12}</p>
-                    <p><strong>Number of Guests:</strong> ${reservation.guests}</p>
-                    ${reservation.table_preference ? `<p><strong>Table Preference:</strong> ${reservation.table_preference}</p>` : ''}
-                    ${reservation.occasion ? `<p><strong>Occasion:</strong> ${reservation.occasion}</p>` : ''}
-                    ${reservation.special_requests ? `<p><strong>Special Requests:</strong> ${reservation.special_requests}</p>` : ''}
-                    <p><strong>Location:</strong> ${venueAddress}</p>
-                  </div>
-
-                  <p><strong>Payment Status:</strong> ✅ Paid</p>
-                  
-                  <p>If you need to make any changes to your reservation, please contact us at your earliest convenience.</p>
-                  <p>We look forward to serving you!</p>
-                  <p>Best regards,<br>The ${venueName} Team</p>
-                </div>
-              `;
-
-              // Manager notification email
-              const managerSubject = `New Paid Reservation - ${reservation.name} - ${date} at ${time12}`;
-              const managerHtml = `
-                <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
-                  <h2 style="font-family: 'Gilda Display', Georgia, serif;">New Paid Reservation</h2>
-                  <div style="background-color:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
-                    <h3 style="margin-top:0;color:#A8871A;">Reservation Details</h3>
-                    <p><strong>Name:</strong> ${reservation.name}</p>
-                    <p><strong>Email:</strong> ${reservation.email}</p>
-                    <p><strong>Phone:</strong> ${reservation.phone}</p>
-                    <p><strong>Date:</strong> ${date}</p>
-                    <p><strong>Time:</strong> ${time12}</p>
-                    <p><strong>Number of Guests:</strong> ${reservation.guests}</p>
-                    <p><strong>Venue:</strong> ${venueName}</p>
-                    ${reservation.table_preference ? `<p><strong>Table Preference:</strong> ${reservation.table_preference}</p>` : ''}
-                    ${reservation.occasion ? `<p><strong>Occasion:</strong> ${reservation.occasion}</p>` : ''}
-                    ${reservation.special_requests ? `<p><strong>Special Requests:</strong> ${reservation.special_requests}</p>` : ''}
-                    <p><strong>Payment Status:</strong> ✅ Paid (Stripe Checkout)</p>
-                    <p><strong>Payment Intent ID:</strong> ${session.payment_intent}</p>
-                  </div>
-                </div>
-              `;
-
-              // Send both emails
-              const customerInfo = await transporter.sendMail({
-                from,
-                to: reservation.email || session.customer_email,
-                subject: customerSubject,
-                html: customerHtml
-              });
-              console.log('Confirmation email sent to customer:', customerInfo.messageId);
-
-              const managerInfo = await transporter.sendMail({
-                from,
-                to: managerEmail,
-                subject: managerSubject,
-                html: managerHtml
-              });
-              console.log('Notification email sent to manager:', managerInfo.messageId);
-
-              // Update email status in database
-              db.run(
-                'UPDATE reservations SET email_sent_to_customer = 1, email_sent_to_manager = 1 WHERE id = ?',
-                [reservationId],
-                (err) => {
-                  if (err) {
-                    console.error('Error updating email status:', err);
-                  } else {
-                    console.log('Email status updated for reservation ID:', reservationId);
-                  }
-                }
-              );
-
+              await sendPaymentConfirmationEmails(session, reservation);
+              console.log('✓ Webhook: Payment confirmation emails sent successfully');
             } catch (emailError) {
-              console.error('Error sending confirmation email after payment:', emailError);
-              logger.error('Failed to send confirmation email after payment', {
+              console.error('Error sending confirmation email after payment (webhook):', emailError);
+              logger.error('Failed to send confirmation email after payment (webhook)', {
                 reservationId: reservationId,
                 customerEmail: reservation.email || session.customer_email,
                 error: emailError.message,
