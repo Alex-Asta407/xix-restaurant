@@ -9,11 +9,27 @@
     <link rel="icon" type="image/png" sizes="32x32" href="photos/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="photos/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="photos/apple-icon-180x180.png">
-    <link rel="stylesheet" href="styles.css">
+    <!-- styles.css removed - not needed, styles are inline -->
     <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        :root {
+            --very-dark-green: #020702;
+            --white: #ffffff;
+            --gold: #A8871A;
+            --light-gray: #f5f5f5;
+            --medium-gray: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Noto Sans', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #fafafa;
+            color: #020702;
+        }
+
         .db-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -218,29 +234,39 @@
 
         async function loadReservations() {
             try {
+                console.log('Loading reservations...');
                 const response = await fetch('/api/reservations');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 allData = await response.json();
                 currentTable = 'reservations';
 
                 displayReservations(allData);
                 updateRecordCount();
                 updateTableInfo('reservations');
+                console.log('Reservations loaded successfully:', allData.length);
             } catch (error) {
                 console.error('Error loading reservations:', error);
                 document.getElementById('dbTableBody').innerHTML =
-                    '<tr><td colspan="11" style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading database: ' + error.message + '</td></tr>';
+                    '<tr><td colspan="12" style="text-align: center; padding: 2rem; color: #e74c3c;">Error loading database: ' + error.message + '</td></tr>';
             }
         }
 
         async function loadPayments() {
             try {
+                console.log('Loading payments...');
                 const response = await fetch('/api/payments/with-reservations');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 allData = await response.json();
                 currentTable = 'payments';
 
                 displayPayments(allData);
                 updateRecordCount();
                 updateTableInfo('payments');
+                console.log('Payments loaded successfully:', allData.length);
             } catch (error) {
                 console.error('Error loading payments:', error);
                 document.getElementById('dbTableBody').innerHTML =
@@ -249,23 +275,31 @@
         }
 
         function switchTable(table) {
+            console.log('Switching to table:', table);
             currentTable = table;
             if (table === 'reservations') {
                 loadReservations();
                 document.getElementById('btnReservations').classList.add('active');
                 document.getElementById('btnPayments').classList.remove('active');
-            } else {
+            } else if (table === 'payments') {
                 loadPayments();
                 document.getElementById('btnPayments').classList.add('active');
                 document.getElementById('btnReservations').classList.remove('active');
+            } else {
+                console.error('Unknown table:', table);
             }
         }
 
         function loadCurrentTable() {
+            console.log('Refreshing current table:', currentTable);
             if (currentTable === 'reservations') {
                 loadReservations();
-            } else {
+            } else if (currentTable === 'payments') {
                 loadPayments();
+            } else {
+                // Default to reservations if unknown
+                currentTable = 'reservations';
+                loadReservations();
             }
         }
 
@@ -403,10 +437,16 @@
         }
 
         function showRawData() {
+            console.log('Toggling raw data display');
             const section = document.getElementById('rawDataSection');
             const rawData = document.getElementById('rawData');
 
-            if (section.style.display === 'none') {
+            if (!section || !rawData) {
+                console.error('Raw data elements not found');
+                return;
+            }
+
+            if (section.style.display === 'none' || section.style.display === '') {
                 rawData.textContent = JSON.stringify(allData, null, 2);
                 section.style.display = 'block';
             } else {
