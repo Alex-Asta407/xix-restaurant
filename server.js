@@ -15,11 +15,8 @@ const DOMPurify = createDOMPurify(window);
 dotenv.config();
 
 // Additional Security Imports
-const ExpressBrute = require('express-brute');
 const winston = require('winston');
 const morgan = require('morgan');
-const csrf = require('csurf');
-const slowDown = require('express-slow-down');
 
 // Initialize Stripe with error handling (AFTER dotenv.config())
 let stripe;
@@ -94,75 +91,9 @@ const reservationLimiter = rateLimit({
   }
 });
 
-// Mobile-specific rate limiting - REMOVED (too restrictive for legitimate restaurant reservations)
-// Mobile users should have the same access as desktop users
-// const mobileLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: process.env.NODE_ENV === 'production' ? 50 : 200, // Lower limits for mobile
-//   message: {
-//     error: 'Too many requests from mobile device. Please try again later.'
-//   },
-//   skip: (req) => {
-//     const userAgent = req.get('User-Agent') || '';
-//     return !/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-//   }
-// });
-
-// Request Size Limits
-app.use(express.json({ limit: '10mb' })); // Limit JSON payloads to 10MB
-app.use(express.urlencoded({ limit: '10mb', extended: true })); // Limit URL-encoded payloads
-
-// DDoS Protection - Slow Down (More lenient for restaurant website)
-const speedLimiter = slowDown({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  delayAfter: 200, // Allow 200 requests per 15 minutes (increased from 50)
-  delayMs: () => 200, // Add 200ms delay per request above delayAfter (reduced from 500ms)
-  maxDelayMs: 5000, // Maximum delay of 5 seconds (reduced from 20 seconds)
-  // Removed onLimitReached as it's deprecated in express-rate-limit v7
-});
-
-// DDoS Protection - Brute Force Protection
-const ExpressBruteStore = ExpressBrute.MemoryStore;
-const store = new ExpressBruteStore();
-
-const bruteForce = new ExpressBrute(store, {
-  freeRetries: 20, // Number of free attempts (increased from 5)
-  minWait: 2 * 60 * 1000, // 2 minutes (reduced from 5 minutes)
-  maxWait: 10 * 60 * 1000, // 10 minutes (reduced from 15 minutes)
-  lifetime: 12 * 60 * 60 * 1000, // 12 hours (reduced from 24 hours)
-  onTooManyRequests: (req, res, next, nextValidRequestDate) => {
-    logger.error('Brute force attack detected', {
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      url: req.url,
-      nextValidRequestDate: nextValidRequestDate,
-      timestamp: new Date().toISOString()
-    });
-    res.status(429).json({
-      error: 'Too many requests. Please try again later.',
-      retryAfter: Math.round((nextValidRequestDate.getTime() - Date.now()) / 1000)
-    });
-  }
-});
-
-// CSRF Protection - DISABLED for mobile compatibility and dev tunnels
-// const csrfProtection = csrf({
-//   cookie: {
-//     httpOnly: true,
-//     secure: process.env.NODE_ENV === 'production',
-//     sameSite: 'strict'
-//   },
-//   ignoreMethods: ['GET', 'HEAD', 'OPTIONS']
-// });
-
 // Apply security middleware
 app.use(limiter);
-// Mobile limiter removed - mobile users need full access for reservations
-// app.use(mobileLimiter);
 app.use('/api/reservations', reservationLimiter);
-// Temporarily disabled DDoS protection for dev tunnel compatibility
-// app.use(speedLimiter);
-// app.use(bruteForce.prevent);
 
 // HTTP Request Logging
 app.use(morgan('combined', {
@@ -231,8 +162,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Request Size Limits
+app.use(express.json({ limit: '10mb' })); // Limit JSON payloads to 10MB
+app.use(express.urlencoded({ limit: '10mb', extended: true })); // Limit URL-encoded payloads
 
 // Serve service worker with proper headers
 app.get('/sw.js', (req, res) => {
@@ -253,10 +185,6 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/landing.html');
 });
 
-// app.get('/landing', (req, res) => {
-//   console.log('LANDING ROUTE HIT - Serving landing.html');
-//   res.sendFile(__dirname + '/landing.html');
-// });
 
 app.get('/xix', (req, res) => {
   res.sendFile(__dirname + '/index.html');
@@ -753,11 +681,6 @@ app.get('/api/availability/:date', (req, res) => {
     });
   });
 });
-
-// CSRF token endpoint - DISABLED for mobile compatibility
-// app.get('/api/csrf-token', csrfProtection, (req, res) => {
-//   res.json({ csrfToken: req.csrfToken() });
-// });
 
 // Security monitoring endpoint (admin only)
 app.get('/api/security/logs', (req, res) => {
@@ -1372,9 +1295,10 @@ app.get('/payment-success', async (req, res) => {
         const reservationId = session.metadata.reservationId;
         const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
         const eventType = session.metadata.eventId ? 'event' : null;
+        const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
         // Check if payment already exists, then insert or update
-        db.get('SELECT id FROM payments WHERE payment_intent_id = ?', [session.payment_intent], (err, existing) => {
+        db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
           if (err) {
             console.error('Error checking existing payment:', err);
             return;
@@ -1387,8 +1311,8 @@ app.get('/payment-success', async (req, res) => {
                 payment_status = 'paid',
                 amount_paid = ?,
                 updated_at = CURRENT_TIMESTAMP
-               WHERE payment_intent_id = ?`,
-              [amountPaid, session.payment_intent],
+               WHERE id = ?`,
+              [amountPaid, existing.id],
               (err) => {
                 if (err) {
                   console.error('Error updating payment record:', err);
@@ -1404,25 +1328,28 @@ app.get('/payment-success', async (req, res) => {
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 reservationId,
-                session.payment_intent,
+                paymentIntentId,
                 amountPaid,
                 session.currency || 'gbp',
                 'paid',
                 eventType,
-                session.customer_email,
+                session.customer_email || '',
                 session.metadata.customerName || '',
                 session.id
               ],
               (err) => {
                 if (err) {
                   console.error('Error saving payment record:', err);
+                  console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
                 } else {
-                  console.log('Payment record saved to payments table');
+                  console.log('Payment record saved to payments table successfully');
                 }
               }
             );
           }
         });
+      } else {
+        console.warn('Payment success but no reservationId in session metadata:', session.metadata);
       }
 
       // Log successful payment
@@ -1530,7 +1457,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       const paymentIntent = event.data.object;
       console.log('Payment succeeded:', paymentIntent.id);
 
-      // Insert payment record into payments table
+      // Insert payment record into payments table and send confirmation email
       if (paymentIntent.metadata.reservationId) {
         const reservationId = paymentIntent.metadata.reservationId;
         const amountPaid = paymentIntent.amount / 100; // Convert from pence/cents to pounds/dollars
@@ -1585,6 +1512,159 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             );
           }
         });
+
+        // Retrieve reservation data from database to send confirmation email
+        db.get(
+          'SELECT * FROM reservations WHERE id = ?',
+          [reservationId],
+          async (err, reservation) => {
+            if (err) {
+              console.error('Error retrieving reservation for email:', err);
+              logger.error('Failed to retrieve reservation for email', {
+                reservationId: reservationId,
+                error: err.message,
+                timestamp: new Date().toISOString()
+              });
+              return;
+            }
+
+            if (!reservation) {
+              console.error('Reservation not found:', reservationId);
+              return;
+            }
+
+            // Send confirmation email
+            try {
+              const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: 587,
+                secure: false,
+                auth: {
+                  user: process.env.SMTP_USER,
+                  pass: process.env.SMTP_PASS,
+                },
+                tls: {
+                  rejectUnauthorized: false
+                }
+              });
+
+              // Parse date string (YYYY-MM-DD) to avoid timezone issues
+              const dateParts = reservation.date.split('-');
+              const dateYear = parseInt(dateParts[0], 10);
+              const dateMonth = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+              const dateDay = parseInt(dateParts[2], 10);
+              const dateObj = new Date(dateYear, dateMonth, dateDay);
+
+              const date = dateObj.toLocaleDateString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+              });
+
+              const time24 = reservation.time || '19:00';
+              const [h, m] = time24.split(':');
+              const hh = parseInt(h, 10);
+              const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
+
+              const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+              const managerEmail = process.env.MANAGER_EMAIL || process.env.SMTP_USER;
+
+              // Determine venue details
+              const isMirror = reservation.venue === 'Mirror' || reservation.venue === 'mirror';
+              const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
+              const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
+              const amountPaid = paymentIntent.amount / 100;
+
+              // Customer confirmation email
+              const customerSubject = `${venueName} Reservation Confirmed - Payment Received - ${date} at ${time12}`;
+              const customerHtml = `
+                <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
+                  <h2 style="font-family: 'Gilda Display', Georgia, serif;">Reservation Confirmed - Payment Received!</h2>
+                  <p>Dear ${reservation.name},</p>
+                  <p>Thank you for your reservation at ${venueName}. Your payment has been successfully processed!</p>
+                  
+                  <div style="background-color:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
+                    <h3 style="margin-top:0;color:#A8871A;">Reservation Details</h3>
+                    <p><strong>Date:</strong> ${date}</p>
+                    <p><strong>Time:</strong> ${time12}</p>
+                    <p><strong>Number of Guests:</strong> ${reservation.guests}</p>
+                    ${reservation.table_preference ? `<p><strong>Table Preference:</strong> ${reservation.table_preference}</p>` : ''}
+                    ${reservation.occasion ? `<p><strong>Occasion:</strong> ${reservation.occasion}</p>` : ''}
+                    ${reservation.special_requests ? `<p><strong>Special Requests:</strong> ${reservation.special_requests}</p>` : ''}
+                    <p><strong>Location:</strong> ${venueAddress}</p>
+                    <p><strong>Payment Status:</strong> ✅ Paid (£${amountPaid.toFixed(2)})</p>
+                    <p><strong>Payment Intent ID:</strong> ${paymentIntent.id}</p>
+                  </div>
+
+                  <p>If you need to make any changes to your reservation, please contact us at your earliest convenience.</p>
+                  <p>We look forward to serving you!</p>
+                  <p>Best regards,<br>The ${venueName} Team</p>
+                </div>
+              `;
+
+              // Manager notification email
+              const managerSubject = `New Paid Reservation - ${reservation.name} - ${date} at ${time12}`;
+              const managerHtml = `
+                <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
+                  <h2 style="font-family: 'Gilda Display', Georgia, serif;">New Paid Reservation</h2>
+                  <div style="background-color:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;">
+                    <h3 style="margin-top:0;color:#A8871A;">Reservation Details</h3>
+                    <p><strong>Name:</strong> ${reservation.name}</p>
+                    <p><strong>Email:</strong> ${reservation.email}</p>
+                    <p><strong>Phone:</strong> ${reservation.phone}</p>
+                    <p><strong>Date:</strong> ${date}</p>
+                    <p><strong>Time:</strong> ${time12}</p>
+                    <p><strong>Number of Guests:</strong> ${reservation.guests}</p>
+                    <p><strong>Venue:</strong> ${venueName}</p>
+                    ${reservation.table_preference ? `<p><strong>Table Preference:</strong> ${reservation.table_preference}</p>` : ''}
+                    ${reservation.occasion ? `<p><strong>Occasion:</strong> ${reservation.occasion}</p>` : ''}
+                    ${reservation.special_requests ? `<p><strong>Special Requests:</strong> ${reservation.special_requests}</p>` : ''}
+                    <p><strong>Payment Status:</strong> ✅ Paid (Stripe Payment Intent)</p>
+                    <p><strong>Amount Paid:</strong> £${amountPaid.toFixed(2)}</p>
+                    <p><strong>Payment Intent ID:</strong> ${paymentIntent.id}</p>
+                  </div>
+                </div>
+              `;
+
+              // Send both emails
+              const customerInfo = await transporter.sendMail({
+                from,
+                to: reservation.email || paymentIntent.metadata.customerEmail,
+                subject: customerSubject,
+                html: customerHtml
+              });
+              console.log('Confirmation email sent to customer:', customerInfo.messageId);
+
+              const managerInfo = await transporter.sendMail({
+                from,
+                to: managerEmail,
+                subject: managerSubject,
+                html: managerHtml
+              });
+              console.log('Notification email sent to manager:', managerInfo.messageId);
+
+              // Update email status in database
+              db.run(
+                'UPDATE reservations SET email_sent_to_customer = 1, email_sent_to_manager = 1 WHERE id = ?',
+                [reservationId],
+                (err) => {
+                  if (err) {
+                    console.error('Error updating email status:', err);
+                  } else {
+                    console.log('Email status updated for reservation ID:', reservationId);
+                  }
+                }
+              );
+
+            } catch (emailError) {
+              console.error('Error sending confirmation email after payment:', emailError);
+              logger.error('Failed to send confirmation email after payment', {
+                reservationId: reservationId,
+                customerEmail: reservation.email || paymentIntent.metadata.customerEmail,
+                error: emailError.message,
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+        );
       }
 
       // Log successful payment
@@ -1610,9 +1690,10 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         // Insert payment record into payments table
         const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
         const eventType = session.metadata.eventId ? 'event' : null;
+        const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
         // Check if payment already exists, then insert or update
-        db.get('SELECT id FROM payments WHERE payment_intent_id = ?', [session.payment_intent], (err, existing) => {
+        db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
           if (err) {
             console.error('Error checking existing payment:', err);
             return;
@@ -1625,8 +1706,8 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
                 payment_status = 'paid',
                 amount_paid = ?,
                 updated_at = CURRENT_TIMESTAMP
-               WHERE payment_intent_id = ?`,
-              [amountPaid, session.payment_intent],
+               WHERE id = ?`,
+              [amountPaid, existing.id],
               (err) => {
                 if (err) {
                   console.error('Error updating payment record:', err);
@@ -1642,20 +1723,21 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 reservationId,
-                session.payment_intent,
+                paymentIntentId,
                 amountPaid,
-                session.currency || 'gbp', 'usd', 'eur',
+                session.currency || 'gbp',
                 'paid',
                 eventType,
-                session.customer_email,
+                session.customer_email || '',
                 session.metadata.customerName || '',
                 session.id
               ],
               (err) => {
                 if (err) {
                   console.error('Error saving payment record:', err);
+                  console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
                 } else {
-                  console.log('Payment record saved to payments table via Checkout');
+                  console.log('Payment record saved to payments table via Checkout successfully');
                 }
               }
             );
