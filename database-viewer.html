@@ -63,6 +63,15 @@
             border-radius: 5px;
             cursor: pointer;
             font-weight: 500;
+            pointer-events: auto;
+            position: relative;
+            z-index: 10;
+        }
+
+        .db-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
         }
 
         .db-btn:hover {
@@ -276,30 +285,40 @@
 
         function switchTable(table) {
             console.log('Switching to table:', table);
-            currentTable = table;
-            if (table === 'reservations') {
-                loadReservations();
-                document.getElementById('btnReservations').classList.add('active');
-                document.getElementById('btnPayments').classList.remove('active');
-            } else if (table === 'payments') {
-                loadPayments();
-                document.getElementById('btnPayments').classList.add('active');
-                document.getElementById('btnReservations').classList.remove('active');
-            } else {
-                console.error('Unknown table:', table);
+            try {
+                currentTable = table;
+                if (table === 'reservations') {
+                    loadReservations();
+                    document.getElementById('btnReservations').classList.add('active');
+                    document.getElementById('btnPayments').classList.remove('active');
+                } else if (table === 'payments') {
+                    loadPayments();
+                    document.getElementById('btnPayments').classList.add('active');
+                    document.getElementById('btnReservations').classList.remove('active');
+                } else {
+                    console.error('Unknown table:', table);
+                }
+            } catch (error) {
+                console.error('Error switching table:', error);
+                alert('Error switching table: ' + error.message);
             }
         }
 
         function loadCurrentTable() {
             console.log('Refreshing current table:', currentTable);
-            if (currentTable === 'reservations') {
-                loadReservations();
-            } else if (currentTable === 'payments') {
-                loadPayments();
-            } else {
-                // Default to reservations if unknown
-                currentTable = 'reservations';
-                loadReservations();
+            try {
+                if (currentTable === 'reservations') {
+                    loadReservations();
+                } else if (currentTable === 'payments') {
+                    loadPayments();
+                } else {
+                    // Default to reservations if unknown
+                    currentTable = 'reservations';
+                    loadReservations();
+                }
+            } catch (error) {
+                console.error('Error loading current table:', error);
+                alert('Error refreshing table: ' + error.message);
             }
         }
 
@@ -438,83 +457,99 @@
 
         function showRawData() {
             console.log('Toggling raw data display');
-            const section = document.getElementById('rawDataSection');
-            const rawData = document.getElementById('rawData');
+            try {
+                const section = document.getElementById('rawDataSection');
+                const rawData = document.getElementById('rawData');
 
-            if (!section || !rawData) {
-                console.error('Raw data elements not found');
-                return;
-            }
+                if (!section || !rawData) {
+                    console.error('Raw data elements not found');
+                    alert('Raw data elements not found');
+                    return;
+                }
 
-            if (section.style.display === 'none' || section.style.display === '') {
-                rawData.textContent = JSON.stringify(allData, null, 2);
-                section.style.display = 'block';
-            } else {
-                section.style.display = 'none';
+                if (section.style.display === 'none' || section.style.display === '') {
+                    rawData.textContent = JSON.stringify(allData, null, 2);
+                    section.style.display = 'block';
+                } else {
+                    section.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error showing raw data:', error);
+                alert('Error showing raw data: ' + error.message);
             }
         }
 
         function exportToCSV() {
-            if (allData.length === 0) {
-                alert('No data to export');
-                return;
+            try {
+                if (allData.length === 0) {
+                    alert('No data to export');
+                    return;
+                }
+
+                let headers, csvContent;
+                const filename = currentTable === 'reservations' ? 'reservations.csv' : 'payments.csv';
+
+                if (currentTable === 'reservations') {
+                    headers = ['ID', 'Name', 'Email', 'Phone', 'Date', 'Time', 'Guests', 'Venue', 'Table', 'Occasion', 'Special Requests', 'Created'];
+                    csvContent = [
+                        headers.join(','),
+                        ...allData.map(r => [
+                            r.id,
+                            `"${r.name || ''}"`,
+                            `"${r.email || ''}"`,
+                            `"${r.phone || ''}"`,
+                            r.date || '',
+                            r.time || '',
+                            r.guests || '',
+                            r.venue || '',
+                            `"${r.table_preference || ''}"`,
+                            `"${r.occasion || ''}"`,
+                            `"${(r.special_requests || '').replace(/"/g, '""')}"`,
+                            `"${r.created_at || ''}"`
+                        ].join(','))
+                    ].join('\n');
+                } else {
+                    headers = ['ID', 'Reservation ID', 'Customer Name', 'Customer Email', 'Amount', 'Currency', 'Status', 'Event Type', 'Payment Intent', 'Stripe Session', 'Reservation Date', 'Created'];
+                    csvContent = [
+                        headers.join(','),
+                        ...allData.map(p => [
+                            p.id,
+                            p.reservation_id || '',
+                            `"${p.reservation_name || p.customer_name || ''}"`,
+                            `"${p.reservation_email || p.customer_email || ''}"`,
+                            p.amount_paid || '0',
+                            p.currency || 'GBP',
+                            p.payment_status || 'pending',
+                            p.event_type || '',
+                            p.payment_intent_id || '',
+                            p.stripe_session_id || '',
+                            p.reservation_date || '',
+                            `"${p.created_at || ''}"`
+                        ].join(','))
+                    ].join('\n');
+                }
+
+                downloadFile(csvContent, filename, 'text/csv');
+            } catch (error) {
+                console.error('Error exporting to CSV:', error);
+                alert('Error exporting to CSV: ' + error.message);
             }
-
-            let headers, csvContent;
-            const filename = currentTable === 'reservations' ? 'reservations.csv' : 'payments.csv';
-
-            if (currentTable === 'reservations') {
-                headers = ['ID', 'Name', 'Email', 'Phone', 'Date', 'Time', 'Guests', 'Venue', 'Table', 'Occasion', 'Special Requests', 'Created'];
-                csvContent = [
-                    headers.join(','),
-                    ...allData.map(r => [
-                        r.id,
-                        `"${r.name || ''}"`,
-                        `"${r.email || ''}"`,
-                        `"${r.phone || ''}"`,
-                        r.date || '',
-                        r.time || '',
-                        r.guests || '',
-                        r.venue || '',
-                        `"${r.table_preference || ''}"`,
-                        `"${r.occasion || ''}"`,
-                        `"${(r.special_requests || '').replace(/"/g, '""')}"`,
-                        `"${r.created_at || ''}"`
-                    ].join(','))
-                ].join('\n');
-            } else {
-                headers = ['ID', 'Reservation ID', 'Customer Name', 'Customer Email', 'Amount', 'Currency', 'Status', 'Event Type', 'Payment Intent', 'Stripe Session', 'Reservation Date', 'Created'];
-                csvContent = [
-                    headers.join(','),
-                    ...allData.map(p => [
-                        p.id,
-                        p.reservation_id || '',
-                        `"${p.reservation_name || p.customer_name || ''}"`,
-                        `"${p.reservation_email || p.customer_email || ''}"`,
-                        p.amount_paid || '0',
-                        p.currency || 'GBP',
-                        p.payment_status || 'pending',
-                        p.event_type || '',
-                        p.payment_intent_id || '',
-                        p.stripe_session_id || '',
-                        p.reservation_date || '',
-                        `"${p.created_at || ''}"`
-                    ].join(','))
-                ].join('\n');
-            }
-
-            downloadFile(csvContent, filename, 'text/csv');
         }
 
         function exportToJSON() {
-            if (allData.length === 0) {
-                alert('No data to export');
-                return;
-            }
+            try {
+                if (allData.length === 0) {
+                    alert('No data to export');
+                    return;
+                }
 
-            const filename = currentTable === 'reservations' ? 'reservations.json' : 'payments.json';
-            const jsonContent = JSON.stringify(allData, null, 2);
-            downloadFile(jsonContent, filename, 'application/json');
+                const filename = currentTable === 'reservations' ? 'reservations.json' : 'payments.json';
+                const jsonContent = JSON.stringify(allData, null, 2);
+                downloadFile(jsonContent, filename, 'application/json');
+            } catch (error) {
+                console.error('Error exporting to JSON:', error);
+                alert('Error exporting to JSON: ' + error.message);
+            }
         }
 
         function downloadFile(content, filename, mimeType) {
