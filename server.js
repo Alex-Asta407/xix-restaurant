@@ -1641,8 +1641,8 @@ async function sendPaymentConfirmationEmails(session, reservation) {
   } catch (error) {
     console.error('Error sending payment confirmation emails:', error);
     logger.error('Failed to send payment confirmation emails', {
-      sessionId: session.id,
-      reservationId: reservation.id,
+      sessionId: session?.id || 'unknown',
+      reservationId: reservation?.id || 'unknown',
       error: error.message,
       timestamp: new Date().toISOString()
     });
