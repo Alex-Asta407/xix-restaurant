@@ -1,0 +1,10 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/xixlzmqv/xixapp/
+    - /bin/cp -R * $DEPLOYPATH
+    - /bin/cp -R .env $DEPLOYPATH 2>/dev/null || true
+    - cd $DEPLOYPATH
+    - /bin/npm install --production
+    - /bin/touch $DEPLOYPATH/.restart
+

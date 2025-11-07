@@ -64,7 +64,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net", "https://use.fontawesome.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com", "https://use.fontawesome.com", "data:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", "https://api.stripe.com"],
       frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"]
@@ -1670,67 +1670,76 @@ app.get('/payment-success', async (req, res) => {
         const eventType = session.metadata.eventId ? 'event' : null;
         const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
-        // Save payment to database using Promise wrapper
-        await new Promise((resolve, reject) => {
-          // Check if payment already exists
-          db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
-            if (err) {
-              console.error('Error checking existing payment:', err);
-              reject(err);
-              return;
-            }
+        // Save payment to database using Promise wrapper - MUST complete before continuing
+        try {
+          await new Promise((resolve, reject) => {
+            // Check if payment already exists
+            db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
+              if (err) {
+                console.error('Error checking existing payment:', err);
+                reject(err);
+                return;
+              }
 
-            if (existing) {
-              // Update existing payment
-              db.run(
-                `UPDATE payments SET 
-                  payment_status = 'paid',
-                  amount_paid = ?,
-                  updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?`,
-                [amountPaid, existing.id],
-                (err) => {
-                  if (err) {
-                    console.error('Error updating payment record:', err);
-                    reject(err);
-                  } else {
-                    console.log('✓ Payment record updated in payments table');
-                    resolve();
+              if (existing) {
+                // Update existing payment
+                db.run(
+                  `UPDATE payments SET 
+                    payment_status = 'paid',
+                    amount_paid = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ?`,
+                  [amountPaid, existing.id],
+                  (err) => {
+                    if (err) {
+                      console.error('Error updating payment record:', err);
+                      reject(err);
+                    } else {
+                      console.log('✓ Payment record updated in payments table (ID:', existing.id + ')');
+                      resolve();
+                    }
                   }
-                }
-              );
-            } else {
-              // Insert new payment
-              db.run(
-                `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                  reservationId,
-                  paymentIntentId,
-                  amountPaid,
-                  session.currency || 'gbp',
-                  'paid',
-                  eventType,
-                  session.customer_email || '',
-                  session.metadata.customerName || '',
-                  session.id
-                ],
-                function (err) {
-                  if (err) {
-                    console.error('Error saving payment record:', err);
-                    console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
-                    reject(err);
-                  } else {
-                    console.log('✓ Payment record saved to payments table successfully (ID:', this.lastID + ')');
-                    resolve();
+                );
+              } else {
+                // Insert new payment
+                db.run(
+                  `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [
+                    reservationId,
+                    paymentIntentId,
+                    amountPaid,
+                    session.currency || 'gbp',
+                    'paid',
+                    eventType,
+                    session.customer_email || '',
+                    session.metadata.customerName || '',
+                    session.id
+                  ],
+                  function (err) {
+                    if (err) {
+                      console.error('Error saving payment record:', err);
+                      console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
+                      reject(err);
+                    } else {
+                      console.log('✓ Payment record saved to payments table successfully (ID:', this.lastID + ')');
+                      resolve();
+                    }
                   }
-                }
-              );
-            }
+                );
+              }
+            });
           });
-        }).catch(err => {
-          console.error('Payment save failed, but continuing:', err);
-        });
+        } catch (paymentError) {
+          console.error('Payment save failed:', paymentError);
+          logger.error('Failed to save payment to database', {
+            sessionId: session.id,
+            reservationId: reservationId,
+            error: paymentError.message,
+            timestamp: new Date().toISOString()
+          });
+          // Continue anyway to send emails, but log the error
+        }
 
         // Retrieve reservation data and send confirmation emails
         db.get(
@@ -2145,8 +2154,37 @@ app.get('/admin', (req, res) => {
   res.sendFile(__dirname + '/admin-dashboard.html');
 });
 
-// Database viewer route (without .html extension)
+// Database viewer route (without .html extension) - Protected with password
 app.get('/database-viewer', (req, res) => {
+  const secretKey = req.query.key;
+  const expectedKey = process.env.ADMIN_SECRET_KEY;
+
+  if (secretKey !== expectedKey) {
+    return res.status(403).send(`
+      <html>
+        <head>
+          <title>Access Denied - Database Viewer</title>
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+            .container { max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h1 { color: #d32f2f; margin-bottom: 20px; }
+            p { color: #666; margin-bottom: 30px; }
+            .info { background: #e3f2fd; padding: 15px; border-radius: 5px; margin-top: 20px; color: #1976d2; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🔒 Access Denied</h1>
+            <p>Please provide a valid secret key to access the database viewer.</p>
+            <div class="info">
+              <strong>Usage:</strong> /database-viewer?key=YOUR_ADMIN_SECRET_KEY
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+
   res.sendFile(__dirname + '/database-viewer.html');
 });
 
