@@ -159,7 +159,7 @@
             <p>Restaurant Reservation Management</p>
         </div>
 
-        <button class="refresh-btn" onclick="loadTodayReservations()">
+        <button class="refresh-btn" id="refreshBtn">
             <i class="fas fa-sync-alt"></i> Refresh Today's Reservations
         </button>
 
@@ -288,6 +288,16 @@
             const displayHour = hour % 12 || 12;
             return `${displayHour}:${minutes} ${ampm}`;
         }
+
+        // Set up refresh button
+        document.addEventListener('DOMContentLoaded', function() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    loadTodayReservations();
+                });
+            }
+        });
 
         // Load reservations on page load
         if (secretKey) {

@@ -204,7 +204,7 @@
             </div>
         </div>
 
-        <button class="retry-button" onclick="window.location.reload()">
+        <button class="retry-button" id="retryButton">
             <i class="fas fa-refresh"></i> Try Again
         </button>
     </div>
@@ -216,6 +216,16 @@
                 window.location.href = '/';
             }
         }
+
+        // Set up retry button
+        document.addEventListener('DOMContentLoaded', function() {
+            const retryButton = document.getElementById('retryButton');
+            if (retryButton) {
+                retryButton.addEventListener('click', function() {
+                    window.location.reload();
+                });
+            }
+        });
 
         // Listen for online event
         window.addEventListener('online', checkOnlineStatus);

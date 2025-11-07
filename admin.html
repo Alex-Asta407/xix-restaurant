@@ -113,7 +113,7 @@
             <p>Manage reservations and view customer data</p>
         </div>
 
-        <button class="refresh-btn" onclick="loadReservations()">
+        <button class="refresh-btn" id="refreshBtn">
             <i class="fas fa-sync-alt"></i> Refresh Data
         </button>
 
@@ -227,8 +227,16 @@
             return `${displayHour}:${minutes} ${ampm}`;
         }
 
-        // Load reservations on page load
-        document.addEventListener('DOMContentLoaded', loadReservations);
+        // Set up refresh button and load reservations on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    loadReservations();
+                });
+            }
+            loadReservations();
+        });
     </script>
 </body>
 
