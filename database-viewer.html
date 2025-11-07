@@ -173,16 +173,16 @@
         </div>
 
         <div class="db-actions">
-            <button class="db-btn" onclick="switchTable('reservations')" id="btnReservations">
+            <button class="db-btn" id="btnReservations">
                 <i class="fas fa-calendar-alt"></i> Reservations
             </button>
-            <button class="db-btn" onclick="switchTable('payments')" id="btnPayments">
+            <button class="db-btn" id="btnPayments">
                 <i class="fas fa-credit-card"></i> Payments
             </button>
-            <button class="db-btn secondary" onclick="loadCurrentTable()">
+            <button class="db-btn secondary" id="btnRefresh">
                 <i class="fas fa-sync-alt"></i> Refresh
             </button>
-            <button class="db-btn secondary" onclick="showRawData()">
+            <button class="db-btn secondary" id="btnShowRawData">
                 <i class="fas fa-code"></i> Show Raw Data
             </button>
         </div>
@@ -195,10 +195,10 @@
 
         <div class="export-section">
             <h3>Export Data</h3>
-            <button class="export-btn" onclick="exportToCSV()">
+            <button class="export-btn" id="btnExportCSV">
                 <i class="fas fa-file-csv"></i> Export to CSV
             </button>
-            <button class="export-btn" onclick="exportToJSON()">
+            <button class="export-btn" id="btnExportJSON">
                 <i class="fas fa-file-code"></i> Export to JSON
             </button>
         </div>
@@ -580,8 +580,55 @@
 
         // Load data on page load
         document.addEventListener('DOMContentLoaded', function () {
+            // Set up event listeners for all buttons
+            const btnReservations = document.getElementById('btnReservations');
+            const btnPayments = document.getElementById('btnPayments');
+            const btnRefresh = document.getElementById('btnRefresh');
+            const btnShowRawData = document.getElementById('btnShowRawData');
+            const btnExportCSV = document.getElementById('btnExportCSV');
+            const btnExportJSON = document.getElementById('btnExportJSON');
+
+            if (btnReservations) {
+                btnReservations.addEventListener('click', function () {
+                    switchTable('reservations');
+                });
+            }
+
+            if (btnPayments) {
+                btnPayments.addEventListener('click', function () {
+                    switchTable('payments');
+                });
+            }
+
+            if (btnRefresh) {
+                btnRefresh.addEventListener('click', function () {
+                    loadCurrentTable();
+                });
+            }
+
+            if (btnShowRawData) {
+                btnShowRawData.addEventListener('click', function () {
+                    showRawData();
+                });
+            }
+
+            if (btnExportCSV) {
+                btnExportCSV.addEventListener('click', function () {
+                    exportToCSV();
+                });
+            }
+
+            if (btnExportJSON) {
+                btnExportJSON.addEventListener('click', function () {
+                    exportToJSON();
+                });
+            }
+
+            // Load initial data
             loadReservations();
-            document.getElementById('btnReservations').classList.add('active');
+            if (btnReservations) {
+                btnReservations.classList.add('active');
+            }
         });
     </script>
 </body>
