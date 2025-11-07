@@ -445,9 +445,10 @@ db.serialize(() => {
   });
 
   // Create payments table (separate from reservations for better database design)
+  // Payments are for events and don't require reservations
   db.run(`CREATE TABLE IF NOT EXISTS payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    reservation_id INTEGER NOT NULL,
+    reservation_id INTEGER,
     payment_intent_id TEXT NOT NULL UNIQUE,
     amount_paid DECIMAL(10,2) NOT NULL,
     currency TEXT DEFAULT 'gbp',
@@ -457,13 +458,22 @@ db.serialize(() => {
     customer_name TEXT,
     stripe_session_id TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (reservation_id) REFERENCES reservations(id)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`, (err) => {
     if (err) {
       console.error('Error creating payments table:', err.message);
     } else {
       console.log('Payments table created/verified');
+    }
+  });
+
+  // Remove foreign key constraint if it exists (payments don't require reservations)
+  // SQLite doesn't support DROP CONSTRAINT, so we'll just make reservation_id nullable
+  db.run(`ALTER TABLE payments ADD COLUMN reservation_id INTEGER`, (err) => {
+    // Ignore error if column already exists or constraint doesn't exist
+    if (err && !err.message.includes('duplicate column name')) {
+      // Try to make reservation_id nullable (SQLite doesn't support ALTER COLUMN directly)
+      // The column is already nullable in the new schema, so this is just for existing tables
     }
   });
 
@@ -586,6 +596,73 @@ app.get('/api/payments/with-reservations', (req, res) => {
     }
     res.json(rows);
   });
+});
+
+// Debug endpoint to check payment and reservation data
+app.get('/api/debug/payment-info', async (req, res) => {
+  try {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+      return res.status(400).json({ error: 'Missing session_id parameter' });
+    }
+
+    // Retrieve the Checkout Session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    const reservationId = session.metadata?.reservationId;
+    const paymentIntentId = session.payment_intent || session.id;
+
+    // Check if reservation exists
+    let reservation = null;
+    if (reservationId) {
+      await new Promise((resolve) => {
+        db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], (err, row) => {
+          if (!err) reservation = row;
+          resolve();
+        });
+      });
+    }
+
+    // Check if payment exists
+    let payment = null;
+    await new Promise((resolve) => {
+      db.get('SELECT * FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?',
+        [paymentIntentId, session_id], (err, row) => {
+          if (!err) payment = row;
+          resolve();
+        });
+    });
+
+    res.json({
+      session: {
+        id: session.id,
+        payment_status: session.payment_status,
+        amount_total: session.amount_total,
+        customer_email: session.customer_email,
+        payment_intent: session.payment_intent
+      },
+      metadata: session.metadata,
+      reservationId: reservationId,
+      paymentIntentId: paymentIntentId,
+      reservation: reservation ? {
+        id: reservation.id,
+        name: reservation.name,
+        email: reservation.email,
+        exists: true
+      } : { exists: false, id: reservationId },
+      payment: payment ? {
+        id: payment.id,
+        reservation_id: payment.reservation_id,
+        payment_intent_id: payment.payment_intent_id,
+        stripe_session_id: payment.stripe_session_id,
+        amount_paid: payment.amount_paid,
+        exists: true
+      } : { exists: false }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get reservations by date
@@ -1664,84 +1741,108 @@ app.get('/payment-success', async (req, res) => {
 
     if (session.payment_status === 'paid') {
       // Insert payment record into payments table
-      if (session.metadata.reservationId) {
-        const reservationId = session.metadata.reservationId;
-        const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
-        const eventType = session.metadata.eventId ? 'event' : null;
-        const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
+      // Payments are for events and don't require reservations
+      const reservationId = session.metadata?.reservationId || null; // Optional - can be NULL
+      const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
+      const eventType = session.metadata?.eventId ? 'event' : null;
+      const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
-        // Save payment to database using Promise wrapper - MUST complete before continuing
-        try {
-          await new Promise((resolve, reject) => {
-            // Check if payment already exists
-            db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
-              if (err) {
-                console.error('Error checking existing payment:', err);
-                reject(err);
-                return;
-              }
+      // Save payment to database using Promise wrapper - MUST complete before continuing
+      try {
+        await new Promise((resolve, reject) => {
+          // Check if payment already exists
+          db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
+            if (err) {
+              console.error('Error checking existing payment:', err);
+              reject(err);
+              return;
+            }
 
-              if (existing) {
-                // Update existing payment
-                db.run(
-                  `UPDATE payments SET 
-                    payment_status = 'paid',
-                    amount_paid = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                   WHERE id = ?`,
-                  [amountPaid, existing.id],
-                  (err) => {
-                    if (err) {
-                      console.error('Error updating payment record:', err);
-                      reject(err);
-                    } else {
-                      console.log('✓ Payment record updated in payments table (ID:', existing.id + ')');
-                      resolve();
-                    }
+            if (existing) {
+              // Update existing payment
+              db.run(
+                `UPDATE payments SET 
+                  payment_status = 'paid',
+                  amount_paid = ?,
+                  reservation_id = ?,
+                  updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [amountPaid, reservationId, existing.id],
+                (err) => {
+                  if (err) {
+                    console.error('Error updating payment record:', err);
+                    reject(err);
+                  } else {
+                    console.log('✓ Payment record updated in payments table (ID:', existing.id + ')');
+                    resolve();
                   }
-                );
-              } else {
-                // Insert new payment
-                db.run(
-                  `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                  [
-                    reservationId,
-                    paymentIntentId,
-                    amountPaid,
-                    session.currency || 'gbp',
-                    'paid',
-                    eventType,
-                    session.customer_email || '',
-                    session.metadata.customerName || '',
-                    session.id
-                  ],
-                  function (err) {
-                    if (err) {
-                      console.error('Error saving payment record:', err);
-                      console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
-                      reject(err);
-                    } else {
-                      console.log('✓ Payment record saved to payments table successfully (ID:', this.lastID + ')');
-                      resolve();
-                    }
+                }
+              );
+            } else {
+              // Insert new payment (reservation_id can be NULL for event payments)
+              db.run(
+                `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                  reservationId, // Can be NULL for event payments
+                  paymentIntentId,
+                  amountPaid,
+                  session.currency || 'gbp',
+                  'paid',
+                  eventType,
+                  session.customer_email || '',
+                  session.metadata?.customerName || '',
+                  session.id
+                ],
+                function (err) {
+                  if (err) {
+                    console.error('Error saving payment record:', err);
+                    console.error('Error code:', err.code);
+                    console.error('Error message:', err.message);
+                    console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
+                    // Note: reservation_id can be NULL for event payments, so we don't check reservation existence
+                    reject(err);
+                  } else {
+                    const paymentId = this.lastID;
+                    console.log('✓ Payment record saved to payments table successfully (ID:', paymentId + ')');
+                    // Verify the payment was actually saved
+                    db.get('SELECT * FROM payments WHERE id = ?', [paymentId], (verifyErr, savedPayment) => {
+                      if (verifyErr) {
+                        console.error('Error verifying payment save:', verifyErr);
+                      } else if (!savedPayment) {
+                        console.error('Payment was not saved! ID:', paymentId);
+                      } else {
+                        console.log('✓ Payment verified in database:', savedPayment);
+                      }
+                    });
+                    resolve();
                   }
-                );
-              }
-            });
+                }
+              );
+            }
           });
-        } catch (paymentError) {
-          console.error('Payment save failed:', paymentError);
-          logger.error('Failed to save payment to database', {
-            sessionId: session.id,
-            reservationId: reservationId,
-            error: paymentError.message,
-            timestamp: new Date().toISOString()
-          });
-          // Continue anyway to send emails, but log the error
-        }
+        });
+      } catch (paymentError) {
+        console.error('Payment save failed:', paymentError);
+        console.error('Payment error details:', {
+          message: paymentError.message,
+          stack: paymentError.stack,
+          sessionId: session.id,
+          reservationId: reservationId,
+          paymentIntentId: paymentIntentId
+        });
+        logger.error('Failed to save payment to database', {
+          sessionId: session.id,
+          reservationId: reservationId,
+          error: paymentError.message,
+          stack: paymentError.stack,
+          timestamp: new Date().toISOString()
+        });
+        // Continue anyway to send emails, but log the error
+      }
 
-        // Retrieve reservation data and send confirmation emails
+      // Retrieve reservation data and send confirmation emails (only if reservation exists)
+      if (reservationId) {
         db.get(
           'SELECT * FROM reservations WHERE id = ?',
           [reservationId],
@@ -1762,11 +1863,14 @@ app.get('/payment-success', async (req, res) => {
               }
             } else {
               console.warn('Reservation not found for ID:', reservationId);
+              console.warn('Payment saved successfully, but no reservation found for email');
             }
           }
         );
       } else {
-        console.warn('Payment success but no reservationId in session metadata:', session.metadata);
+        // Payment is for an event, no reservation needed
+        console.log('Payment saved for event (no reservation required)');
+        // TODO: Send event payment confirmation email if needed
       }
 
       // Log successful payment
@@ -1870,67 +1974,69 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
 
   // Handle the event
   switch (event.type) {
-    case 'payment_intent.succeeded':
+    case 'payment_intent.succeeded': {
       const paymentIntent = event.data.object;
       console.log('Payment succeeded:', paymentIntent.id);
 
       // Insert payment record into payments table and send confirmation email
-      if (paymentIntent.metadata.reservationId) {
-        const reservationId = paymentIntent.metadata.reservationId;
-        const amountPaid = paymentIntent.amount / 100; // Convert from pence/cents to pounds/dollars
-        const eventType = paymentIntent.metadata.eventId ? 'event' : null;
+      // Payments are for events and don't require reservations
+      const reservationId = paymentIntent.metadata?.reservationId || null; // Optional - can be NULL
+      const amountPaid = paymentIntent.amount / 100; // Convert from pence/cents to pounds/dollars
+      const eventType = paymentIntent.metadata?.eventId ? 'event' : null;
 
-        // Check if payment already exists, then insert or update
-        db.get('SELECT id FROM payments WHERE payment_intent_id = ?', [paymentIntent.id], (err, existing) => {
-          if (err) {
-            console.error('Error checking existing payment:', err);
-            return;
-          }
+      // Check if payment already exists, then insert or update
+      db.get('SELECT id FROM payments WHERE payment_intent_id = ?', [paymentIntent.id], (err, existing) => {
+        if (err) {
+          console.error('Error checking existing payment:', err);
+          return;
+        }
 
-          if (existing) {
-            // Update existing payment
-            db.run(
-              `UPDATE payments SET 
+        if (existing) {
+          // Update existing payment
+          db.run(
+            `UPDATE payments SET 
                 payment_status = 'paid',
                 amount_paid = ?,
+                reservation_id = ?,
                 updated_at = CURRENT_TIMESTAMP
                WHERE payment_intent_id = ?`,
-              [amountPaid, paymentIntent.id],
-              (err) => {
-                if (err) {
-                  console.error('Error updating payment record:', err);
-                } else {
-                  console.log('Payment record updated in payments table');
-                }
+            [amountPaid, reservationId, paymentIntent.id],
+            (err) => {
+              if (err) {
+                console.error('Error updating payment record:', err);
+              } else {
+                console.log('Payment record updated in payments table');
               }
-            );
-          } else {
-            // Insert new payment
-            db.run(
-              `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name)
+            }
+          );
+        } else {
+          // Insert new payment
+          db.run(
+            `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                reservationId,
-                paymentIntent.id,
-                amountPaid,
-                paymentIntent.currency || 'gbp',
-                'paid',
-                eventType,
-                paymentIntent.metadata.customerEmail || '',
-                paymentIntent.metadata.customerName || ''
-              ],
-              (err) => {
-                if (err) {
-                  console.error('Error saving payment record:', err);
-                } else {
-                  console.log('Payment record saved to payments table');
-                }
+            [
+              reservationId, // Can be NULL for event payments
+              paymentIntent.id,
+              amountPaid,
+              paymentIntent.currency || 'gbp',
+              'paid',
+              eventType,
+              paymentIntent.metadata?.customerEmail || '',
+              paymentIntent.metadata?.customerName || ''
+            ],
+            (err) => {
+              if (err) {
+                console.error('Error saving payment record:', err);
+              } else {
+                console.log('Payment record saved to payments table');
               }
-            );
-          }
-        });
+            }
+          );
+        }
+      });
 
-        // Retrieve reservation data from database to send confirmation email (Payment Intent webhook)
+      // Retrieve reservation data from database to send confirmation email (only if reservation exists)
+      if (reservationId) {
         db.get(
           'SELECT * FROM reservations WHERE id = ?',
           [reservationId],
@@ -1946,7 +2052,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             }
 
             if (!reservation) {
-              console.error('Reservation not found:', reservationId);
+              console.warn('Reservation not found:', reservationId);
               return;
             }
 
@@ -1956,7 +2062,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
               payment_intent: paymentIntent.id,
               amount_total: paymentIntent.amount,
               currency: paymentIntent.currency || 'gbp',
-              customer_email: paymentIntent.metadata.customerEmail || reservation.email,
+              customer_email: paymentIntent.metadata?.customerEmail || reservation.email,
               metadata: paymentIntent.metadata
             };
 
@@ -1968,13 +2074,15 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
               console.error('Error sending confirmation email after payment (Payment Intent webhook):', emailError);
               logger.error('Failed to send confirmation email after payment (Payment Intent webhook)', {
                 reservationId: reservationId,
-                customerEmail: reservation.email || paymentIntent.metadata.customerEmail,
+                customerEmail: reservation.email || paymentIntent.metadata?.customerEmail,
                 error: emailError.message,
                 timestamp: new Date().toISOString()
               });
             }
           }
         );
+      } else {
+        console.log('Payment saved for event (no reservation required) - Payment Intent webhook');
       }
 
       // Log successful payment
@@ -1983,78 +2091,81 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         amount: paymentIntent.amount,
         currency: paymentIntent.currency,
         customerEmail: paymentIntent.metadata.customerEmail,
-        reservationId: paymentIntent.metadata.reservationId,
+        reservationId: paymentIntent.metadata?.reservationId,
         timestamp: new Date().toISOString()
       });
       break;
+    }
 
-    case 'checkout.session.completed':
+    case 'checkout.session.completed': {
       // Handle Stripe Checkout (hosted page) completion
       const session = event.data.object;
       console.log('Checkout session completed:', session.id);
 
       // Update reservation status in database and send confirmation email
-      if (session.metadata.reservationId) {
-        const reservationId = session.metadata.reservationId;
+      // Payments are for events and don't require reservations
+      const reservationId = session.metadata?.reservationId || null; // Optional - can be NULL
 
-        // Insert payment record into payments table
-        const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
-        const eventType = session.metadata.eventId ? 'event' : null;
-        const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
+      // Insert payment record into payments table
+      const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
+      const eventType = session.metadata?.eventId ? 'event' : null;
+      const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
-        // Check if payment already exists, then insert or update
-        db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
-          if (err) {
-            console.error('Error checking existing payment:', err);
-            return;
-          }
+      // Check if payment already exists, then insert or update
+      db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
+        if (err) {
+          console.error('Error checking existing payment:', err);
+          return;
+        }
 
-          if (existing) {
-            // Update existing payment
-            db.run(
-              `UPDATE payments SET 
+        if (existing) {
+          // Update existing payment
+          db.run(
+            `UPDATE payments SET 
                 payment_status = 'paid',
                 amount_paid = ?,
+                reservation_id = ?,
                 updated_at = CURRENT_TIMESTAMP
                WHERE id = ?`,
-              [amountPaid, existing.id],
-              (err) => {
-                if (err) {
-                  console.error('Error updating payment record:', err);
-                } else {
-                  console.log('Payment record updated in payments table via Checkout');
-                }
+            [amountPaid, reservationId, existing.id],
+            (err) => {
+              if (err) {
+                console.error('Error updating payment record:', err);
+              } else {
+                console.log('Payment record updated in payments table via Checkout');
               }
-            );
-          } else {
-            // Insert new payment
-            db.run(
-              `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
+            }
+          );
+        } else {
+          // Insert new payment
+          db.run(
+            `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                reservationId,
-                paymentIntentId,
-                amountPaid,
-                session.currency || 'gbp',
-                'paid',
-                eventType,
-                session.customer_email || '',
-                session.metadata.customerName || '',
-                session.id
-              ],
-              (err) => {
-                if (err) {
-                  console.error('Error saving payment record:', err);
-                  console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
-                } else {
-                  console.log('Payment record saved to payments table via Checkout successfully');
-                }
+            [
+              reservationId, // Can be NULL for event payments
+              paymentIntentId,
+              amountPaid,
+              session.currency || 'gbp',
+              'paid',
+              eventType,
+              session.customer_email || '',
+              session.metadata?.customerName || '',
+              session.id
+            ],
+            (err) => {
+              if (err) {
+                console.error('Error saving payment record:', err);
+                console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
+              } else {
+                console.log('Payment record saved to payments table via Checkout successfully');
               }
-            );
-          }
-        });
+            }
+          );
+        }
+      });
 
-        // Retrieve reservation data from database to send confirmation email (webhook backup)
+      // Retrieve reservation data from database to send confirmation email (only if reservation exists)
+      if (reservationId) {
         db.get(
           'SELECT * FROM reservations WHERE id = ?',
           [reservationId],
@@ -2070,7 +2181,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             }
 
             if (!reservation) {
-              console.error('Reservation not found:', reservationId);
+              console.warn('Reservation not found:', reservationId);
               return;
             }
 
@@ -2089,6 +2200,8 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             }
           }
         );
+      } else {
+        console.log('Payment saved for event (no reservation required) - webhook');
       }
 
       // Log successful payment via Checkout
@@ -2098,10 +2211,11 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         amount: session.amount_total / 100,
         currency: session.currency,
         customerEmail: session.customer_email,
-        reservationId: session.metadata.reservationId,
+        reservationId: session.metadata?.reservationId,
         timestamp: new Date().toISOString()
       });
       break;
+    }
 
     case 'payment_intent.payment_failed':
       const failedPayment = event.data.object;
