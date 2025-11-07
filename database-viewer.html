@@ -218,6 +218,14 @@
     </div>
 
     <script>
+        // Get the secret key from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const secretKey = urlParams.get('key');
+
+        if (!secretKey) {
+            document.body.innerHTML = '<div class="db-container"><div class="error" style="text-align: center; padding: 2rem; color: #d32f2f; font-size: 1.2rem;">Access denied. Please provide a valid secret key.<br><br><small style="color: #666;">Usage: /database-viewer?key=YOUR_ADMIN_SECRET_KEY</small></div></div>';
+        }
+
         let allData = [];
         let currentTable = 'reservations';
 
