@@ -150,18 +150,6 @@
         .export-btn:hover {
             background: #8B6914;
         }
-
-        .raw-data {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 5px;
-            padding: 1rem;
-            font-family: 'Courier New', monospace;
-            font-size: 0.8rem;
-            white-space: pre-wrap;
-            max-height: 400px;
-            overflow-y: auto;
-        }
     </style>
 </head>
 
@@ -181,9 +169,6 @@
             </button>
             <button class="db-btn secondary" id="btnRefresh">
                 <i class="fas fa-sync-alt"></i> Refresh
-            </button>
-            <button class="db-btn secondary" id="btnShowRawData">
-                <i class="fas fa-code"></i> Show Raw Data
             </button>
         </div>
 
@@ -229,11 +214,6 @@
                     </tr>
                 </tbody>
             </table>
-        </div>
-
-        <div id="rawDataSection" style="display: none;">
-            <h3>Raw Database Data</h3>
-            <div class="raw-data" id="rawData"></div>
         </div>
     </div>
 
@@ -455,30 +435,6 @@
             return `${displayHour}:${minutes} ${ampm}`;
         }
 
-        function showRawData() {
-            console.log('Toggling raw data display');
-            try {
-                const section = document.getElementById('rawDataSection');
-                const rawData = document.getElementById('rawData');
-
-                if (!section || !rawData) {
-                    console.error('Raw data elements not found');
-                    alert('Raw data elements not found');
-                    return;
-                }
-
-                if (section.style.display === 'none' || section.style.display === '') {
-                    rawData.textContent = JSON.stringify(allData, null, 2);
-                    section.style.display = 'block';
-                } else {
-                    section.style.display = 'none';
-                }
-            } catch (error) {
-                console.error('Error showing raw data:', error);
-                alert('Error showing raw data: ' + error.message);
-            }
-        }
-
         function exportToCSV() {
             try {
                 if (allData.length === 0) {
@@ -584,7 +540,6 @@
             const btnReservations = document.getElementById('btnReservations');
             const btnPayments = document.getElementById('btnPayments');
             const btnRefresh = document.getElementById('btnRefresh');
-            const btnShowRawData = document.getElementById('btnShowRawData');
             const btnExportCSV = document.getElementById('btnExportCSV');
             const btnExportJSON = document.getElementById('btnExportJSON');
 
@@ -603,12 +558,6 @@
             if (btnRefresh) {
                 btnRefresh.addEventListener('click', function () {
                     loadCurrentTable();
-                });
-            }
-
-            if (btnShowRawData) {
-                btnShowRawData.addEventListener('click', function () {
-                    showRawData();
                 });
             }
 
