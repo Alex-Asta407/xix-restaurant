@@ -1354,6 +1354,100 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
+// Helper function to save payment to database (returns Promise)
+function savePaymentToDatabase(paymentData) {
+  return new Promise((resolve, reject) => {
+    const {
+      reservationId,
+      paymentIntentId,
+      amountPaid,
+      currency,
+      eventType,
+      customerEmail,
+      customerName,
+      stripeSessionId
+    } = paymentData;
+
+    // Check if payment already exists
+    db.get(
+      'SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?',
+      [paymentIntentId, stripeSessionId || null],
+      (err, existing) => {
+        if (err) {
+          console.error('Error checking existing payment:', err);
+          reject(err);
+          return;
+        }
+
+        if (existing) {
+          // Update existing payment
+          db.run(
+            `UPDATE payments SET 
+              payment_status = 'paid',
+              amount_paid = ?,
+              reservation_id = ?,
+              updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [amountPaid, reservationId, existing.id],
+            function (err) {
+              if (err) {
+                console.error('Error updating payment record:', err);
+                reject(err);
+              } else {
+                console.log('✓ Payment record updated in payments table (ID:', existing.id + ')');
+                resolve({ id: existing.id, updated: true });
+              }
+            }
+          );
+        } else {
+          // Insert new payment
+          db.run(
+            `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              reservationId,
+              paymentIntentId,
+              amountPaid,
+              currency || 'gbp',
+              'paid',
+              eventType,
+              customerEmail || '',
+              customerName || '',
+              stripeSessionId || null
+            ],
+            function (err) {
+              if (err) {
+                console.error('Error saving payment record:', err);
+                console.error('Error code:', err.code);
+                console.error('Error message:', err.message);
+                console.error('Payment details:', paymentData);
+                reject(err);
+              } else {
+                const paymentId = this.lastID;
+                console.log('✓ Payment record saved to payments table successfully (ID:', paymentId + ')');
+
+                // Verify the payment was actually saved
+                db.get('SELECT * FROM payments WHERE id = ?', [paymentId], (verifyErr, savedPayment) => {
+                  if (verifyErr) {
+                    console.error('Error verifying payment save:', verifyErr);
+                    reject(verifyErr);
+                  } else if (!savedPayment) {
+                    console.error('Payment was not saved! ID:', paymentId);
+                    reject(new Error('Payment verification failed'));
+                  } else {
+                    console.log('✓ Payment verified in database:', savedPayment);
+                    resolve({ id: paymentId, updated: false });
+                  }
+                });
+              }
+            }
+          );
+        }
+      }
+    );
+  });
+}
+
 // Helper function to send payment confirmation emails
 async function sendPaymentConfirmationEmails(session, reservation) {
   try {
@@ -1747,83 +1841,21 @@ app.get('/payment-success', async (req, res) => {
       const eventType = session.metadata?.eventId ? 'event' : null;
       const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
-      // Save payment to database using Promise wrapper - MUST complete before continuing
+      // Save payment to database using helper function
       try {
-        await new Promise((resolve, reject) => {
-          // Check if payment already exists
-          db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
-            if (err) {
-              console.error('Error checking existing payment:', err);
-              reject(err);
-              return;
-            }
-
-            if (existing) {
-              // Update existing payment
-              db.run(
-                `UPDATE payments SET 
-                  payment_status = 'paid',
-                  amount_paid = ?,
-                  reservation_id = ?,
-                  updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?`,
-                [amountPaid, reservationId, existing.id],
-                (err) => {
-                  if (err) {
-                    console.error('Error updating payment record:', err);
-                    reject(err);
-                  } else {
-                    console.log('✓ Payment record updated in payments table (ID:', existing.id + ')');
-                    resolve();
-                  }
-                }
-              );
-            } else {
-              // Insert new payment (reservation_id can be NULL for event payments)
-              db.run(
-                `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                  reservationId, // Can be NULL for event payments
-                  paymentIntentId,
-                  amountPaid,
-                  session.currency || 'gbp',
-                  'paid',
-                  eventType,
-                  session.customer_email || '',
-                  session.metadata?.customerName || '',
-                  session.id
-                ],
-                function (err) {
-                  if (err) {
-                    console.error('Error saving payment record:', err);
-                    console.error('Error code:', err.code);
-                    console.error('Error message:', err.message);
-                    console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
-                    // Note: reservation_id can be NULL for event payments, so we don't check reservation existence
-                    reject(err);
-                  } else {
-                    const paymentId = this.lastID;
-                    console.log('✓ Payment record saved to payments table successfully (ID:', paymentId + ')');
-                    // Verify the payment was actually saved
-                    db.get('SELECT * FROM payments WHERE id = ?', [paymentId], (verifyErr, savedPayment) => {
-                      if (verifyErr) {
-                        console.error('Error verifying payment save:', verifyErr);
-                      } else if (!savedPayment) {
-                        console.error('Payment was not saved! ID:', paymentId);
-                      } else {
-                        console.log('✓ Payment verified in database:', savedPayment);
-                      }
-                    });
-                    resolve();
-                  }
-                }
-              );
-            }
-          });
+        await savePaymentToDatabase({
+          reservationId,
+          paymentIntentId,
+          amountPaid,
+          currency: session.currency || 'gbp',
+          eventType,
+          customerEmail: session.customer_email || '',
+          customerName: session.metadata?.customerName || '',
+          stripeSessionId: session.id
         });
+        console.log('✓ Payment saved successfully in payment-success endpoint');
       } catch (paymentError) {
-        console.error('Payment save failed:', paymentError);
+        console.error('Payment save failed in payment-success:', paymentError);
         console.error('Payment error details:', {
           message: paymentError.message,
           stack: paymentError.stack,
@@ -1831,7 +1863,7 @@ app.get('/payment-success', async (req, res) => {
           reservationId: reservationId,
           paymentIntentId: paymentIntentId
         });
-        logger.error('Failed to save payment to database', {
+        logger.error('Failed to save payment to database (payment-success)', {
           sessionId: session.id,
           reservationId: reservationId,
           error: paymentError.message,
@@ -1973,90 +2005,45 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
   }
 
   // Handle the event
-  switch (event.type) {
-    case 'payment_intent.succeeded': {
-      const paymentIntent = event.data.object;
-      console.log('Payment succeeded:', paymentIntent.id);
+  try {
+    switch (event.type) {
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object;
+        console.log('Webhook: Payment succeeded:', paymentIntent.id);
 
-      // Insert payment record into payments table and send confirmation email
-      // Payments are for events and don't require reservations
-      const reservationId = paymentIntent.metadata?.reservationId || null; // Optional - can be NULL
-      const amountPaid = paymentIntent.amount / 100; // Convert from pence/cents to pounds/dollars
-      const eventType = paymentIntent.metadata?.eventId ? 'event' : null;
+        const reservationId = paymentIntent.metadata?.reservationId || null;
+        const amountPaid = paymentIntent.amount / 100;
+        const eventType = paymentIntent.metadata?.eventId ? 'event' : null;
 
-      // Check if payment already exists, then insert or update
-      db.get('SELECT id FROM payments WHERE payment_intent_id = ?', [paymentIntent.id], (err, existing) => {
-        if (err) {
-          console.error('Error checking existing payment:', err);
-          return;
+        // Save payment to database
+        try {
+          await savePaymentToDatabase({
+            reservationId,
+            paymentIntentId: paymentIntent.id,
+            amountPaid,
+            currency: paymentIntent.currency || 'gbp',
+            eventType,
+            customerEmail: paymentIntent.metadata?.customerEmail || '',
+            customerName: paymentIntent.metadata?.customerName || '',
+            stripeSessionId: null
+          });
+        } catch (paymentError) {
+          console.error('Failed to save payment in webhook:', paymentError);
+          logger.error('Failed to save payment in webhook', {
+            paymentIntentId: paymentIntent.id,
+            error: paymentError.message,
+            timestamp: new Date().toISOString()
+          });
         }
 
-        if (existing) {
-          // Update existing payment
-          db.run(
-            `UPDATE payments SET 
-                payment_status = 'paid',
-                amount_paid = ?,
-                reservation_id = ?,
-                updated_at = CURRENT_TIMESTAMP
-               WHERE payment_intent_id = ?`,
-            [amountPaid, reservationId, paymentIntent.id],
-            (err) => {
-              if (err) {
-                console.error('Error updating payment record:', err);
-              } else {
-                console.log('Payment record updated in payments table');
-              }
-            }
-          );
-        } else {
-          // Insert new payment
-          db.run(
-            `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              reservationId, // Can be NULL for event payments
-              paymentIntent.id,
-              amountPaid,
-              paymentIntent.currency || 'gbp',
-              'paid',
-              eventType,
-              paymentIntent.metadata?.customerEmail || '',
-              paymentIntent.metadata?.customerName || ''
-            ],
-            (err) => {
-              if (err) {
-                console.error('Error saving payment record:', err);
-              } else {
-                console.log('Payment record saved to payments table');
-              }
-            }
-          );
-        }
-      });
-
-      // Retrieve reservation data from database to send confirmation email (only if reservation exists)
-      if (reservationId) {
-        db.get(
-          'SELECT * FROM reservations WHERE id = ?',
-          [reservationId],
-          async (err, reservation) => {
-            if (err) {
-              console.error('Error retrieving reservation for email:', err);
-              logger.error('Failed to retrieve reservation for email', {
-                reservationId: reservationId,
-                error: err.message,
-                timestamp: new Date().toISOString()
-              });
+        // Send confirmation email if reservation exists
+        if (reservationId) {
+          db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, reservation) => {
+            if (err || !reservation) {
+              console.warn('Reservation not found for email:', reservationId);
               return;
             }
 
-            if (!reservation) {
-              console.warn('Reservation not found:', reservationId);
-              return;
-            }
-
-            // Create a mock session object from payment intent to reuse the same email function
             const mockSession = {
               id: paymentIntent.id,
               payment_intent: paymentIntent.id,
@@ -2066,175 +2053,118 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
               metadata: paymentIntent.metadata
             };
 
-            // Send confirmation email using the same function (Payment Intent webhook)
             try {
               await sendPaymentConfirmationEmails(mockSession, reservation);
-              console.log('✓ Webhook (Payment Intent): Payment confirmation emails sent successfully');
+              console.log('✓ Webhook (Payment Intent): Payment confirmation emails sent');
             } catch (emailError) {
-              console.error('Error sending confirmation email after payment (Payment Intent webhook):', emailError);
-              logger.error('Failed to send confirmation email after payment (Payment Intent webhook)', {
-                reservationId: reservationId,
-                customerEmail: reservation.email || paymentIntent.metadata?.customerEmail,
-                error: emailError.message,
-                timestamp: new Date().toISOString()
-              });
+              console.error('Error sending confirmation email:', emailError);
             }
-          }
-        );
-      } else {
-        console.log('Payment saved for event (no reservation required) - Payment Intent webhook');
+          });
+        }
+
+        logger.info('Payment succeeded (webhook)', {
+          paymentIntentId: paymentIntent.id,
+          amount: paymentIntent.amount,
+          currency: paymentIntent.currency,
+          timestamp: new Date().toISOString()
+        });
+        break;
       }
 
-      // Log successful payment
-      logger.info('Payment succeeded', {
-        paymentIntentId: paymentIntent.id,
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency,
-        customerEmail: paymentIntent.metadata.customerEmail,
-        reservationId: paymentIntent.metadata?.reservationId,
-        timestamp: new Date().toISOString()
-      });
-      break;
-    }
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        console.log('Webhook: Checkout session completed:', session.id);
 
-    case 'checkout.session.completed': {
-      // Handle Stripe Checkout (hosted page) completion
-      const session = event.data.object;
-      console.log('Checkout session completed:', session.id);
-
-      // Update reservation status in database and send confirmation email
-      // Payments are for events and don't require reservations
-      const reservationId = session.metadata?.reservationId || null; // Optional - can be NULL
-
-      // Insert payment record into payments table
-      const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
-      const eventType = session.metadata?.eventId ? 'event' : null;
-      const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
-
-      // Check if payment already exists, then insert or update
-      db.get('SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?', [paymentIntentId, session.id], (err, existing) => {
-        if (err) {
-          console.error('Error checking existing payment:', err);
-          return;
+        // Only process if payment was successful
+        if (session.payment_status !== 'paid') {
+          console.log('Session payment status is not paid:', session.payment_status);
+          break;
         }
 
-        if (existing) {
-          // Update existing payment
-          db.run(
-            `UPDATE payments SET 
-                payment_status = 'paid',
-                amount_paid = ?,
-                reservation_id = ?,
-                updated_at = CURRENT_TIMESTAMP
-               WHERE id = ?`,
-            [amountPaid, reservationId, existing.id],
-            (err) => {
-              if (err) {
-                console.error('Error updating payment record:', err);
-              } else {
-                console.log('Payment record updated in payments table via Checkout');
-              }
-            }
-          );
-        } else {
-          // Insert new payment
-          db.run(
-            `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              reservationId, // Can be NULL for event payments
-              paymentIntentId,
-              amountPaid,
-              session.currency || 'gbp',
-              'paid',
-              eventType,
-              session.customer_email || '',
-              session.metadata?.customerName || '',
-              session.id
-            ],
-            (err) => {
-              if (err) {
-                console.error('Error saving payment record:', err);
-                console.error('Payment details:', { reservationId, paymentIntentId, amountPaid, sessionId: session.id });
-              } else {
-                console.log('Payment record saved to payments table via Checkout successfully');
-              }
-            }
-          );
-        }
-      });
+        const reservationId = session.metadata?.reservationId || null;
+        const amountPaid = session.amount_total / 100;
+        const eventType = session.metadata?.eventId ? 'event' : null;
+        const paymentIntentId = session.payment_intent || session.id;
 
-      // Retrieve reservation data from database to send confirmation email (only if reservation exists)
-      if (reservationId) {
-        db.get(
-          'SELECT * FROM reservations WHERE id = ?',
-          [reservationId],
-          async (err, reservation) => {
-            if (err) {
-              console.error('Error retrieving reservation for email:', err);
-              logger.error('Failed to retrieve reservation for email', {
-                reservationId: reservationId,
-                error: err.message,
-                timestamp: new Date().toISOString()
-              });
+        // Save payment to database
+        try {
+          await savePaymentToDatabase({
+            reservationId,
+            paymentIntentId,
+            amountPaid,
+            currency: session.currency || 'gbp',
+            eventType,
+            customerEmail: session.customer_email || '',
+            customerName: session.metadata?.customerName || '',
+            stripeSessionId: session.id
+          });
+        } catch (paymentError) {
+          console.error('Failed to save payment in webhook:', paymentError);
+          logger.error('Failed to save payment in webhook', {
+            sessionId: session.id,
+            error: paymentError.message,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Send confirmation email if reservation exists
+        if (reservationId) {
+          db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, reservation) => {
+            if (err || !reservation) {
+              console.warn('Reservation not found for email:', reservationId);
               return;
             }
 
-            if (!reservation) {
-              console.warn('Reservation not found:', reservationId);
-              return;
-            }
-
-            // Send confirmation email using the same function (webhook backup)
             try {
               await sendPaymentConfirmationEmails(session, reservation);
-              console.log('✓ Webhook: Payment confirmation emails sent successfully');
+              console.log('✓ Webhook: Payment confirmation emails sent');
             } catch (emailError) {
-              console.error('Error sending confirmation email after payment (webhook):', emailError);
-              logger.error('Failed to send confirmation email after payment (webhook)', {
-                reservationId: reservationId,
-                customerEmail: reservation.email || session.customer_email,
-                error: emailError.message,
-                timestamp: new Date().toISOString()
-              });
+              console.error('Error sending confirmation email:', emailError);
             }
-          }
-        );
-      } else {
-        console.log('Payment saved for event (no reservation required) - webhook');
+          });
+        }
+
+        logger.info('Payment succeeded via Checkout (webhook)', {
+          sessionId: session.id,
+          paymentIntentId: session.payment_intent,
+          amount: session.amount_total / 100,
+          currency: session.currency,
+          timestamp: new Date().toISOString()
+        });
+        break;
       }
 
-      // Log successful payment via Checkout
-      logger.info('Payment succeeded via Checkout', {
-        sessionId: session.id,
-        paymentIntentId: session.payment_intent,
-        amount: session.amount_total / 100,
-        currency: session.currency,
-        customerEmail: session.customer_email,
-        reservationId: session.metadata?.reservationId,
-        timestamp: new Date().toISOString()
-      });
-      break;
+      case 'payment_intent.payment_failed': {
+        const failedPayment = event.data.object;
+        console.log('Payment failed:', failedPayment.id);
+
+        logger.warn('Payment failed', {
+          paymentIntentId: failedPayment.id,
+          amount: failedPayment.amount,
+          currency: failedPayment.currency,
+          error: failedPayment.last_payment_error,
+          timestamp: new Date().toISOString()
+        });
+        break;
+      }
+
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
-    case 'payment_intent.payment_failed':
-      const failedPayment = event.data.object;
-      console.log('Payment failed:', failedPayment.id);
-
-      logger.warn('Payment failed', {
-        paymentIntentId: failedPayment.id,
-        amount: failedPayment.amount,
-        currency: failedPayment.currency,
-        error: failedPayment.last_payment_error,
-        timestamp: new Date().toISOString()
-      });
-      break;
-
-    default:
-      console.log(`Unhandled event type ${event.type}`);
+    // Always return success to Stripe (even if there were errors)
+    // This prevents Stripe from retrying the webhook
+    res.json({ received: true });
+  } catch (error) {
+    console.error('Error processing webhook:', error);
+    logger.error('Webhook processing error', {
+      eventType: event.type,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+    // Still return success to prevent retries
+    res.json({ received: true, error: error.message });
   }
-
-  res.json({ received: true });
 });
 
 // Graceful shutdown
