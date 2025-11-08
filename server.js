@@ -2168,29 +2168,83 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object;
-        console.log('Webhook: Payment succeeded:', paymentIntent.id);
+        console.log('🔵 Webhook: Payment intent succeeded:', paymentIntent.id);
+        console.log('Payment Intent details:', {
+          id: paymentIntent.id,
+          amount: paymentIntent.amount,
+          currency: paymentIntent.currency,
+          metadata: paymentIntent.metadata
+        });
 
-        const reservationId = paymentIntent.metadata?.reservationId || null;
-        const amountPaid = paymentIntent.amount / 100;
-        const eventType = paymentIntent.metadata?.eventId ? 'event' : null;
+        // Try to find the checkout session that created this payment intent
+        // When using Stripe Checkout, the session ID isn't in payment intent metadata
+        // We need to search for it
+        let session = null;
+        let sessionId = null;
+        
+        try {
+          // List checkout sessions to find the one with this payment intent
+          // This is a workaround since payment_intent.succeeded doesn't include session ID
+          const sessions = await stripe.checkout.sessions.list({
+            payment_intent: paymentIntent.id,
+            limit: 1
+          });
+          
+          if (sessions.data && sessions.data.length > 0) {
+            session = sessions.data[0];
+            sessionId = session.id;
+            console.log('✅ Found checkout session for payment intent:', session.id);
+          } else {
+            console.log('⚠️ No checkout session found for payment intent, using payment intent data only');
+          }
+        } catch (sessionError) {
+          console.warn('Could not find checkout session:', sessionError.message);
+          // Continue with payment intent data only
+        }
+
+        // Use session data if available, otherwise use payment intent data
+        const reservationId = session?.metadata?.reservationId || paymentIntent.metadata?.reservationId || null;
+        const amountPaid = session ? (session.amount_total / 100) : (paymentIntent.amount / 100);
+        const eventType = session?.metadata?.eventId || paymentIntent.metadata?.eventId ? 'event' : null;
+        const customerEmail = session?.customer_email || paymentIntent.metadata?.customerEmail || '';
+        const customerName = session?.metadata?.customerName || paymentIntent.metadata?.customerName || '';
+        const stripeSessionId = session?.id || sessionId || null;
+
+        console.log('💾 Webhook (Payment Intent): Attempting to save payment with data:', {
+          reservationId,
+          paymentIntentId: paymentIntent.id,
+          amountPaid,
+          currency: session?.currency || paymentIntent.currency || 'gbp',
+          eventType,
+          customerEmail,
+          customerName,
+          stripeSessionId
+        });
 
         // Save payment to database
         try {
-          await savePaymentToDatabase({
+          const saveResult = await savePaymentToDatabase({
             reservationId,
             paymentIntentId: paymentIntent.id,
             amountPaid,
-            currency: paymentIntent.currency || 'gbp',
+            currency: session?.currency || paymentIntent.currency || 'gbp',
             eventType,
-            customerEmail: paymentIntent.metadata?.customerEmail || '',
-            customerName: paymentIntent.metadata?.customerName || '',
-            stripeSessionId: null
+            customerEmail,
+            customerName,
+            stripeSessionId
           });
+          console.log('✅ Webhook (Payment Intent): Payment saved successfully:', saveResult);
         } catch (paymentError) {
-          console.error('Failed to save payment in webhook:', paymentError);
-          logger.error('Failed to save payment in webhook', {
+          console.error('❌ Webhook (Payment Intent): Failed to save payment:', paymentError);
+          console.error('❌ Error details:', {
+            message: paymentError.message,
+            code: paymentError.code,
+            stack: paymentError.stack
+          });
+          logger.error('Failed to save payment in webhook (payment_intent.succeeded)', {
             paymentIntentId: paymentIntent.id,
             error: paymentError.message,
+            code: paymentError.code,
             timestamp: new Date().toISOString()
           });
         }
@@ -2338,15 +2392,18 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
 
     // Always return success to Stripe (even if there were errors)
     // This prevents Stripe from retrying the webhook
+    console.log('✅ Webhook processed successfully, returning 200 OK to Stripe');
     res.json({ received: true });
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('❌ CRITICAL ERROR processing webhook:', error);
+    console.error('Error stack:', error.stack);
     logger.error('Webhook processing error', {
-      eventType: event.type,
+      eventType: event?.type || 'unknown',
       error: error.message,
+      stack: error.stack,
       timestamp: new Date().toISOString()
     });
-    // Still return success to prevent retries
+    // Still return success to prevent retries, but log the error
     res.json({ received: true, error: error.message });
   }
 });
