@@ -64,10 +64,11 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net", "https://use.fontawesome.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com", "https://use.fontawesome.com", "data:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com", "https://js.stripe.com", "https://checkout.stripe.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.stripe.com"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"]
+      connectSrc: ["'self'", "https://api.stripe.com", "https://checkout.stripe.com"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", "https://checkout.stripe.com"],
+      frameAncestors: ["'self'"]
     }
   } : false // Disable CSP in development
 }));
@@ -607,8 +608,16 @@ app.get('/api/debug/payment-info', async (req, res) => {
       return res.status(400).json({ error: 'Missing session_id parameter' });
     }
 
+    console.log('🔍 DEBUG: Checking payment info for session:', session_id);
+
     // Retrieve the Checkout Session from Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    console.log('🔍 DEBUG: Session retrieved:', {
+      id: session.id,
+      payment_status: session.payment_status,
+      amount_total: session.amount_total
+    });
 
     const reservationId = session.metadata?.reservationId;
     const paymentIntentId = session.payment_intent || session.id;
@@ -1356,6 +1365,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
 // Helper function to save payment to database (returns Promise)
 function savePaymentToDatabase(paymentData) {
+  console.log('💾 savePaymentToDatabase called with:', paymentData);
   return new Promise((resolve, reject) => {
     const {
       reservationId,
@@ -1368,16 +1378,29 @@ function savePaymentToDatabase(paymentData) {
       stripeSessionId
     } = paymentData;
 
+    // Validate required fields
+    if (!paymentIntentId) {
+      const error = new Error('paymentIntentId is required');
+      console.error('❌ Validation error:', error.message);
+      reject(error);
+      return;
+    }
+
     // Check if payment already exists
+    console.log('🔍 Checking for existing payment:', { paymentIntentId, stripeSessionId });
     db.get(
       'SELECT id FROM payments WHERE payment_intent_id = ? OR stripe_session_id = ?',
       [paymentIntentId, stripeSessionId || null],
       (err, existing) => {
         if (err) {
-          console.error('Error checking existing payment:', err);
+          console.error('❌ Error checking existing payment:', err);
+          console.error('Error code:', err.code);
+          console.error('Error message:', err.message);
           reject(err);
           return;
         }
+
+        console.log('🔍 Existing payment check result:', existing ? `Found ID: ${existing.id}` : 'Not found');
 
         if (existing) {
           // Update existing payment
@@ -1823,17 +1846,32 @@ async function sendPaymentConfirmationEmails(session, reservation) {
 
 // Stripe Checkout Success Page - Verify payment and update reservation
 app.get('/payment-success', async (req, res) => {
+  console.log('🔵 PAYMENT-SUCCESS ENDPOINT CALLED');
+  console.log('Query params:', req.query);
+
   try {
     const { session_id } = req.query;
 
     if (!session_id) {
+      console.error('❌ Missing session_id parameter');
       return res.status(400).send('Missing session_id parameter');
     }
+
+    console.log('📥 Retrieving Stripe session:', session_id);
 
     // Retrieve the Checkout Session
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
+    console.log('✅ Session retrieved:', {
+      id: session.id,
+      payment_status: session.payment_status,
+      amount_total: session.amount_total,
+      customer_email: session.customer_email,
+      metadata: session.metadata
+    });
+
     if (session.payment_status === 'paid') {
+      console.log('💰 Payment is PAID - Processing payment save...');
       // Insert payment record into payments table
       // Payments are for events and don't require reservations
       const reservationId = session.metadata?.reservationId || null; // Optional - can be NULL
@@ -1842,8 +1880,19 @@ app.get('/payment-success', async (req, res) => {
       const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
       // Save payment to database using helper function
+      console.log('💾 Attempting to save payment to database with data:', {
+        reservationId,
+        paymentIntentId,
+        amountPaid,
+        currency: session.currency || 'gbp',
+        eventType,
+        customerEmail: session.customer_email || '',
+        customerName: session.metadata?.customerName || '',
+        stripeSessionId: session.id
+      });
+
       try {
-        await savePaymentToDatabase({
+        const saveResult = await savePaymentToDatabase({
           reservationId,
           paymentIntentId,
           amountPaid,
@@ -1853,11 +1902,12 @@ app.get('/payment-success', async (req, res) => {
           customerName: session.metadata?.customerName || '',
           stripeSessionId: session.id
         });
-        console.log('✓ Payment saved successfully in payment-success endpoint');
+        console.log('✅ Payment saved successfully in payment-success endpoint:', saveResult);
       } catch (paymentError) {
-        console.error('Payment save failed in payment-success:', paymentError);
-        console.error('Payment error details:', {
+        console.error('❌ Payment save FAILED in payment-success:', paymentError);
+        console.error('❌ Payment error details:', {
           message: paymentError.message,
+          code: paymentError.code,
           stack: paymentError.stack,
           sessionId: session.id,
           reservationId: reservationId,
@@ -1867,6 +1917,7 @@ app.get('/payment-success', async (req, res) => {
           sessionId: session.id,
           reservationId: reservationId,
           error: paymentError.message,
+          code: paymentError.code,
           stack: paymentError.stack,
           timestamp: new Date().toISOString()
         });
@@ -1980,23 +2031,46 @@ app.get('/payment-success', async (req, res) => {
         </html>
       `);
     } else {
+      console.log('⚠️ Payment status is not paid:', session.payment_status);
       res.status(400).send('Payment not completed');
     }
   } catch (error) {
-    console.error('Error retrieving checkout session:', error);
+    console.error('❌ ERROR in payment-success endpoint:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      type: error.type,
+      code: error.code
+    });
+    logger.error('Error in payment-success endpoint', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
     res.status(500).send('Error verifying payment');
   }
 });
 
 // Webhook endpoint for Stripe events
 app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  console.log('🔵 WEBHOOK ENDPOINT CALLED');
   const sig = req.headers['stripe-signature'];
+  console.log('Webhook signature present:', !!sig);
+  console.log('Webhook secret configured:', !!process.env.STRIPE_WEBHOOK_SECRET);
+
   let event;
 
   try {
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      console.error('❌ STRIPE_WEBHOOK_SECRET not configured!');
+      return res.status(500).send('Webhook secret not configured');
+    }
+
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    console.log('✅ Webhook signature verified. Event type:', event.type);
+    console.log('Event ID:', event.id);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
+    console.error('❌ Webhook signature verification failed:', err.message);
     logger.warn('Invalid webhook signature', {
       error: err.message,
       timestamp: new Date().toISOString()
@@ -2073,11 +2147,18 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
 
       case 'checkout.session.completed': {
         const session = event.data.object;
-        console.log('Webhook: Checkout session completed:', session.id);
+        console.log('🔵 Webhook: Checkout session completed:', session.id);
+        console.log('Session details:', {
+          id: session.id,
+          payment_status: session.payment_status,
+          amount_total: session.amount_total,
+          customer_email: session.customer_email,
+          metadata: session.metadata
+        });
 
         // Only process if payment was successful
         if (session.payment_status !== 'paid') {
-          console.log('Session payment status is not paid:', session.payment_status);
+          console.log('⚠️ Session payment status is not paid:', session.payment_status);
           break;
         }
 
@@ -2086,9 +2167,20 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         const eventType = session.metadata?.eventId ? 'event' : null;
         const paymentIntentId = session.payment_intent || session.id;
 
+        console.log('💾 Webhook: Attempting to save payment with data:', {
+          reservationId,
+          paymentIntentId,
+          amountPaid,
+          currency: session.currency || 'gbp',
+          eventType,
+          customerEmail: session.customer_email || '',
+          customerName: session.metadata?.customerName || '',
+          stripeSessionId: session.id
+        });
+
         // Save payment to database
         try {
-          await savePaymentToDatabase({
+          const saveResult = await savePaymentToDatabase({
             reservationId,
             paymentIntentId,
             amountPaid,
@@ -2098,11 +2190,18 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             customerName: session.metadata?.customerName || '',
             stripeSessionId: session.id
           });
+          console.log('✅ Webhook: Payment saved successfully:', saveResult);
         } catch (paymentError) {
-          console.error('Failed to save payment in webhook:', paymentError);
+          console.error('❌ Webhook: Failed to save payment:', paymentError);
+          console.error('❌ Error details:', {
+            message: paymentError.message,
+            code: paymentError.code,
+            stack: paymentError.stack
+          });
           logger.error('Failed to save payment in webhook', {
             sessionId: session.id,
             error: paymentError.message,
+            code: paymentError.code,
             timestamp: new Date().toISOString()
           });
         }
