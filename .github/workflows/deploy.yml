@@ -23,7 +23,7 @@ jobs:
             **/.git*
             **/.git*/**
             **/node_modules/**
-            **/.env
+            **/.envgit 
             **/logs/**
             **/*.db
             **/*.sqlite*

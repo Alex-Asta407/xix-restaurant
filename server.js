@@ -93,7 +93,13 @@ const reservationLimiter = rateLimit({
 });
 
 // Apply security middleware
-app.use(limiter);
+// Exclude webhook endpoint from rate limiting (Stripe needs to send webhooks)
+app.use((req, res, next) => {
+  if (req.path === '/api/stripe-webhook') {
+    return next(); // Skip rate limiting for webhooks
+  }
+  limiter(req, res, next);
+});
 app.use('/api/reservations', reservationLimiter);
 
 // HTTP Request Logging
@@ -164,8 +170,23 @@ app.use(cors({
 }));
 
 // Request Size Limits
-app.use(express.json({ limit: '10mb' })); // Limit JSON payloads to 10MB
-app.use(express.urlencoded({ limit: '10mb', extended: true })); // Limit URL-encoded payloads
+// Webhook endpoint MUST be defined BEFORE express.json() middleware
+// because it needs raw body for signature verification
+// (Moved to after static files but before JSON parser)
+
+// JSON and URL-encoded parsers (exclude webhook endpoint)
+app.use((req, res, next) => {
+  if (req.path === '/api/stripe-webhook') {
+    return next(); // Skip JSON parsing for webhooks (handled by express.raw)
+  }
+  express.json({ limit: '10mb' })(req, res, next);
+});
+app.use((req, res, next) => {
+  if (req.path === '/api/stripe-webhook') {
+    return next(); // Skip URL-encoded parsing for webhooks
+  }
+  express.urlencoded({ limit: '10mb', extended: true })(req, res, next);
+});
 
 // Serve service worker with proper headers
 app.get('/sw.js', (req, res) => {
@@ -671,6 +692,70 @@ app.get('/api/debug/payment-info', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Test endpoint to manually save a payment (for debugging)
+app.post('/api/debug/save-payment', async (req, res) => {
+  try {
+    const { session_id } = req.body;
+
+    if (!session_id) {
+      return res.status(400).json({ error: 'Missing session_id parameter' });
+    }
+
+    console.log('🧪 TEST: Manually saving payment for session:', session_id);
+
+    // Retrieve the Checkout Session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment status is not paid', payment_status: session.payment_status });
+    }
+
+    const reservationId = session.metadata?.reservationId || null;
+    const amountPaid = session.amount_total / 100;
+    const eventType = session.metadata?.eventId ? 'event' : null;
+    const paymentIntentId = session.payment_intent || session.id;
+
+    console.log('🧪 TEST: Attempting to save payment with data:', {
+      reservationId,
+      paymentIntentId,
+      amountPaid,
+      currency: session.currency || 'gbp',
+      eventType,
+      customerEmail: session.customer_email || '',
+      customerName: session.metadata?.customerName || '',
+      stripeSessionId: session.id
+    });
+
+    // Save payment to database
+    const saveResult = await savePaymentToDatabase({
+      reservationId,
+      paymentIntentId,
+      amountPaid,
+      currency: session.currency || 'gbp',
+      eventType,
+      customerEmail: session.customer_email || '',
+      customerName: session.metadata?.customerName || '',
+      stripeSessionId: session.id
+    });
+
+    console.log('🧪 TEST: Payment saved successfully:', saveResult);
+
+    res.json({
+      success: true,
+      message: 'Payment saved successfully',
+      paymentId: saveResult.id,
+      updated: saveResult.updated
+    });
+  } catch (error) {
+    console.error('🧪 TEST: Error saving payment:', error);
+    res.status(500).json({
+      error: error.message,
+      code: error.code,
+      details: error.stack
+    });
   }
 });
 
