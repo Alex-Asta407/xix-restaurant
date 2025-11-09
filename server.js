@@ -698,35 +698,59 @@ app.get('/api/debug/payment-info', async (req, res) => {
 // Test endpoint to manually save a payment (for debugging)
 app.post('/api/debug/save-payment', async (req, res) => {
   try {
-    const { session_id } = req.body;
+    const { session_id, payment_intent_id } = req.body;
 
-    if (!session_id) {
-      return res.status(400).json({ error: 'Missing session_id parameter' });
+    if (!session_id && !payment_intent_id) {
+      return res.status(400).json({ error: 'Missing session_id or payment_intent_id parameter' });
     }
 
-    console.log('🧪 TEST: Manually saving payment for session:', session_id);
-
-    // Retrieve the Checkout Session from Stripe
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-
-    if (session.payment_status !== 'paid') {
-      return res.status(400).json({ error: 'Payment status is not paid', payment_status: session.payment_status });
+    console.log('🧪 TEST: Manually saving payment');
+    
+    let session = null;
+    let paymentIntent = null;
+    
+    // Try to get session first
+    if (session_id) {
+      try {
+        session = await stripe.checkout.sessions.retrieve(session_id);
+        console.log('🧪 TEST: Retrieved session:', session.id);
+      } catch (err) {
+        console.error('🧪 TEST: Could not retrieve session:', err.message);
+      }
     }
+    
+    // Try to get payment intent
+    if (payment_intent_id || (session && session.payment_intent)) {
+      try {
+        paymentIntent = await stripe.paymentIntents.retrieve(payment_intent_id || session.payment_intent);
+        console.log('🧪 TEST: Retrieved payment intent:', paymentIntent.id);
+      } catch (err) {
+        console.error('🧪 TEST: Could not retrieve payment intent:', err.message);
+      }
+    }
+    
+    // Use session data if available (has all metadata), otherwise use payment intent
+    const reservationId = session?.metadata?.reservationId || paymentIntent?.metadata?.reservationId || null;
+    const amountPaid = session ? (session.amount_total / 100) : (paymentIntent ? (paymentIntent.amount / 100) : 0);
+    const eventType = (session?.metadata?.eventId || paymentIntent?.metadata?.eventId) ? 'event' : null;
+    const paymentIntentId = paymentIntent?.id || session?.payment_intent || payment_intent_id;
+    const customerEmail = session?.customer_email || paymentIntent?.receipt_email || paymentIntent?.metadata?.customerEmail || '';
+    const customerName = session?.metadata?.customerName || paymentIntent?.metadata?.customerName || '';
+    const stripeSessionId = session?.id || null;
 
-    const reservationId = session.metadata?.reservationId || null;
-    const amountPaid = session.amount_total / 100;
-    const eventType = session.metadata?.eventId ? 'event' : null;
-    const paymentIntentId = session.payment_intent || session.id;
+    if (!paymentIntentId) {
+      return res.status(400).json({ error: 'Could not determine payment_intent_id' });
+    }
 
     console.log('🧪 TEST: Attempting to save payment with data:', {
       reservationId,
       paymentIntentId,
       amountPaid,
-      currency: session.currency || 'gbp',
+      currency: session?.currency || paymentIntent?.currency || 'gbp',
       eventType,
-      customerEmail: session.customer_email || '',
-      customerName: session.metadata?.customerName || '',
-      stripeSessionId: session.id
+      customerEmail,
+      customerName,
+      stripeSessionId
     });
 
     // Save payment to database
@@ -734,11 +758,11 @@ app.post('/api/debug/save-payment', async (req, res) => {
       reservationId,
       paymentIntentId,
       amountPaid,
-      currency: session.currency || 'gbp',
+      currency: session?.currency || paymentIntent?.currency || 'gbp',
       eventType,
-      customerEmail: session.customer_email || '',
-      customerName: session.metadata?.customerName || '',
-      stripeSessionId: session.id
+      customerEmail,
+      customerName,
+      stripeSessionId
     });
 
     console.log('🧪 TEST: Payment saved successfully:', saveResult);
@@ -747,11 +771,17 @@ app.post('/api/debug/save-payment', async (req, res) => {
       success: true,
       message: 'Payment saved successfully',
       paymentId: saveResult.id,
-      updated: saveResult.updated
+      updated: saveResult.updated,
+      data: {
+        reservationId,
+        paymentIntentId,
+        amountPaid,
+        customerEmail
+      }
     });
   } catch (error) {
     console.error('🧪 TEST: Error saving payment:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       error: error.message,
       code: error.code,
       details: error.stack
@@ -2176,58 +2206,40 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           metadata: paymentIntent.metadata
         });
 
-        // Try to find the checkout session that created this payment intent
-        // When using Stripe Checkout, the session ID isn't in payment intent metadata
-        // We need to search for it
-        let session = null;
-        let sessionId = null;
+        // When using Stripe Checkout, payment_intent.succeeded doesn't include session metadata
+        // We'll use payment intent data directly - the checkout.session.completed event will handle the full save
+        // But we'll still save this as a backup in case checkout.session.completed doesn't fire
         
-        try {
-          // List checkout sessions to find the one with this payment intent
-          // This is a workaround since payment_intent.succeeded doesn't include session ID
-          const sessions = await stripe.checkout.sessions.list({
-            payment_intent: paymentIntent.id,
-            limit: 1
-          });
-          
-          if (sessions.data && sessions.data.length > 0) {
-            session = sessions.data[0];
-            sessionId = session.id;
-            console.log('✅ Found checkout session for payment intent:', session.id);
-          } else {
-            console.log('⚠️ No checkout session found for payment intent, using payment intent data only');
-          }
-        } catch (sessionError) {
-          console.warn('Could not find checkout session:', sessionError.message);
-          // Continue with payment intent data only
-        }
-
-        // Use session data if available, otherwise use payment intent data
-        const reservationId = session?.metadata?.reservationId || paymentIntent.metadata?.reservationId || null;
-        const amountPaid = session ? (session.amount_total / 100) : (paymentIntent.amount / 100);
-        const eventType = session?.metadata?.eventId || paymentIntent.metadata?.eventId ? 'event' : null;
-        const customerEmail = session?.customer_email || paymentIntent.metadata?.customerEmail || '';
-        const customerName = session?.metadata?.customerName || paymentIntent.metadata?.customerName || '';
-        const stripeSessionId = session?.id || sessionId || null;
+        // Extract data from payment intent
+        const reservationId = paymentIntent.metadata?.reservationId || null;
+        const amountPaid = paymentIntent.amount / 100;
+        const eventType = paymentIntent.metadata?.eventId ? 'event' : null;
+        const customerEmail = paymentIntent.metadata?.customerEmail || paymentIntent.receipt_email || '';
+        const customerName = paymentIntent.metadata?.customerName || '';
+        const stripeSessionId = null; // We don't have session ID from payment intent alone
+        
+        console.log('📋 Payment Intent metadata:', paymentIntent.metadata);
+        console.log('📋 Payment Intent receipt_email:', paymentIntent.receipt_email);
 
         console.log('💾 Webhook (Payment Intent): Attempting to save payment with data:', {
           reservationId,
           paymentIntentId: paymentIntent.id,
           amountPaid,
-          currency: session?.currency || paymentIntent.currency || 'gbp',
+          currency: paymentIntent.currency || 'gbp',
           eventType,
           customerEmail,
           customerName,
           stripeSessionId
         });
 
-        // Save payment to database
+        // Save payment to database (even without session data - this is a backup)
+        // The checkout.session.completed event should have all the data, but this ensures we save something
         try {
           const saveResult = await savePaymentToDatabase({
             reservationId,
             paymentIntentId: paymentIntent.id,
             amountPaid,
-            currency: session?.currency || paymentIntent.currency || 'gbp',
+            currency: paymentIntent.currency || 'gbp',
             eventType,
             customerEmail,
             customerName,
@@ -2247,6 +2259,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             code: paymentError.code,
             timestamp: new Date().toISOString()
           });
+          // Don't throw - let the webhook return 200 so Stripe doesn't retry
         }
 
         // Send confirmation email if reservation exists
