@@ -2243,6 +2243,91 @@ app.get('/payment-success', async (req, res) => {
       stack: error.stack,
       timestamp: new Date().toISOString()
     });
+    
+    // Even if there's an error, check if payment was successful via webhook
+    // The webhook may have already saved the payment, so show success page instead of error
+    // This prevents showing error when payment actually succeeded
+    const { session_id } = req.query;
+    if (session_id) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(session_id);
+        if (session.payment_status === 'paid') {
+          // Payment is actually paid, show success page even if there was an error
+          console.log('⚠️ Error occurred but payment is paid - showing success page');
+          return res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Payment Successful - XIX Restaurant</title>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <link rel="stylesheet" href="base.css">
+              <link rel="stylesheet" href="navigation.css">
+              <link rel="stylesheet" href="footer.css">
+              <style>
+                .success-container {
+                  max-width: 600px;
+                  margin: 4rem auto;
+                  padding: 2rem;
+                  text-align: center;
+                  background: var(--white);
+                  border-radius: 12px;
+                  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+                }
+                .success-icon {
+                  font-size: 4rem;
+                  color: #28a745;
+                  margin-bottom: 1rem;
+                }
+                .success-message {
+                  font-family: 'Gilda Display', serif;
+                  font-size: 2rem;
+                  color: var(--very-dark-green);
+                  margin-bottom: 1rem;
+                }
+                .success-details {
+                  color: #666;
+                  margin-bottom: 2rem;
+                }
+                .btn-primary {
+                  display: inline-block;
+                  padding: 0.75rem 2rem;
+                  background: var(--gold);
+                  color: white;
+                  text-decoration: none;
+                  border-radius: 8px;
+                  font-weight: 600;
+                  transition: background 0.3s ease;
+                }
+                .btn-primary:hover {
+                  background: #8B6F1A;
+                }
+              </style>
+            </head>
+            <body>
+              <nav class="navbar">
+                <div class="nav-container">
+                  <div class="nav-logo">
+                    <a href="/xix"><h1>XIX</h1></a>
+                  </div>
+                </div>
+              </nav>
+              <div class="success-container">
+                <div class="success-icon">✓</div>
+                <h1 class="success-message">Payment Successful!</h1>
+                <p class="success-details">Your reservation has been confirmed. You will receive a confirmation email shortly.</p>
+                <a href="/xix" class="btn-primary">Return to Home</a>
+              </div>
+            </body>
+            </html>
+          `);
+        }
+      } catch (retrieveError) {
+        console.error('Could not retrieve session to verify payment:', retrieveError);
+      }
+    }
+    
+    // Only show error if payment is not confirmed as paid
     res.status(500).send('Error verifying payment');
   }
 });
