@@ -476,6 +476,7 @@ db.serialize(() => {
     currency TEXT DEFAULT 'gbp',
     payment_status TEXT DEFAULT 'pending',
     event_type TEXT,
+    event_date TEXT,
     customer_email TEXT,
     customer_name TEXT,
     stripe_session_id TEXT,
@@ -486,6 +487,13 @@ db.serialize(() => {
       console.error('Error creating payments table:', err.message);
     } else {
       console.log('Payments table created/verified');
+    }
+  });
+
+  // Add event_date column if it doesn't exist
+  db.run(`ALTER TABLE payments ADD COLUMN event_date TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding event_date column to payments:', err.message);
     }
   });
 
@@ -658,7 +666,7 @@ app.get('/api/payments/with-reservations', (req, res) => {
   db.all(`
     SELECT 
       p.*,
-      r.date as reservation_date,
+      p.event_date as reservation_date,
       r.time as reservation_time,
       r.name as reservation_name,
       r.email as reservation_email
@@ -677,27 +685,23 @@ app.get('/api/payments/with-reservations', (req, res) => {
           res.status(500).json({ error: err2.message });
           return;
         }
-        // Add null reservation fields for consistency
-        const paymentsWithNulls = rows2.map(p => ({
+        // Use event_date as reservation_date if available
+        const paymentsWithDates = rows2.map(p => ({
           ...p,
-          reservation_date: null,
+          reservation_date: p.event_date || null,
           reservation_time: null,
           reservation_name: null,
           reservation_email: null
         }));
-        res.json(paymentsWithNulls);
+        res.json(paymentsWithDates);
       });
       return;
     }
-    // For each payment, if it's an event payment and has no reservation_date, try to get it from the first matching reservation
-    const processedRows = rows.map(payment => {
-      // If payment has event_type but no reservation_date, try to find matching reservation
-      if (payment.event_type && !payment.reservation_date) {
-        // This will be handled by the join, but if still null, we'll leave it as N/A
-        return payment;
-      }
-      return payment;
-    });
+    // Use event_date as reservation_date if available
+    const processedRows = rows.map(payment => ({
+      ...payment,
+      reservation_date: payment.event_date || payment.reservation_date || null
+    }));
     res.json(processedRows);
   });
 });
@@ -1578,6 +1582,7 @@ function savePaymentToDatabase(paymentData) {
       amountPaid,
       currency,
       eventType,
+      eventDate,
       customerEmail,
       customerName,
       stripeSessionId
@@ -1629,14 +1634,15 @@ function savePaymentToDatabase(paymentData) {
         } else {
           // Insert new payment (reservation_id removed from table)
           db.run(
-            `INSERT INTO payments (payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO payments (payment_intent_id, amount_paid, currency, payment_status, event_type, event_date, customer_email, customer_name, stripe_session_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               paymentIntentId,
               amountPaid,
               currency || 'gbp',
               'paid',
               eventType,
+              eventDate || null,
               customerEmail || '',
               customerName || '',
               stripeSessionId || null
@@ -2079,8 +2085,13 @@ app.get('/payment-success', async (req, res) => {
       // Payments are for events and don't require reservations
       // Note: reservation_id column removed from payments table
       const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
-      // Set eventType to 'event' if eventId exists in metadata, otherwise null
-      const eventType = (session.metadata?.eventId && session.metadata.eventId !== '') ? 'event' : null;
+      
+      // Get event details from mapping if eventId exists
+      const eventId = session.metadata?.eventId || '';
+      const eventDetails = eventId ? eventMapping[eventId] : null;
+      const eventType = eventDetails ? eventDetails.title : (eventId ? 'event' : null);
+      const eventDate = eventDetails?.date || null;
+      
       const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
       // Get customer email - prefer session.customer_email, then metadata, then empty string
@@ -2100,6 +2111,7 @@ app.get('/payment-success', async (req, res) => {
         amountPaid,
         currency: session.currency || 'gbp',
         eventType,
+        eventDate,
         customerEmail,
         customerName,
         stripeSessionId: session.id
@@ -2111,6 +2123,7 @@ app.get('/payment-success', async (req, res) => {
           amountPaid,
           currency: session.currency || 'gbp',
           eventType,
+          eventDate,
           customerEmail,
           customerName,
           stripeSessionId: session.id
@@ -2123,12 +2136,10 @@ app.get('/payment-success', async (req, res) => {
           code: paymentError.code,
           stack: paymentError.stack,
           sessionId: session.id,
-          reservationId: reservationId,
           paymentIntentId: paymentIntentId
         });
         logger.error('Failed to save payment to database (payment-success)', {
           sessionId: session.id,
-          reservationId: reservationId,
           error: paymentError.message,
           code: paymentError.code,
           stack: paymentError.stack,
@@ -2137,37 +2148,9 @@ app.get('/payment-success', async (req, res) => {
         // Continue anyway to send emails, but log the error
       }
 
-      // Retrieve reservation data and send confirmation emails (only if reservation exists)
-      if (reservationId) {
-        db.get(
-          'SELECT * FROM reservations WHERE id = ?',
-          [reservationId],
-          async (err, reservation) => {
-            if (err) {
-              console.error('Error retrieving reservation for email:', err);
-              logger.error('Failed to retrieve reservation for email', {
-                reservationId: reservationId,
-                error: err.message,
-                timestamp: new Date().toISOString()
-              });
-            } else if (reservation) {
-              try {
-                await sendPaymentConfirmationEmails(session, reservation);
-              } catch (emailError) {
-                console.error('Error sending payment confirmation emails:', emailError);
-                // Don't fail the request if email fails
-              }
-            } else {
-              console.warn('Reservation not found for ID:', reservationId);
-              console.warn('Payment saved successfully, but no reservation found for email');
-            }
-          }
-        );
-      } else {
-        // Payment is for an event, no reservation needed
-        console.log('Payment saved for event (no reservation required)');
-        // TODO: Send event payment confirmation email if needed
-      }
+      // For event payments, no reservation is needed
+      // Payment confirmation emails can be sent based on customer email if needed
+      console.log('Payment saved successfully');
 
       // Log successful payment
       logger.info('Payment succeeded via Checkout', {
@@ -2176,7 +2159,7 @@ app.get('/payment-success', async (req, res) => {
         amount: session.amount_total / 100,
         currency: session.currency,
         customerEmail: session.customer_email,
-        reservationId: session.metadata.reservationId,
+        eventId: session.metadata?.eventId || null,
         timestamp: new Date().toISOString()
       });
 
@@ -2412,8 +2395,13 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
 
         // Note: reservation_id column removed from payments table
         const amountPaid = session.amount_total / 100;
-        // Set eventType to 'event' if eventId exists in metadata, otherwise null
-        const eventType = (session.metadata?.eventId && session.metadata.eventId !== '') ? 'event' : null;
+        
+        // Get event details from mapping if eventId exists
+        const eventId = session.metadata?.eventId || '';
+        const eventDetails = eventId ? eventMapping[eventId] : null;
+        const eventType = eventDetails ? eventDetails.title : (eventId ? 'event' : null);
+        const eventDate = eventDetails?.date || null;
+        
         const paymentIntentId = session.payment_intent || session.id;
         
         // Get customer email - prefer session.customer_email, then metadata, then empty string
@@ -2432,6 +2420,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           amountPaid,
           currency: session.currency || 'gbp',
           eventType,
+          eventDate,
           customerEmail,
           customerName,
           stripeSessionId: session.id
@@ -2444,6 +2433,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             amountPaid,
             currency: session.currency || 'gbp',
             eventType,
+            eventDate,
             customerEmail,
             customerName,
             stripeSessionId: session.id
@@ -2464,22 +2454,9 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           });
         }
 
-        // Send confirmation email if reservation exists
-        if (reservationId) {
-          db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, reservation) => {
-            if (err || !reservation) {
-              console.warn('Reservation not found for email:', reservationId);
-              return;
-            }
-
-            try {
-              await sendPaymentConfirmationEmails(session, reservation);
-              console.log('✓ Webhook: Payment confirmation emails sent');
-            } catch (emailError) {
-              console.error('Error sending confirmation email:', emailError);
-            }
-          });
-        }
+        // For event payments, no reservation is needed
+        // Payment confirmation emails can be sent based on customer email if needed
+        console.log('✓ Webhook: Payment saved successfully');
 
         logger.info('Payment succeeded via Checkout (webhook)', {
           sessionId: session.id,
