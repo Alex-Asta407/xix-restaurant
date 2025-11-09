@@ -1499,12 +1499,19 @@ app.post('/api/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: 'Valid amount is required' });
     }
 
+    // Validate and log email
+    if (customerEmail && !customerEmail.includes('@')) {
+      console.warn('⚠️ Invalid email format provided:', customerEmail);
+    }
+    console.log('📧 Creating checkout session with email:', customerEmail || 'not provided');
+
     // Get base URL from request
     const baseUrl = req.protocol + '://' + req.get('host');
     const successUrl = `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/payment?amount=${amount}&reservationId=${reservationId || ''}&eventId=${eventId || ''}`;
 
     // Create Checkout Session
+    // Store customer email in both customer_email and metadata to ensure it's preserved
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -1526,10 +1533,13 @@ app.post('/api/create-checkout-session', async (req, res) => {
         eventId: eventId || '',
         reservationId: reservationId || '',
         customerName: customerName || '',
+        customerEmail: customerEmail || '', // Store email in metadata as backup - CRITICAL for preserving email
       },
       success_url: successUrl,
       cancel_url: cancelUrl,
     });
+
+    console.log('✅ Checkout session created with email in metadata:', session.metadata?.customerEmail || 'not found');
 
     // Log checkout session creation
     logger.info('Checkout session created', {
@@ -2073,8 +2083,14 @@ app.get('/payment-success', async (req, res) => {
       const eventType = (session.metadata?.eventId && session.metadata.eventId !== '') ? 'event' : null;
       const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
-      // Get customer email - prefer session.customer_email, fallback to metadata
+      // Get customer email - prefer session.customer_email, then metadata, then empty string
+      // Stripe may not always preserve customer_email, so we store it in metadata as backup
       const customerEmail = session.customer_email || session.metadata?.customerEmail || '';
+      console.log('📧 Email extraction from session:', {
+        session_customer_email: session.customer_email,
+        metadata_customerEmail: session.metadata?.customerEmail,
+        final_email: customerEmail
+      });
       // Get customer name from metadata (may be empty for events)
       const customerName = session.metadata?.customerName || '';
       
@@ -2400,8 +2416,14 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         const eventType = (session.metadata?.eventId && session.metadata.eventId !== '') ? 'event' : null;
         const paymentIntentId = session.payment_intent || session.id;
         
-        // Get customer email - prefer session.customer_email, fallback to metadata
+        // Get customer email - prefer session.customer_email, then metadata, then empty string
+        // Stripe may not always preserve customer_email, so we store it in metadata as backup
         const customerEmail = session.customer_email || session.metadata?.customerEmail || '';
+        console.log('📧 Email extraction from webhook session:', {
+          session_customer_email: session.customer_email,
+          metadata_customerEmail: session.metadata?.customerEmail,
+          final_email: customerEmail
+        });
         // Get customer name from metadata (may be empty for events)
         const customerName = session.metadata?.customerName || '';
 
