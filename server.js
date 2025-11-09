@@ -468,6 +468,7 @@ db.serialize(() => {
 
   // Create payments table (separate from reservations for better database design)
   // Payments are for events and don't require reservations
+  // IMPORTANT: reservation_id must be nullable (NULL) for event payments
   db.run(`CREATE TABLE IF NOT EXISTS payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     reservation_id INTEGER,
@@ -489,13 +490,68 @@ db.serialize(() => {
     }
   });
 
-  // Remove foreign key constraint if it exists (payments don't require reservations)
-  // SQLite doesn't support DROP CONSTRAINT, so we'll just make reservation_id nullable
-  db.run(`ALTER TABLE payments ADD COLUMN reservation_id INTEGER`, (err) => {
-    // Ignore error if column already exists or constraint doesn't exist
-    if (err && !err.message.includes('duplicate column name')) {
-      // Try to make reservation_id nullable (SQLite doesn't support ALTER COLUMN directly)
-      // The column is already nullable in the new schema, so this is just for existing tables
+  // Migration: Fix existing payments table if reservation_id has NOT NULL constraint
+  // SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+  db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='payments'", (err, row) => {
+    if (err) {
+      console.error('Error checking payments table schema:', err);
+      return;
+    }
+    
+    if (row && row.sql && row.sql.includes('reservation_id') && row.sql.includes('NOT NULL')) {
+      console.log('⚠️  Payments table has NOT NULL constraint on reservation_id - migrating...');
+      
+      // Create new table with correct schema
+      db.run(`CREATE TABLE IF NOT EXISTS payments_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reservation_id INTEGER,
+        payment_intent_id TEXT NOT NULL UNIQUE,
+        amount_paid DECIMAL(10,2) NOT NULL,
+        currency TEXT DEFAULT 'gbp',
+        payment_status TEXT DEFAULT 'pending',
+        event_type TEXT,
+        customer_email TEXT,
+        customer_name TEXT,
+        stripe_session_id TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`, (err) => {
+        if (err) {
+          console.error('Error creating new payments table:', err);
+          return;
+        }
+        
+        // Copy existing data (if any)
+        db.run(`INSERT INTO payments_new 
+          SELECT id, reservation_id, payment_intent_id, amount_paid, currency, 
+                 payment_status, event_type, customer_email, customer_name, 
+                 stripe_session_id, created_at, updated_at
+          FROM payments`, (err) => {
+          if (err) {
+            console.error('Error copying data to new payments table:', err);
+            return;
+          }
+          
+          // Drop old table
+          db.run(`DROP TABLE payments`, (err) => {
+            if (err) {
+              console.error('Error dropping old payments table:', err);
+              return;
+            }
+            
+            // Rename new table
+            db.run(`ALTER TABLE payments_new RENAME TO payments`, (err) => {
+              if (err) {
+                console.error('Error renaming payments table:', err);
+              } else {
+                console.log('✅ Payments table migrated successfully - reservation_id is now nullable');
+              }
+            });
+          });
+        });
+      });
+    } else {
+      console.log('✅ Payments table schema is correct - reservation_id is nullable');
     }
   });
 
