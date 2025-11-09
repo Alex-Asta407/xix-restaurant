@@ -468,10 +468,9 @@ db.serialize(() => {
 
   // Create payments table (separate from reservations for better database design)
   // Payments are for events and don't require reservations
-  // IMPORTANT: reservation_id must be nullable (NULL) for event payments
+  // NOTE: reservation_id is removed - payments don't need to link to reservations
   db.run(`CREATE TABLE IF NOT EXISTS payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    reservation_id INTEGER,
     payment_intent_id TEXT NOT NULL UNIQUE,
     amount_paid DECIMAL(10,2) NOT NULL,
     currency TEXT DEFAULT 'gbp',
@@ -490,21 +489,21 @@ db.serialize(() => {
     }
   });
 
-  // Migration: Fix existing payments table if reservation_id has NOT NULL constraint
-  // SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+  // Migration: Remove reservation_id column from payments table
+  // SQLite doesn't support DROP COLUMN, so we need to recreate the table
   db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='payments'", (err, row) => {
     if (err) {
       console.error('Error checking payments table schema:', err);
       return;
     }
     
-    if (row && row.sql && row.sql.includes('reservation_id') && row.sql.includes('NOT NULL')) {
-      console.log('⚠️  Payments table has NOT NULL constraint on reservation_id - migrating...');
+    // Check if reservation_id column exists
+    if (row && row.sql && row.sql.includes('reservation_id')) {
+      console.log('⚠️  Payments table has reservation_id column - migrating to remove it...');
       
-      // Create new table with correct schema
+      // Create new table without reservation_id
       db.run(`CREATE TABLE IF NOT EXISTS payments_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        reservation_id INTEGER,
         payment_intent_id TEXT NOT NULL UNIQUE,
         amount_paid DECIMAL(10,2) NOT NULL,
         currency TEXT DEFAULT 'gbp',
@@ -521,9 +520,9 @@ db.serialize(() => {
           return;
         }
         
-        // Copy existing data (if any)
+        // Copy existing data (excluding reservation_id)
         db.run(`INSERT INTO payments_new 
-          SELECT id, reservation_id, payment_intent_id, amount_paid, currency, 
+          SELECT id, payment_intent_id, amount_paid, currency, 
                  payment_status, event_type, customer_email, customer_name, 
                  stripe_session_id, created_at, updated_at
           FROM payments`, (err) => {
@@ -544,14 +543,14 @@ db.serialize(() => {
               if (err) {
                 console.error('Error renaming payments table:', err);
               } else {
-                console.log('✅ Payments table migrated successfully - reservation_id is now nullable');
+                console.log('✅ Payments table migrated successfully - reservation_id column removed');
               }
             });
           });
         });
       });
     } else {
-      console.log('✅ Payments table schema is correct - reservation_id is nullable');
+      console.log('✅ Payments table schema is correct - no reservation_id column');
     }
   });
 
@@ -653,26 +652,53 @@ app.get('/api/payments', (req, res) => {
 });
 
 // Get payments with reservation details (joined query)
+// Note: reservation_id column removed, but we can still get reservation date from reservations table
+// For event payments, we'll try to find a matching reservation by email and date
 app.get('/api/payments/with-reservations', (req, res) => {
   db.all(`
     SELECT 
       p.*,
-      r.name as reservation_name,
-      r.email as reservation_email,
-      r.phone as reservation_phone,
       r.date as reservation_date,
       r.time as reservation_time,
-      r.guests as reservation_guests,
-      r.venue
+      r.name as reservation_name,
+      r.email as reservation_email
     FROM payments p
-    LEFT JOIN reservations r ON p.reservation_id = r.id
+    LEFT JOIN reservations r ON (
+      r.email = p.customer_email 
+      AND r.date >= date('now', '-30 days')
+      AND r.event_type IS NOT NULL
+    )
     ORDER BY p.created_at DESC
   `, (err, rows) => {
     if (err) {
-      res.status(500).json({ error: err.message });
+      // If join fails, just return payments without reservation data
+      db.all('SELECT * FROM payments ORDER BY created_at DESC', (err2, rows2) => {
+        if (err2) {
+          res.status(500).json({ error: err2.message });
+          return;
+        }
+        // Add null reservation fields for consistency
+        const paymentsWithNulls = rows2.map(p => ({
+          ...p,
+          reservation_date: null,
+          reservation_time: null,
+          reservation_name: null,
+          reservation_email: null
+        }));
+        res.json(paymentsWithNulls);
+      });
       return;
     }
-    res.json(rows);
+    // For each payment, if it's an event payment and has no reservation_date, try to get it from the first matching reservation
+    const processedRows = rows.map(payment => {
+      // If payment has event_type but no reservation_date, try to find matching reservation
+      if (payment.event_type && !payment.reservation_date) {
+        // This will be handled by the join, but if still null, we'll leave it as N/A
+        return payment;
+      }
+      return payment;
+    });
+    res.json(processedRows);
   });
 });
 
@@ -786,7 +812,7 @@ app.post('/api/debug/save-payment', async (req, res) => {
     }
     
     // Use session data if available (has all metadata), otherwise use payment intent
-    const reservationId = session?.metadata?.reservationId || paymentIntent?.metadata?.reservationId || null;
+    // Note: reservation_id column removed from payments table
     const amountPaid = session ? (session.amount_total / 100) : (paymentIntent ? (paymentIntent.amount / 100) : 0);
     const eventType = (session?.metadata?.eventId || paymentIntent?.metadata?.eventId) ? 'event' : null;
     const paymentIntentId = paymentIntent?.id || session?.payment_intent || payment_intent_id;
@@ -799,7 +825,6 @@ app.post('/api/debug/save-payment', async (req, res) => {
     }
 
     console.log('🧪 TEST: Attempting to save payment with data:', {
-      reservationId,
       paymentIntentId,
       amountPaid,
       currency: session?.currency || paymentIntent?.currency || 'gbp',
@@ -811,7 +836,6 @@ app.post('/api/debug/save-payment', async (req, res) => {
 
     // Save payment to database
     const saveResult = await savePaymentToDatabase({
-      reservationId,
       paymentIntentId,
       amountPaid,
       currency: session?.currency || paymentIntent?.currency || 'gbp',
@@ -1535,11 +1559,11 @@ app.post('/api/create-checkout-session', async (req, res) => {
 });
 
 // Helper function to save payment to database (returns Promise)
+// Note: reservation_id column removed from payments table
 function savePaymentToDatabase(paymentData) {
   console.log('💾 savePaymentToDatabase called with:', paymentData);
   return new Promise((resolve, reject) => {
     const {
-      reservationId,
       paymentIntentId,
       amountPaid,
       currency,
@@ -1574,15 +1598,14 @@ function savePaymentToDatabase(paymentData) {
         console.log('🔍 Existing payment check result:', existing ? `Found ID: ${existing.id}` : 'Not found');
 
         if (existing) {
-          // Update existing payment
+          // Update existing payment (reservation_id removed from table)
           db.run(
             `UPDATE payments SET 
               payment_status = 'paid',
               amount_paid = ?,
-              reservation_id = ?,
               updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
-            [amountPaid, reservationId, existing.id],
+            [amountPaid, existing.id],
             function (err) {
               if (err) {
                 console.error('Error updating payment record:', err);
@@ -1594,12 +1617,11 @@ function savePaymentToDatabase(paymentData) {
             }
           );
         } else {
-          // Insert new payment
+          // Insert new payment (reservation_id removed from table)
           db.run(
-            `INSERT INTO payments (reservation_id, payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO payments (payment_intent_id, amount_paid, currency, payment_status, event_type, customer_email, customer_name, stripe_session_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-              reservationId,
               paymentIntentId,
               amountPaid,
               currency || 'gbp',
@@ -2045,32 +2067,36 @@ app.get('/payment-success', async (req, res) => {
       console.log('💰 Payment is PAID - Processing payment save...');
       // Insert payment record into payments table
       // Payments are for events and don't require reservations
-      const reservationId = session.metadata?.reservationId || null; // Optional - can be NULL
+      // Note: reservation_id column removed from payments table
       const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
-      const eventType = session.metadata?.eventId ? 'event' : null;
+      // Set eventType to 'event' if eventId exists in metadata, otherwise null
+      const eventType = (session.metadata?.eventId && session.metadata.eventId !== '') ? 'event' : null;
       const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
+      // Get customer email - prefer session.customer_email, fallback to metadata
+      const customerEmail = session.customer_email || session.metadata?.customerEmail || '';
+      // Get customer name from metadata (may be empty for events)
+      const customerName = session.metadata?.customerName || '';
+      
       // Save payment to database using helper function
       console.log('💾 Attempting to save payment to database with data:', {
-        reservationId,
         paymentIntentId,
         amountPaid,
         currency: session.currency || 'gbp',
         eventType,
-        customerEmail: session.customer_email || '',
-        customerName: session.metadata?.customerName || '',
+        customerEmail,
+        customerName,
         stripeSessionId: session.id
       });
 
       try {
         const saveResult = await savePaymentToDatabase({
-          reservationId,
           paymentIntentId,
           amountPaid,
           currency: session.currency || 'gbp',
           eventType,
-          customerEmail: session.customer_email || '',
-          customerName: session.metadata?.customerName || '',
+          customerEmail,
+          customerName,
           stripeSessionId: session.id
         });
         console.log('✅ Payment saved successfully in payment-success endpoint:', saveResult);
@@ -2267,7 +2293,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         // But we'll still save this as a backup in case checkout.session.completed doesn't fire
         
         // Extract data from payment intent
-        const reservationId = paymentIntent.metadata?.reservationId || null;
+        // Note: reservation_id column removed from payments table
         const amountPaid = paymentIntent.amount / 100;
         const eventType = paymentIntent.metadata?.eventId ? 'event' : null;
         const customerEmail = paymentIntent.metadata?.customerEmail || paymentIntent.receipt_email || '';
@@ -2278,7 +2304,6 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         console.log('📋 Payment Intent receipt_email:', paymentIntent.receipt_email);
 
         console.log('💾 Webhook (Payment Intent): Attempting to save payment with data:', {
-          reservationId,
           paymentIntentId: paymentIntent.id,
           amountPaid,
           currency: paymentIntent.currency || 'gbp',
@@ -2292,7 +2317,6 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         // The checkout.session.completed event should have all the data, but this ensures we save something
         try {
           const saveResult = await savePaymentToDatabase({
-            reservationId,
             paymentIntentId: paymentIntent.id,
             amountPaid,
             currency: paymentIntent.currency || 'gbp',
@@ -2370,32 +2394,36 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           break;
         }
 
-        const reservationId = session.metadata?.reservationId || null;
+        // Note: reservation_id column removed from payments table
         const amountPaid = session.amount_total / 100;
-        const eventType = session.metadata?.eventId ? 'event' : null;
+        // Set eventType to 'event' if eventId exists in metadata, otherwise null
+        const eventType = (session.metadata?.eventId && session.metadata.eventId !== '') ? 'event' : null;
         const paymentIntentId = session.payment_intent || session.id;
+        
+        // Get customer email - prefer session.customer_email, fallback to metadata
+        const customerEmail = session.customer_email || session.metadata?.customerEmail || '';
+        // Get customer name from metadata (may be empty for events)
+        const customerName = session.metadata?.customerName || '';
 
         console.log('💾 Webhook: Attempting to save payment with data:', {
-          reservationId,
           paymentIntentId,
           amountPaid,
           currency: session.currency || 'gbp',
           eventType,
-          customerEmail: session.customer_email || '',
-          customerName: session.metadata?.customerName || '',
+          customerEmail,
+          customerName,
           stripeSessionId: session.id
         });
 
         // Save payment to database
         try {
           const saveResult = await savePaymentToDatabase({
-            reservationId,
             paymentIntentId,
             amountPaid,
             currency: session.currency || 'gbp',
             eventType,
-            customerEmail: session.customer_email || '',
-            customerName: session.metadata?.customerName || '',
+            customerEmail,
+            customerName,
             stripeSessionId: session.id
           });
           console.log('✅ Webhook: Payment saved successfully:', saveResult);
