@@ -1680,9 +1680,15 @@ function savePaymentToDatabase(paymentData) {
   });
 }
 
-// Helper function to send payment confirmation emails
-async function sendPaymentConfirmationEmails(session, reservation) {
+// Helper function to send payment confirmation emails for event payments (without reservation)
+async function sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName) {
   try {
+    // Check if email is configured
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('⚠️ Email not configured - skipping email send');
+      return null;
+    }
+
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: 587,
@@ -1706,31 +1712,31 @@ async function sendPaymentConfirmationEmails(session, reservation) {
       hour: '2-digit', minute: '2-digit'
     });
 
-    // Parse reservation date
-    const dateParts = reservation.date.split('-');
-    const dateYear = parseInt(dateParts[0], 10);
-    const dateMonth = parseInt(dateParts[1], 10) - 1;
-    const dateDay = parseInt(dateParts[2], 10);
-    const dateObj = new Date(dateYear, dateMonth, dateDay);
-    const formattedDate = dateObj.toLocaleDateString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
+    // Format event date if available
+    let formattedEventDate = 'TBA';
+    if (eventDate) {
+      try {
+        const dateParts = eventDate.split('-');
+        const dateYear = parseInt(dateParts[0], 10);
+        const dateMonth = parseInt(dateParts[1], 10) - 1;
+        const dateDay = parseInt(dateParts[2], 10);
+        const dateObj = new Date(dateYear, dateMonth, dateDay);
+        formattedEventDate = dateObj.toLocaleDateString('en-US', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        });
+      } catch (e) {
+        formattedEventDate = eventDate;
+      }
+    }
 
-    const time24 = reservation.time || '19:00';
-    const [h, m] = time24.split(':');
-    const hh = parseInt(h, 10);
-    const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
-
-    // Determine venue details
-    const isMirror = reservation.venue === 'Mirror' || reservation.venue === 'mirror';
-    const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
-    const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
+    const venueName = 'XIX Restaurant';
+    const venueAddress = 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
 
     // Generate invoice number (using session ID)
     const invoiceNumber = `INV-${session.id.substring(0, 12).toUpperCase()}`;
 
-    // Customer Ticket/Invoice Email
-    const customerSubject = `${venueName} - Payment Confirmation & Invoice #${invoiceNumber}`;
+    // Customer Event Ticket/Invoice Email
+    const customerSubject = `${venueName} - Event Payment Confirmation & Invoice #${invoiceNumber}`;
     const customerHtml = `
       <!DOCTYPE html>
       <html>
@@ -1764,62 +1770,32 @@ async function sendPaymentConfirmationEmails(session, reservation) {
           
           <div class="invoice-body">
             <div class="invoice-section">
-              <h2>Reservation Ticket</h2>
+              <h2>Event Ticket</h2>
               <div class="ticket-box">
-                <h3>${venueName}</h3>
+                <h3>${eventType || 'Event'}</h3>
                 <div class="info-row">
                   <span class="info-label">Date:</span>
-                  <span class="info-value">${formattedDate}</span>
+                  <span class="info-value">${formattedEventDate}</span>
                 </div>
-                <div class="info-row">
-                  <span class="info-label">Time:</span>
-                  <span class="info-value">${time12}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Number of Guests:</span>
-                  <span class="info-value">${reservation.guests}</span>
-                </div>
-                ${reservation.table_preference ? `
-                <div class="info-row">
-                  <span class="info-label">Table Preference:</span>
-                  <span class="info-value">${reservation.table_preference}</span>
-                </div>
-                ` : ''}
-                ${reservation.occasion ? `
-                <div class="info-row">
-                  <span class="info-label">Occasion:</span>
-                  <span class="info-value">${reservation.occasion}</span>
-                </div>
-                ` : ''}
-                ${reservation.event_type ? `
-                <div class="info-row">
-                  <span class="info-label">Event Type:</span>
-                  <span class="info-value">${reservation.event_type}</span>
-                </div>
-                ` : ''}
                 <div class="info-row">
                   <span class="info-label">Location:</span>
                   <span class="info-value">${venueAddress}</span>
                 </div>
-                ${reservation.special_requests ? `
-                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-                  <strong>Special Requests:</strong>
-                  <p style="margin: 5px 0 0 0; color: #666;">${reservation.special_requests}</p>
-                </div>
-                ` : ''}
               </div>
             </div>
 
             <div class="invoice-section">
               <h2>Payment Invoice</h2>
               <div class="payment-summary">
+                ${customerName ? `
                 <div class="info-row">
                   <span class="info-label">Customer Name:</span>
-                  <span class="info-value">${reservation.name}</span>
+                  <span class="info-value">${customerName}</span>
                 </div>
+                ` : ''}
                 <div class="info-row">
                   <span class="info-label">Customer Email:</span>
-                  <span class="info-value">${reservation.email}</span>
+                  <span class="info-value">${customerEmail}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-label">Payment Date:</span>
@@ -1849,14 +1825,14 @@ async function sendPaymentConfirmationEmails(session, reservation) {
             <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
               <strong>Important Information:</strong>
               <ul style="margin: 10px 0 0 0; padding-left: 20px;">
-                <li>Please arrive 15 minutes before your reservation time</li>
+                <li>Please arrive on time for the event</li>
                 <li>This email serves as your confirmation ticket</li>
                 <li>If you need to make changes, please contact us at least 24 hours in advance</li>
                 <li>Keep this email for your records</li>
               </ul>
             </div>
 
-            <p style="margin-top: 30px;">Thank you for choosing ${venueName}. We look forward to serving you!</p>
+            <p style="margin-top: 30px;">Thank you for choosing ${venueName}. We look forward to seeing you at the event!</p>
             <p>Best regards,<br><strong>The ${venueName} Team</strong></p>
           </div>
 
@@ -1871,7 +1847,7 @@ async function sendPaymentConfirmationEmails(session, reservation) {
     `;
 
     // Manager Notification Email
-    const managerSubject = `💰 New Paid Reservation - ${reservation.name} - ${formattedDate} at ${time12}`;
+    const managerSubject = `💰 New Event Payment - ${eventType || 'Event'} - ${formattedEventDate}`;
     const managerHtml = `
       <!DOCTYPE html>
       <html>
@@ -1896,7 +1872,7 @@ async function sendPaymentConfirmationEmails(session, reservation) {
       <body>
         <div class="notification-container">
           <div class="notification-header">
-            <h1>💰 New Paid Reservation</h1>
+            <h1>💰 New Event Payment</h1>
             <p style="margin: 10px 0 0 0;">Payment Received Successfully</p>
           </div>
           
@@ -1910,74 +1886,32 @@ async function sendPaymentConfirmationEmails(session, reservation) {
 
             <div class="info-section">
               <h3>Customer Information</h3>
+              ${customerName ? `
               <div class="info-row">
                 <span class="info-label">Name:</span>
-                <span class="info-value">${reservation.name}</span>
+                <span class="info-value">${customerName}</span>
               </div>
+              ` : ''}
               <div class="info-row">
                 <span class="info-label">Email:</span>
-                <span class="info-value"><a href="mailto:${reservation.email}">${reservation.email}</a></span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Phone:</span>
-                <span class="info-value"><a href="tel:${reservation.phone}">${reservation.phone}</a></span>
+                <span class="info-value"><a href="mailto:${customerEmail}">${customerEmail}</a></span>
               </div>
             </div>
 
             <div class="info-section">
-              <h3>Reservation Details</h3>
+              <h3>Event Details</h3>
+              <div class="info-row">
+                <span class="info-label">Event Type:</span>
+                <span class="info-value">${eventType || 'Event'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Event Date:</span>
+                <span class="info-value">${formattedEventDate}</span>
+              </div>
               <div class="info-row">
                 <span class="info-label">Venue:</span>
                 <span class="info-value">${venueName}</span>
               </div>
-              <div class="info-row">
-                <span class="info-label">Date:</span>
-                <span class="info-value">${formattedDate}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Time:</span>
-                <span class="info-value">${time12}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Number of Guests:</span>
-                <span class="info-value">${reservation.guests}</span>
-              </div>
-              ${reservation.table_preference ? `
-              <div class="info-row">
-                <span class="info-label">Table Preference:</span>
-                <span class="info-value">${reservation.table_preference}</span>
-              </div>
-              ` : ''}
-              ${reservation.occasion ? `
-              <div class="info-row">
-                <span class="info-label">Occasion:</span>
-                <span class="info-value">${reservation.occasion}</span>
-              </div>
-              ` : ''}
-              ${reservation.event_type ? `
-              <div class="info-row">
-                <span class="info-label">Event Type:</span>
-                <span class="info-value">${reservation.event_type}</span>
-              </div>
-              ` : ''}
-              ${reservation.menu_preference ? `
-              <div class="info-row">
-                <span class="info-label">Menu Preference:</span>
-                <span class="info-value">${reservation.menu_preference}</span>
-              </div>
-              ` : ''}
-              ${reservation.entertainment ? `
-              <div class="info-row">
-                <span class="info-label">Entertainment:</span>
-                <span class="info-value">${reservation.entertainment}</span>
-              </div>
-              ` : ''}
-              ${reservation.special_requests ? `
-              <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-                <strong>Special Requests:</strong>
-                <p style="margin: 5px 0 0 0; color: #666;">${reservation.special_requests}</p>
-              </div>
-              ` : ''}
             </div>
 
             <div class="info-section">
@@ -2001,7 +1935,7 @@ async function sendPaymentConfirmationEmails(session, reservation) {
             </div>
 
             <p style="margin-top: 30px; padding: 15px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px;">
-              <strong>Action Required:</strong> Please prepare for this reservation and ensure all special requests are noted.
+              <strong>Action Required:</strong> Please prepare for this event and ensure all details are noted.
             </p>
           </div>
         </div>
@@ -2010,13 +1944,17 @@ async function sendPaymentConfirmationEmails(session, reservation) {
     `;
 
     // Send customer email
-    const customerInfo = await transporter.sendMail({
-      from,
-      to: reservation.email || session.customer_email,
-      subject: customerSubject,
-      html: customerHtml
-    });
-    console.log('✓ Payment confirmation email sent to customer:', customerInfo.messageId);
+    if (customerEmail) {
+      const customerInfo = await transporter.sendMail({
+        from,
+        to: customerEmail,
+        subject: customerSubject,
+        html: customerHtml
+      });
+      console.log('✓ Event payment confirmation email sent to customer:', customerInfo.messageId);
+    } else {
+      console.warn('⚠️ No customer email available - skipping customer email');
+    }
 
     // Send manager email
     const managerInfo = await transporter.sendMail({
@@ -2025,27 +1963,13 @@ async function sendPaymentConfirmationEmails(session, reservation) {
       subject: managerSubject,
       html: managerHtml
     });
-    console.log('✓ Payment notification email sent to manager:', managerInfo.messageId);
+    console.log('✓ Event payment notification email sent to manager:', managerInfo.messageId);
 
-    // Update email status in database
-    db.run(
-      'UPDATE reservations SET email_sent_to_customer = 1, email_sent_to_manager = 1 WHERE id = ?',
-      [reservation.id],
-      (err) => {
-        if (err) {
-          console.error('Error updating email status:', err);
-        } else {
-          console.log('✓ Email status updated for reservation ID:', reservation.id);
-        }
-      }
-    );
-
-    return { customerInfo, managerInfo };
+    return { customerInfo: customerEmail ? { messageId: 'sent' } : null, managerInfo };
   } catch (error) {
-    console.error('Error sending payment confirmation emails:', error);
-    logger.error('Failed to send payment confirmation emails', {
+    console.error('Error sending event payment confirmation emails:', error);
+    logger.error('Failed to send event payment confirmation emails', {
       sessionId: session?.id || 'unknown',
-      reservationId: reservation?.id || 'unknown',
       error: error.message,
       timestamp: new Date().toISOString()
     });
@@ -2149,7 +2073,24 @@ app.get('/payment-success', async (req, res) => {
       }
 
       // For event payments, no reservation is needed
-      // Payment confirmation emails can be sent based on customer email if needed
+      // Send payment confirmation emails for event payments
+      if (customerEmail) {
+        try {
+          await sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName);
+          console.log('✅ Payment confirmation emails sent successfully');
+        } catch (emailError) {
+          console.error('❌ Failed to send payment confirmation emails:', emailError);
+          logger.error('Failed to send payment confirmation emails (payment-success)', {
+            sessionId: session.id,
+            error: emailError.message,
+            timestamp: new Date().toISOString()
+          });
+          // Continue anyway - payment is saved
+        }
+      } else {
+        console.warn('⚠️ No customer email available - skipping email send');
+      }
+
       console.log('Payment saved successfully');
 
       // Log successful payment
@@ -2426,32 +2367,6 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           // Don't throw - let the webhook return 200 so Stripe doesn't retry
         }
 
-        // Send confirmation email if reservation exists
-        if (reservationId) {
-          db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, reservation) => {
-            if (err || !reservation) {
-              console.warn('Reservation not found for email:', reservationId);
-              return;
-            }
-
-            const mockSession = {
-              id: paymentIntent.id,
-              payment_intent: paymentIntent.id,
-              amount_total: paymentIntent.amount,
-              currency: paymentIntent.currency || 'gbp',
-              customer_email: paymentIntent.metadata?.customerEmail || reservation.email,
-              metadata: paymentIntent.metadata
-            };
-
-            try {
-              await sendPaymentConfirmationEmails(mockSession, reservation);
-              console.log('✓ Webhook (Payment Intent): Payment confirmation emails sent');
-            } catch (emailError) {
-              console.error('Error sending confirmation email:', emailError);
-            }
-          });
-        }
-
         logger.info('Payment succeeded (webhook)', {
           paymentIntentId: paymentIntent.id,
           amount: paymentIntent.amount,
@@ -2540,7 +2455,24 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         }
 
         // For event payments, no reservation is needed
-        // Payment confirmation emails can be sent based on customer email if needed
+        // Send payment confirmation emails for event payments
+        if (customerEmail) {
+          try {
+            await sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName);
+            console.log('✅ Webhook: Payment confirmation emails sent successfully');
+          } catch (emailError) {
+            console.error('❌ Webhook: Failed to send payment confirmation emails:', emailError);
+            logger.error('Failed to send payment confirmation emails (webhook)', {
+              sessionId: session.id,
+              error: emailError.message,
+              timestamp: new Date().toISOString()
+            });
+            // Continue anyway - payment is saved
+          }
+        } else {
+          console.warn('⚠️ Webhook: No customer email available - skipping email send');
+        }
+
         console.log('✓ Webhook: Payment saved successfully');
 
         logger.info('Payment succeeded via Checkout (webhook)', {
