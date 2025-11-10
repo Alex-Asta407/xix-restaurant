@@ -62,13 +62,15 @@ app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net", "https://use.fontawesome.com", "https://checkout.stripe.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com", "https://use.fontawesome.com", "https://checkout.stripe.com", "data:", "https:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com", "https://js.stripe.com", "https://checkout.stripe.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.stripe.com", "https://checkout.stripe.com"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", "https://checkout.stripe.com"],
-      frameAncestors: ["'self'"]
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net", "https://use.fontawesome.com", "https://checkout.stripe.com", "https://js.stripe.com", "https://stripecdn.com"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com", "https://use.fontawesome.com", "https://checkout.stripe.com", "https://js.stripe.com", "https://stripecdn.com", "https:"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com", "https://js.stripe.com", "https://checkout.stripe.com", "https://stripecdn.com", "https://hcaptcha.com", "https://*.hcaptcha.com"],
+      imgSrc: ["'self'", "data:", "https:", "https://js.stripe.com", "https://stripecdn.com"],
+      connectSrc: ["'self'", "https://api.stripe.com", "https://checkout.stripe.com", "https://js.stripe.com", "https://hooks.stripe.com", "https://hcaptcha.com", "https://*.hcaptcha.com"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", "https://checkout.stripe.com", "https://hcaptcha.com", "https://*.hcaptcha.com"],
+      frameAncestors: ["'self'"],
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"]
     }
   } : false // Disable CSP in development
 }));
@@ -1682,12 +1684,28 @@ function savePaymentToDatabase(paymentData) {
 
 // Helper function to send payment confirmation emails for event payments (without reservation)
 async function sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName) {
+  console.log('📧 sendEventPaymentConfirmationEmails called with:', {
+    sessionId: session?.id,
+    eventType,
+    eventDate,
+    customerEmail,
+    customerName,
+    hasSMTP: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+  });
+
   try {
     // Check if email is configured
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
       console.warn('⚠️ Email not configured - skipping email send');
+      console.warn('⚠️ SMTP configuration check:', {
+        SMTP_HOST: !!process.env.SMTP_HOST,
+        SMTP_USER: !!process.env.SMTP_USER,
+        SMTP_PASS: !!process.env.SMTP_PASS
+      });
       return null;
     }
+
+    console.log('✅ Email configuration found, proceeding to send emails...');
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -1944,28 +1962,54 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
     `;
 
     // Send customer email
+    let customerInfo = null;
     if (customerEmail) {
-      const customerInfo = await transporter.sendMail({
-        from,
-        to: customerEmail,
-        subject: customerSubject,
-        html: customerHtml
-      });
-      console.log('✓ Event payment confirmation email sent to customer:', customerInfo.messageId);
+      console.log('📤 Attempting to send customer email to:', customerEmail);
+      try {
+        customerInfo = await transporter.sendMail({
+          from,
+          to: customerEmail,
+          subject: customerSubject,
+          html: customerHtml
+        });
+        console.log('✅ Event payment confirmation email sent to customer:', customerInfo.messageId);
+      } catch (customerEmailError) {
+        console.error('❌ Failed to send customer email:', customerEmailError);
+        console.error('❌ Customer email error details:', {
+          message: customerEmailError.message,
+          code: customerEmailError.code,
+          response: customerEmailError.response
+        });
+        // Continue to send manager email even if customer email fails
+      }
     } else {
       console.warn('⚠️ No customer email available - skipping customer email');
     }
 
     // Send manager email
-    const managerInfo = await transporter.sendMail({
-      from,
-      to: managerEmail,
-      subject: managerSubject,
-      html: managerHtml
-    });
-    console.log('✓ Event payment notification email sent to manager:', managerInfo.messageId);
+    console.log('📤 Attempting to send manager email to:', managerEmail);
+    let managerInfo = null;
+    try {
+      managerInfo = await transporter.sendMail({
+        from,
+        to: managerEmail,
+        subject: managerSubject,
+        html: managerHtml
+      });
+      console.log('✅ Event payment notification email sent to manager:', managerInfo.messageId);
+    } catch (managerEmailError) {
+      console.error('❌ Failed to send manager email:', managerEmailError);
+      console.error('❌ Manager email error details:', {
+        message: managerEmailError.message,
+        code: managerEmailError.code,
+        response: managerEmailError.response
+      });
+      // Throw error so it's caught by the outer try-catch
+      throw managerEmailError;
+    }
 
-    return { customerInfo: customerEmail ? { messageId: 'sent' } : null, managerInfo };
+    console.log('✅ All emails sent successfully');
+    return { customerInfo, managerInfo };
   } catch (error) {
     console.error('Error sending event payment confirmation emails:', error);
     logger.error('Failed to send event payment confirmation emails', {
@@ -2074,21 +2118,35 @@ app.get('/payment-success', async (req, res) => {
 
       // For event payments, no reservation is needed
       // Send payment confirmation emails for event payments
+      console.log('📧 Payment-success: Checking email sending conditions:', {
+        hasCustomerEmail: !!customerEmail,
+        customerEmail: customerEmail,
+        eventType,
+        eventDate
+      });
+      
       if (customerEmail) {
         try {
-          await sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName);
-          console.log('✅ Payment confirmation emails sent successfully');
+          console.log('📧 Payment-success: Calling sendEventPaymentConfirmationEmails...');
+          const emailResult = await sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName);
+          console.log('✅ Payment-success: Payment confirmation emails sent successfully:', emailResult);
         } catch (emailError) {
-          console.error('❌ Failed to send payment confirmation emails:', emailError);
+          console.error('❌ Payment-success: Failed to send payment confirmation emails:', emailError);
+          console.error('❌ Payment-success: Email error stack:', emailError.stack);
           logger.error('Failed to send payment confirmation emails (payment-success)', {
             sessionId: session.id,
             error: emailError.message,
+            stack: emailError.stack,
             timestamp: new Date().toISOString()
           });
           // Continue anyway - payment is saved
         }
       } else {
-        console.warn('⚠️ No customer email available - skipping email send');
+        console.warn('⚠️ Payment-success: No customer email available - skipping email send');
+        console.warn('⚠️ Payment-success: Email extraction details:', {
+          session_customer_email: session.customer_email,
+          metadata_customerEmail: session.metadata?.customerEmail
+        });
       }
 
       console.log('Payment saved successfully');
@@ -2456,21 +2514,35 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
 
         // For event payments, no reservation is needed
         // Send payment confirmation emails for event payments
+        console.log('📧 Webhook: Checking email sending conditions:', {
+          hasCustomerEmail: !!customerEmail,
+          customerEmail: customerEmail,
+          eventType,
+          eventDate
+        });
+        
         if (customerEmail) {
           try {
-            await sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName);
-            console.log('✅ Webhook: Payment confirmation emails sent successfully');
+            console.log('📧 Webhook: Calling sendEventPaymentConfirmationEmails...');
+            const emailResult = await sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName);
+            console.log('✅ Webhook: Payment confirmation emails sent successfully:', emailResult);
           } catch (emailError) {
             console.error('❌ Webhook: Failed to send payment confirmation emails:', emailError);
+            console.error('❌ Webhook: Email error stack:', emailError.stack);
             logger.error('Failed to send payment confirmation emails (webhook)', {
               sessionId: session.id,
               error: emailError.message,
+              stack: emailError.stack,
               timestamp: new Date().toISOString()
             });
             // Continue anyway - payment is saved
           }
         } else {
           console.warn('⚠️ Webhook: No customer email available - skipping email send');
+          console.warn('⚠️ Webhook: Email extraction details:', {
+            session_customer_email: session.customer_email,
+            metadata_customerEmail: session.metadata?.customerEmail
+          });
         }
 
         console.log('✓ Webhook: Payment saved successfully');
