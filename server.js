@@ -1383,6 +1383,112 @@ Reservation made through ${venueName} website.`;
   }
 });
 
+// Payment email endpoint - same pattern as reservation emails
+app.post('/api/send-payment-email', async (req, res) => {
+  try {
+    const { session_id } = req.body;
+
+    // Basic validation
+    if (!session_id) {
+      return res.status(400).json({ error: 'Missing session_id parameter' });
+    }
+
+    console.log('📧 Received payment email request for session:', session_id);
+
+    // Retrieve the Stripe session
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment not completed' });
+    }
+
+    // Extract payment data
+    const amountPaid = session.amount_total / 100;
+    const eventId = session.metadata?.eventId || '';
+    const eventDetails = eventId ? eventMapping[eventId] : null;
+    const eventType = eventDetails ? eventDetails.title : (eventId ? 'event' : null);
+    const eventDate = eventDetails?.date || null;
+    const paymentIntentId = session.payment_intent || session.id;
+
+    // Get customer email - prioritize metadata (from client form) over session.customer_email
+    const customerEmail = session.metadata?.customerEmail || session.customer_email || '';
+    const customerName = session.metadata?.customerName || '';
+
+    console.log('📧 Payment email data:', {
+      customerEmail,
+      customerName,
+      eventType,
+      eventDate,
+      amountPaid
+    });
+
+    // Check if email is configured
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn('⚠️ Email not configured - skipping email send');
+      return res.status(500).json({ error: 'Email service not configured' });
+    }
+
+    // Save payment to database first (if not already saved)
+    try {
+      await savePaymentToDatabase({
+        paymentIntentId,
+        amountPaid,
+        currency: session.currency || 'gbp',
+        eventType,
+        eventDate,
+        customerEmail,
+        customerName,
+        stripeSessionId: session.id
+      });
+      console.log('✅ Payment saved to database');
+    } catch (paymentError) {
+      console.error('❌ Failed to save payment:', paymentError);
+      // Continue to send emails even if save fails
+    }
+
+    // Send emails using the same function
+    if (!customerEmail || !customerEmail.includes('@')) {
+      console.warn('⚠️ No valid customer email - skipping customer email');
+    }
+
+    const emailResult = await sendEventPaymentConfirmationEmails(
+      session,
+      eventType,
+      eventDate,
+      customerEmail,
+      customerName
+    );
+
+    console.log('✅ Payment emails sent successfully');
+
+    // Return success response (same pattern as reservations)
+    res.json({
+      success: true,
+      customerMessageId: emailResult?.customerInfo?.messageId || null,
+      managerMessageId: emailResult?.managerInfo?.messageId || null,
+      payment: {
+        sessionId: session.id,
+        paymentIntentId: paymentIntentId,
+        amount: amountPaid,
+        currency: session.currency,
+        eventType: eventType,
+        eventDate: eventDate,
+        customerEmail: customerEmail,
+        customerName: customerName
+      }
+    });
+  } catch (error) {
+    console.error('❌ Payment email send error:', error);
+    logger.error('Payment email send failed', {
+      error: error.message,
+      stack: error.stack,
+      sessionId: req.body?.session_id,
+      timestamp: new Date().toISOString()
+    });
+    res.status(500).json({ error: 'Failed to send payment confirmation email' });
+  }
+});
+
 // API endpoint to check available times for a specific date
 // Optimized: Only queries for specific date/venue instead of all reservations
 app.get('/api/available-times', (req, res) => {
@@ -2128,40 +2234,9 @@ app.get('/payment-success', async (req, res) => {
         // Continue anyway to send emails, but log the error
       }
 
-      // For event payments, no reservation is needed
-      // Send payment confirmation emails for event payments
-      console.log('📧 Payment-success: Checking email sending conditions:', {
-        hasCustomerEmail: !!customerEmail,
-        customerEmail: customerEmail,
-        eventType,
-        eventDate
-      });
-
-      if (customerEmail) {
-        try {
-          console.log('📧 Payment-success: Calling sendEventPaymentConfirmationEmails...');
-          const emailResult = await sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName);
-          console.log('✅ Payment-success: Payment confirmation emails sent successfully:', emailResult);
-        } catch (emailError) {
-          console.error('❌ Payment-success: Failed to send payment confirmation emails:', emailError);
-          console.error('❌ Payment-success: Email error stack:', emailError.stack);
-          logger.error('Failed to send payment confirmation emails (payment-success)', {
-            sessionId: session.id,
-            error: emailError.message,
-            stack: emailError.stack,
-            timestamp: new Date().toISOString()
-          });
-          // Continue anyway - payment is saved
-        }
-      } else {
-        console.warn('⚠️ Payment-success: No customer email available - skipping email send');
-        console.warn('⚠️ Payment-success: Email extraction details:', {
-          session_customer_email: session.customer_email,
-          metadata_customerEmail: session.metadata?.customerEmail
-        });
-      }
-
-      console.log('Payment saved successfully');
+      // Note: Email sending is now handled by the client-side JavaScript calling /api/send-payment-email
+      // This follows the same pattern as reservations for better error handling and user feedback
+      console.log('✅ Payment saved successfully - email will be sent via API endpoint');
 
       // Log successful payment
       logger.info('Payment succeeded via Checkout', {
@@ -2232,9 +2307,57 @@ app.get('/payment-success', async (req, res) => {
           <div class="success-container">
             <div class="success-icon">✓</div>
             <h1 class="success-message">Payment Successful!</h1>
-            <p class="success-details">Your reservation has been confirmed. You will receive a confirmation email shortly.</p>
-            <a href="/xix" class="btn-primary">Return to Home</a>
+            <p class="success-details" id="status-message">Processing your confirmation email...</p>
+            <a href="/xix" class="btn-primary" id="home-button" style="display: none;">Return to Home</a>
           </div>
+          <script>
+            // Same pattern as reservations - call API endpoint to send emails
+            async function sendPaymentEmail() {
+              const urlParams = new URLSearchParams(window.location.search);
+              const sessionId = urlParams.get('session_id');
+              
+              if (!sessionId) {
+                document.getElementById('status-message').textContent = 'Payment successful, but session ID is missing.';
+                document.getElementById('home-button').style.display = 'inline-block';
+                return;
+              }
+
+              try {
+                console.log('📧 Calling /api/send-payment-email with session_id:', sessionId);
+                
+                const response = await fetch('/api/send-payment-email', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ session_id: sessionId }),
+                  credentials: 'same-origin'
+                });
+
+                console.log('📧 Response status:', response.status);
+                console.log('📧 Response ok:', response.ok);
+
+                if (!response.ok) {
+                  const errorData = await response.json().catch(() => ({}));
+                  console.error('❌ API Error:', errorData);
+                  throw new Error(errorData.error || \`HTTP error! status: \${response.status}\`);
+                }
+
+                const data = await response.json();
+                console.log('✅ Payment email sent successfully:', data);
+                
+                document.getElementById('status-message').textContent = 'Your reservation has been confirmed. You will receive a confirmation email shortly.';
+                document.getElementById('home-button').style.display = 'inline-block';
+              } catch (error) {
+                console.error('❌ Failed to send payment email:', error);
+                document.getElementById('status-message').textContent = 'Payment successful! If you don\'t receive a confirmation email, please contact us.';
+                document.getElementById('home-button').style.display = 'inline-block';
+              }
+            }
+
+            // Call the function when page loads
+            sendPaymentEmail();
+          </script>
         </body>
         </html>
       `);
@@ -2328,9 +2451,57 @@ app.get('/payment-success', async (req, res) => {
               <div class="success-container">
                 <div class="success-icon">✓</div>
                 <h1 class="success-message">Payment Successful!</h1>
-                <p class="success-details">Your reservation has been confirmed. You will receive a confirmation email shortly.</p>
-                <a href="/xix" class="btn-primary">Return to Home</a>
+                <p class="success-details" id="status-message">Processing your confirmation email...</p>
+                <a href="/xix" class="btn-primary" id="home-button" style="display: none;">Return to Home</a>
               </div>
+              <script>
+                // Same pattern as reservations - call API endpoint to send emails
+                async function sendPaymentEmail() {
+                  const urlParams = new URLSearchParams(window.location.search);
+                  const sessionId = urlParams.get('session_id');
+                  
+                  if (!sessionId) {
+                    document.getElementById('status-message').textContent = 'Payment successful, but session ID is missing.';
+                    document.getElementById('home-button').style.display = 'inline-block';
+                    return;
+                  }
+
+                  try {
+                    console.log('📧 Calling /api/send-payment-email with session_id:', sessionId);
+                    
+                    const response = await fetch('/api/send-payment-email', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ session_id: sessionId }),
+                      credentials: 'same-origin'
+                    });
+
+                    console.log('📧 Response status:', response.status);
+                    console.log('📧 Response ok:', response.ok);
+
+                    if (!response.ok) {
+                      const errorData = await response.json().catch(() => ({}));
+                      console.error('❌ API Error:', errorData);
+                      throw new Error(errorData.error || \`HTTP error! status: \${response.status}\`);
+                    }
+
+                    const data = await response.json();
+                    console.log('✅ Payment email sent successfully:', data);
+                    
+                    document.getElementById('status-message').textContent = 'Your reservation has been confirmed. You will receive a confirmation email shortly.';
+                    document.getElementById('home-button').style.display = 'inline-block';
+                  } catch (error) {
+                    console.error('❌ Failed to send payment email:', error);
+                    document.getElementById('status-message').textContent = 'Payment successful! If you don\'t receive a confirmation email, please contact us.';
+                    document.getElementById('home-button').style.display = 'inline-block';
+                  }
+                }
+
+                // Call the function when page loads
+                sendPaymentEmail();
+              </script>
             </body>
             </html>
           `);
