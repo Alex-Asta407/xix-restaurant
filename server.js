@@ -246,6 +246,31 @@ app.get('/offline', (req, res) => {
   res.sendFile(__dirname + '/offline.html');
 });
 
+// Event mapping - maps eventId to event title and date
+// This is used to populate event_type and event_date in the payments table
+const eventMapping = {
+  'wine-cheese-evening': {
+    title: 'Wine & Cheese Evening',
+    date: '2025-01-15'
+  },
+  'jazz-night': {
+    title: 'Jazz Night with Sarah Johnson',
+    date: '2025-01-22'
+  },
+  'valentines-special': {
+    title: 'Valentine\'s Day Special',
+    date: '2025-02-14'
+  },
+  'burgundy-wine-masterclass': {
+    title: 'Burgundy Wine Masterclass',
+    date: '2025-02-05'
+  },
+  'ukrainian-new-year': {
+    title: 'Ukrainian New Year Celebration',
+    date: '2025-01-15'
+  }
+};
+
 // Payment page route - using Stripe Checkout (hosted page)
 app.get('/payment', (req, res) => {
   res.sendFile(__dirname + '/payment-checkout.html');
@@ -771,10 +796,13 @@ app.get('/api/debug/payment-info', async (req, res) => {
       } : { exists: false, id: reservationId },
       payment: payment ? {
         id: payment.id,
-        reservation_id: payment.reservation_id,
         payment_intent_id: payment.payment_intent_id,
         stripe_session_id: payment.stripe_session_id,
         amount_paid: payment.amount_paid,
+        event_type: payment.event_type,
+        event_date: payment.event_date,
+        customer_email: payment.customer_email,
+        customer_name: payment.customer_name,
         exists: true
       } : { exists: false }
     });
@@ -2340,7 +2368,8 @@ app.get('/payment-success', async (req, res) => {
                 if (!response.ok) {
                   const errorData = await response.json().catch(() => ({}));
                   console.error('❌ API Error:', errorData);
-                  throw new Error(errorData.error || \`HTTP error! status: \${response.status}\`);
+                  const statusText = 'HTTP error! status: ' + response.status;
+                  throw new Error(errorData.error || statusText);
                 }
 
                 const data = await response.json();
@@ -2350,7 +2379,7 @@ app.get('/payment-success', async (req, res) => {
                 document.getElementById('home-button').style.display = 'inline-block';
               } catch (error) {
                 console.error('❌ Failed to send payment email:', error);
-                document.getElementById('status-message').textContent = 'Payment successful! If you don\'t receive a confirmation email, please contact us.';
+                document.getElementById('status-message').textContent = 'Payment successful! If you do not receive a confirmation email, please contact us.';
                 document.getElementById('home-button').style.display = 'inline-block';
               }
             }
@@ -2484,7 +2513,8 @@ app.get('/payment-success', async (req, res) => {
                     if (!response.ok) {
                       const errorData = await response.json().catch(() => ({}));
                       console.error('❌ API Error:', errorData);
-                      throw new Error(errorData.error || \`HTTP error! status: \${response.status}\`);
+                      const statusText = 'HTTP error! status: ' + response.status;
+                      throw new Error(errorData.error || statusText);
                     }
 
                     const data = await response.json();
@@ -2494,7 +2524,7 @@ app.get('/payment-success', async (req, res) => {
                     document.getElementById('home-button').style.display = 'inline-block';
                   } catch (error) {
                     console.error('❌ Failed to send payment email:', error);
-                    document.getElementById('status-message').textContent = 'Payment successful! If you don\'t receive a confirmation email, please contact us.';
+                    document.getElementById('status-message').textContent = 'Payment successful! If you do not receive a confirmation email, please contact us.';
                     document.getElementById('home-button').style.display = 'inline-block';
                   }
                 }
