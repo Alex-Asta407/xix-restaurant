@@ -1683,6 +1683,7 @@ function savePaymentToDatabase(paymentData) {
 }
 
 // Helper function to send payment confirmation emails for event payments (without reservation)
+// Uses the same email pattern as reservation emails - customer email from client, manager email from .env
 async function sendEventPaymentConfirmationEmails(session, eventType, eventDate, customerEmail, customerName) {
   console.log('📧 sendEventPaymentConfirmationEmails called with:', {
     sessionId: session?.id,
@@ -1690,11 +1691,12 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
     eventDate,
     customerEmail,
     customerName,
-    hasSMTP: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+    hasSMTP: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
+    managerEmail: process.env.MANAGER_EMAIL || process.env.SMTP_USER
   });
 
   try {
-    // Check if email is configured
+    // Check if email is configured - same check as reservation emails
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
       console.warn('⚠️ Email not configured - skipping email send');
       console.warn('⚠️ SMTP configuration check:', {
@@ -1707,10 +1709,11 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
 
     console.log('✅ Email configuration found, proceeding to send emails...');
 
+    // Use the same transporter setup as reservation emails
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: 587,
-      secure: false,
+      secure: false, // true for 465, false for other ports
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -1720,8 +1723,15 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
       }
     });
 
+    // Use the same email addresses as reservation emails
     const from = process.env.MAIL_FROM || process.env.SMTP_USER;
     const managerEmail = process.env.MANAGER_EMAIL || process.env.SMTP_USER;
+    
+    console.log('📧 Email addresses:', {
+      from,
+      to_customer: customerEmail,
+      to_manager: managerEmail
+    });
     const amountPaid = session.amount_total / 100;
     const paymentDate = new Date().toLocaleDateString('en-US', {
       year: 'numeric', month: 'long', day: 'numeric'
@@ -1961,9 +1971,9 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
       </html>
     `;
 
-    // Send customer email
+    // Send customer email - same pattern as reservation emails
     let customerInfo = null;
-    if (customerEmail) {
+    if (customerEmail && customerEmail.trim() && customerEmail.includes('@')) {
       console.log('📤 Attempting to send customer email to:', customerEmail);
       try {
         customerInfo = await transporter.sendMail({
@@ -1980,13 +1990,14 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
           code: customerEmailError.code,
           response: customerEmailError.response
         });
-        // Continue to send manager email even if customer email fails
+        // Continue to send manager email even if customer email fails (same as reservation emails)
       }
     } else {
-      console.warn('⚠️ No customer email available - skipping customer email');
+      console.warn('⚠️ No valid customer email available - skipping customer email');
+      console.warn('⚠️ Customer email value:', customerEmail);
     }
 
-    // Send manager email
+    // Send manager email - always send (same as reservation emails)
     console.log('📤 Attempting to send manager email to:', managerEmail);
     let managerInfo = null;
     try {
@@ -2062,14 +2073,15 @@ app.get('/payment-success', async (req, res) => {
       
       const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
-      // Get customer email - prefer session.customer_email, then metadata, then empty string
-      // Stripe may not always preserve customer_email, so we store it in metadata as backup
-      const customerEmail = session.customer_email || session.metadata?.customerEmail || '';
-      console.log('📧 Email extraction from session:', {
-        session_customer_email: session.customer_email,
-        metadata_customerEmail: session.metadata?.customerEmail,
-        final_email: customerEmail
-      });
+        // Get customer email - prioritize metadata (from client form) over session.customer_email
+        // The metadata contains the email from our form, which is what the user wants to use
+        const customerEmail = session.metadata?.customerEmail || session.customer_email || '';
+        console.log('📧 Email extraction from session:', {
+          session_customer_email: session.customer_email,
+          metadata_customerEmail: session.metadata?.customerEmail,
+          final_email: customerEmail,
+          note: 'Using metadata email (from client form) as primary source'
+        });
       // Get customer name from metadata (may be empty for events)
       const customerName = session.metadata?.customerName || '';
       
@@ -2462,13 +2474,14 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         
         const paymentIntentId = session.payment_intent || session.id;
         
-        // Get customer email - prefer session.customer_email, then metadata, then empty string
-        // Stripe may not always preserve customer_email, so we store it in metadata as backup
-        const customerEmail = session.customer_email || session.metadata?.customerEmail || '';
+        // Get customer email - prioritize metadata (from client form) over session.customer_email
+        // The metadata contains the email from our form, which is what the user wants to use
+        const customerEmail = session.metadata?.customerEmail || session.customer_email || '';
         console.log('📧 Email extraction from webhook session:', {
           session_customer_email: session.customer_email,
           metadata_customerEmail: session.metadata?.customerEmail,
-          final_email: customerEmail
+          final_email: customerEmail,
+          note: 'Using metadata email (from client form) as primary source'
         });
         // Get customer name from metadata (may be empty for events)
         const customerName = session.metadata?.customerName || '';
