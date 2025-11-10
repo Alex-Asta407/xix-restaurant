@@ -506,11 +506,11 @@ db.serialize(() => {
       console.error('Error checking payments table schema:', err);
       return;
     }
-    
+
     // Check if reservation_id column exists
     if (row && row.sql && row.sql.includes('reservation_id')) {
       console.log('⚠️  Payments table has reservation_id column - migrating to remove it...');
-      
+
       // Create new table without reservation_id
       db.run(`CREATE TABLE IF NOT EXISTS payments_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -529,7 +529,7 @@ db.serialize(() => {
           console.error('Error creating new payments table:', err);
           return;
         }
-        
+
         // Copy existing data (excluding reservation_id)
         db.run(`INSERT INTO payments_new 
           SELECT id, payment_intent_id, amount_paid, currency, 
@@ -540,14 +540,14 @@ db.serialize(() => {
             console.error('Error copying data to new payments table:', err);
             return;
           }
-          
+
           // Drop old table
           db.run(`DROP TABLE payments`, (err) => {
             if (err) {
               console.error('Error dropping old payments table:', err);
               return;
             }
-            
+
             // Rename new table
             db.run(`ALTER TABLE payments_new RENAME TO payments`, (err) => {
               if (err) {
@@ -793,10 +793,10 @@ app.post('/api/debug/save-payment', async (req, res) => {
     }
 
     console.log('🧪 TEST: Manually saving payment');
-    
+
     let session = null;
     let paymentIntent = null;
-    
+
     // Try to get session first
     if (session_id) {
       try {
@@ -806,7 +806,7 @@ app.post('/api/debug/save-payment', async (req, res) => {
         console.error('🧪 TEST: Could not retrieve session:', err.message);
       }
     }
-    
+
     // Try to get payment intent
     if (payment_intent_id || (session && session.payment_intent)) {
       try {
@@ -816,7 +816,7 @@ app.post('/api/debug/save-payment', async (req, res) => {
         console.error('🧪 TEST: Could not retrieve payment intent:', err.message);
       }
     }
-    
+
     // Use session data if available (has all metadata), otherwise use payment intent
     // Note: reservation_id column removed from payments table
     const amountPaid = session ? (session.amount_total / 100) : (paymentIntent ? (paymentIntent.amount / 100) : 0);
@@ -867,7 +867,7 @@ app.post('/api/debug/save-payment', async (req, res) => {
     });
   } catch (error) {
     console.error('🧪 TEST: Error saving payment:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message,
       code: error.code,
       details: error.stack
@@ -1726,7 +1726,7 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
     // Use the same email addresses as reservation emails
     const from = process.env.MAIL_FROM || process.env.SMTP_USER;
     const managerEmail = process.env.MANAGER_EMAIL || process.env.SMTP_USER;
-    
+
     console.log('📧 Email addresses:', {
       from,
       to_customer: customerEmail,
@@ -2064,27 +2064,27 @@ app.get('/payment-success', async (req, res) => {
       // Payments are for events and don't require reservations
       // Note: reservation_id column removed from payments table
       const amountPaid = session.amount_total / 100; // Convert from pence/cents to pounds/dollars
-      
+
       // Get event details from mapping if eventId exists
       const eventId = session.metadata?.eventId || '';
       const eventDetails = eventId ? eventMapping[eventId] : null;
       const eventType = eventDetails ? eventDetails.title : (eventId ? 'event' : null);
       const eventDate = eventDetails?.date || null;
-      
+
       const paymentIntentId = session.payment_intent || session.id; // Use session.id as fallback
 
-        // Get customer email - prioritize metadata (from client form) over session.customer_email
-        // The metadata contains the email from our form, which is what the user wants to use
-        const customerEmail = session.metadata?.customerEmail || session.customer_email || '';
-        console.log('📧 Email extraction from session:', {
-          session_customer_email: session.customer_email,
-          metadata_customerEmail: session.metadata?.customerEmail,
-          final_email: customerEmail,
-          note: 'Using metadata email (from client form) as primary source'
-        });
+      // Get customer email - prioritize metadata (from client form) over session.customer_email
+      // The metadata contains the email from our form, which is what the user wants to use
+      const customerEmail = session.metadata?.customerEmail || session.customer_email || '';
+      console.log('📧 Email extraction from session:', {
+        session_customer_email: session.customer_email,
+        metadata_customerEmail: session.metadata?.customerEmail,
+        final_email: customerEmail,
+        note: 'Using metadata email (from client form) as primary source'
+      });
       // Get customer name from metadata (may be empty for events)
       const customerName = session.metadata?.customerName || '';
-      
+
       // Save payment to database using helper function
       console.log('💾 Attempting to save payment to database with data:', {
         paymentIntentId,
@@ -2136,7 +2136,7 @@ app.get('/payment-success', async (req, res) => {
         eventType,
         eventDate
       });
-      
+
       if (customerEmail) {
         try {
           console.log('📧 Payment-success: Calling sendEventPaymentConfirmationEmails...');
@@ -2175,6 +2175,7 @@ app.get('/payment-success', async (req, res) => {
       });
 
       // Send success page
+      const baseUrl = req.protocol + '://' + req.get('host');
       res.send(`
         <!DOCTYPE html>
         <html>
@@ -2182,9 +2183,9 @@ app.get('/payment-success', async (req, res) => {
           <title>Payment Successful - XIX Restaurant</title>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <link rel="stylesheet" href="base.css">
-          <link rel="stylesheet" href="navigation.css">
-          <link rel="stylesheet" href="footer.css">
+          <link rel="stylesheet" href="${baseUrl}/base.css">
+          <link rel="stylesheet" href="${baseUrl}/navigation.css">
+          <link rel="stylesheet" href="${baseUrl}/footer.css">
           <style>
             .success-container {
               max-width: 600px;
@@ -2254,7 +2255,7 @@ app.get('/payment-success', async (req, res) => {
       stack: error.stack,
       timestamp: new Date().toISOString()
     });
-    
+
     // Even if there's an error, check if payment was successful via webhook
     // The webhook may have already saved the payment, so show success page instead of error
     // This prevents showing error when payment actually succeeded
@@ -2265,6 +2266,7 @@ app.get('/payment-success', async (req, res) => {
         if (session.payment_status === 'paid') {
           // Payment is actually paid, show success page even if there was an error
           console.log('⚠️ Error occurred but payment is paid - showing success page');
+          const baseUrl = req.protocol + '://' + req.get('host');
           return res.send(`
             <!DOCTYPE html>
             <html>
@@ -2272,9 +2274,9 @@ app.get('/payment-success', async (req, res) => {
               <title>Payment Successful - XIX Restaurant</title>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <link rel="stylesheet" href="base.css">
-              <link rel="stylesheet" href="navigation.css">
-              <link rel="stylesheet" href="footer.css">
+              <link rel="stylesheet" href="${baseUrl}/base.css">
+              <link rel="stylesheet" href="${baseUrl}/navigation.css">
+              <link rel="stylesheet" href="${baseUrl}/footer.css">
               <style>
                 .success-container {
                   max-width: 600px;
@@ -2337,7 +2339,7 @@ app.get('/payment-success', async (req, res) => {
         console.error('Could not retrieve session to verify payment:', retrieveError);
       }
     }
-    
+
     // Only show error if payment is not confirmed as paid
     res.status(500).send('Error verifying payment');
   }
@@ -2386,7 +2388,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         // When using Stripe Checkout, payment_intent.succeeded doesn't include session metadata
         // We'll use payment intent data directly - the checkout.session.completed event will handle the full save
         // But we'll still save this as a backup in case checkout.session.completed doesn't fire
-        
+
         // Extract data from payment intent
         // Note: reservation_id column removed from payments table
         const amountPaid = paymentIntent.amount / 100;
@@ -2394,7 +2396,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         const customerEmail = paymentIntent.metadata?.customerEmail || paymentIntent.receipt_email || '';
         const customerName = paymentIntent.metadata?.customerName || '';
         const stripeSessionId = null; // We don't have session ID from payment intent alone
-        
+
         console.log('📋 Payment Intent metadata:', paymentIntent.metadata);
         console.log('📋 Payment Intent receipt_email:', paymentIntent.receipt_email);
 
@@ -2465,15 +2467,15 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
 
         // Note: reservation_id column removed from payments table
         const amountPaid = session.amount_total / 100;
-        
+
         // Get event details from mapping if eventId exists
         const eventId = session.metadata?.eventId || '';
         const eventDetails = eventId ? eventMapping[eventId] : null;
         const eventType = eventDetails ? eventDetails.title : (eventId ? 'event' : null);
         const eventDate = eventDetails?.date || null;
-        
+
         const paymentIntentId = session.payment_intent || session.id;
-        
+
         // Get customer email - prioritize metadata (from client form) over session.customer_email
         // The metadata contains the email from our form, which is what the user wants to use
         const customerEmail = session.metadata?.customerEmail || session.customer_email || '';
@@ -2533,7 +2535,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           eventType,
           eventDate
         });
-        
+
         if (customerEmail) {
           try {
             console.log('📧 Webhook: Calling sendEventPaymentConfirmationEmails...');
