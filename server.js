@@ -1749,20 +1749,39 @@ function savePaymentToDatabase(paymentData) {
         console.log('🔍 Existing payment check result:', existing ? `Found ID: ${existing.id}` : 'Not found');
 
         if (existing) {
-          // Update existing payment (reservation_id removed from table)
+          // Update existing payment with all fields (including customer_email, customer_name, event_type, event_date)
           db.run(
             `UPDATE payments SET 
               payment_status = 'paid',
               amount_paid = ?,
+              event_type = ?,
+              event_date = ?,
+              customer_email = ?,
+              customer_name = ?,
+              stripe_session_id = ?,
               updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
-            [amountPaid, existing.id],
+            [
+              amountPaid,
+              eventType || null,
+              eventDate || null,
+              customerEmail || null,
+              customerName || null,
+              stripeSessionId || null,
+              existing.id
+            ],
             function (err) {
               if (err) {
                 console.error('Error updating payment record:', err);
                 reject(err);
               } else {
                 console.log('✓ Payment record updated in payments table (ID:', existing.id + ')');
+                console.log('✓ Updated fields:', {
+                  eventType,
+                  eventDate,
+                  customerEmail,
+                  customerName
+                });
                 resolve({ id: existing.id, updated: true });
               }
             }
@@ -2593,7 +2612,13 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
         // Extract data from payment intent
         // Note: reservation_id column removed from payments table
         const amountPaid = paymentIntent.amount / 100;
-        const eventType = paymentIntent.metadata?.eventId ? 'event' : null;
+
+        // Get event details from mapping if eventId exists
+        const eventId = paymentIntent.metadata?.eventId || '';
+        const eventDetails = eventId ? eventMapping[eventId] : null;
+        const eventType = eventDetails ? eventDetails.title : (eventId ? 'event' : null);
+        const eventDate = eventDetails?.date || null;
+
         const customerEmail = paymentIntent.metadata?.customerEmail || paymentIntent.receipt_email || '';
         const customerName = paymentIntent.metadata?.customerName || '';
         const stripeSessionId = null; // We don't have session ID from payment intent alone
@@ -2619,6 +2644,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             amountPaid,
             currency: paymentIntent.currency || 'gbp',
             eventType,
+            eventDate,
             customerEmail,
             customerName,
             stripeSessionId
