@@ -122,31 +122,33 @@
             background-position: center;
             background-repeat: no-repeat;
         }
-        
+
         /* Mobile: Show images at full scale - fill entire section completely */
         @media (max-width: 768px) {
+
             .xix-side,
             .mirror-side {
                 background-size: 100% 100%;
                 background-position: center center;
                 background-repeat: no-repeat;
             }
-            
+
             /* Ensure sections take full height */
             .venue-side {
                 min-height: 50vh;
                 height: 50vh;
             }
         }
-        
+
         /* For very small screens, ensure images fill properly */
         @media (max-width: 480px) {
+
             .xix-side,
             .mirror-side {
                 background-size: 100% 100%;
                 background-position: center center;
             }
-            
+
             .venue-side {
                 min-height: 50vh;
                 height: 50vh;
@@ -162,14 +164,14 @@
             background: rgba(0, 0, 0, 0.5);
             transition: all 0.8s ease;
         }
-        
+
         /* Mobile: Lighter overlay for better text visibility */
         @media (max-width: 768px) {
             .venue-overlay {
                 background: rgba(0, 0, 0, 0.4);
             }
         }
-        
+
         @media (hover: none) and (pointer: coarse) {
             .venue-overlay {
                 background: rgba(0, 0, 0, 0.4);
@@ -187,6 +189,25 @@
             transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             width: 90%;
             background: transparent;
+        }
+
+        /* Mobile: Ensure logo is always visible */
+        @media (max-width: 768px) {
+            .venue-content {
+                top: 50%;
+                transform: translate(-50%, -50%);
+                padding-top: 0;
+                max-height: 100%;
+                overflow: visible;
+            }
+
+            .venue-logo {
+                opacity: 1 !important;
+                visibility: visible !important;
+                display: block !important;
+                color: #d4a574 !important;
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            }
         }
 
         .venue-logo {
@@ -307,8 +328,9 @@
 
             .venue-side {
                 flex: 1;
+                overflow: visible;
             }
-            
+
             /* Make all content visible by default on mobile - no hover needed */
             .venue-subtitle,
             .venue-description,
@@ -316,20 +338,20 @@
                 opacity: 1 !important;
                 transform: translateY(0) !important;
             }
-            
+
             /* Remove hover effects on mobile */
             .venue-side:hover {
                 flex: 1;
             }
-            
+
             .venue-side:hover .venue-overlay {
                 background: rgba(0, 0, 0, 0.5);
             }
-            
+
             .venue-side:hover .venue-content {
                 transform: translate(-50%, -50%);
             }
-            
+
             .venue-side:hover .venue-title {
                 color: #d4a574;
             }
@@ -340,6 +362,10 @@
                 margin-bottom: 30px;
                 position: relative;
                 z-index: 10;
+                opacity: 1 !important;
+                visibility: visible !important;
+                display: block !important;
+                color: #d4a574 !important;
             }
 
             .venue-title {
@@ -370,6 +396,7 @@
         }
 
         @media (max-width: 480px) {
+
             /* Ensure all content is visible on small mobile screens */
             .venue-subtitle,
             .venue-description,
@@ -377,13 +404,17 @@
                 opacity: 1 !important;
                 transform: translateY(0) !important;
             }
-            
+
             .venue-logo {
                 font-size: 2.5rem;
                 margin-top: 15px;
                 margin-bottom: 25px;
                 position: relative;
                 z-index: 10;
+                opacity: 1 !important;
+                visibility: visible !important;
+                display: block !important;
+                color: #d4a574 !important;
             }
 
             .venue-title {
@@ -408,16 +439,17 @@
                 z-index: 1;
             }
         }
-        
+
         /* Target touch devices specifically - make content always visible */
         @media (hover: none) and (pointer: coarse) {
+
             .venue-subtitle,
             .venue-description,
             .venue-button {
                 opacity: 1 !important;
                 transform: translateY(0) !important;
             }
-            
+
             .venue-side:hover {
                 flex: 1;
             }
@@ -472,7 +504,7 @@
     <script>
         // Detect if device is touch/mobile
         const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        
+
         // On mobile, make content visible immediately - no hover needed
         if (isTouchDevice || window.innerWidth <= 768) {
             document.addEventListener('DOMContentLoaded', function () {
