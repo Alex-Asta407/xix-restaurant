@@ -1728,6 +1728,17 @@ legend {
     overflow: hidden;
 }
 
+/* Move contact section closer to the left */
+.contact-right {
+    margin-left: -2rem;
+}
+
+@media (max-width: 768px) {
+    .contact-right {
+        margin-left: 0;
+    }
+}
+
 .contact-info::before {
     content: '';
     position: absolute;
