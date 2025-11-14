@@ -67,7 +67,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com", "https://js.stripe.com", "https://checkout.stripe.com", "https://stripecdn.com", "https://hcaptcha.com", "https://*.hcaptcha.com"],
       imgSrc: ["'self'", "data:", "https:", "https://js.stripe.com", "https://stripecdn.com"],
       connectSrc: ["'self'", "https://api.stripe.com", "https://checkout.stripe.com", "https://js.stripe.com", "https://hooks.stripe.com", "https://hcaptcha.com", "https://*.hcaptcha.com"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", "https://checkout.stripe.com", "https://hcaptcha.com", "https://*.hcaptcha.com"],
+      frameSrc: ["'self'", "https://js.stripe.com", "https://hooks.stripe.com", "https://checkout.stripe.com", "https://hcaptcha.com", "https://*.hcaptcha.com", "https://www.google.com", "https://maps.google.com", "https://*.google.com"],
       frameAncestors: ["'self'"],
       workerSrc: ["'self'", "blob:"],
       childSrc: ["'self'", "blob:"]
