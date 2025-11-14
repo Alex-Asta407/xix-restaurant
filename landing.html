@@ -116,6 +116,15 @@
             background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
                 url('photos/mirror_landing.jpg') center/cover;
         }
+        
+        /* Mobile: Show images at full scale */
+        @media (max-width: 768px) {
+            .xix-side,
+            .mirror-side {
+                background-size: cover;
+                background-position: center;
+            }
+        }
 
         .venue-overlay {
             position: absolute;
@@ -125,6 +134,19 @@
             bottom: 0;
             background: rgba(0, 0, 0, 0.5);
             transition: all 0.8s ease;
+        }
+        
+        /* Mobile: Lighter overlay for better text visibility */
+        @media (max-width: 768px) {
+            .venue-overlay {
+                background: rgba(0, 0, 0, 0.4);
+            }
+        }
+        
+        @media (hover: none) and (pointer: coarse) {
+            .venue-overlay {
+                background: rgba(0, 0, 0, 0.4);
+            }
         }
 
         .venue-content {
@@ -259,6 +281,31 @@
             .venue-side {
                 flex: 1;
             }
+            
+            /* Make all content visible by default on mobile - no hover needed */
+            .venue-subtitle,
+            .venue-description,
+            .venue-button {
+                opacity: 1 !important;
+                transform: translateY(0) !important;
+            }
+            
+            /* Remove hover effects on mobile */
+            .venue-side:hover {
+                flex: 1;
+            }
+            
+            .venue-side:hover .venue-overlay {
+                background: rgba(0, 0, 0, 0.5);
+            }
+            
+            .venue-side:hover .venue-content {
+                transform: translate(-50%, -50%);
+            }
+            
+            .venue-side:hover .venue-title {
+                color: #d4a574;
+            }
 
             .venue-logo {
                 font-size: 3rem;
@@ -296,6 +343,14 @@
         }
 
         @media (max-width: 480px) {
+            /* Ensure all content is visible on small mobile screens */
+            .venue-subtitle,
+            .venue-description,
+            .venue-button {
+                opacity: 1 !important;
+                transform: translateY(0) !important;
+            }
+            
             .venue-logo {
                 font-size: 2.5rem;
                 margin-top: 15px;
@@ -324,6 +379,20 @@
                 opacity: 0.5;
                 /* Make footer even less prominent */
                 z-index: 1;
+            }
+        }
+        
+        /* Target touch devices specifically - make content always visible */
+        @media (hover: none) and (pointer: coarse) {
+            .venue-subtitle,
+            .venue-description,
+            .venue-button {
+                opacity: 1 !important;
+                transform: translateY(0) !important;
+            }
+            
+            .venue-side:hover {
+                flex: 1;
             }
         }
     </style>
@@ -374,59 +443,35 @@
     </div>
 
     <script>
-        // Enhanced mobile hover effects for lighter touch
-        document.addEventListener('DOMContentLoaded', function () {
-            const venueSides = document.querySelectorAll('.venue-side');
-
-            venueSides.forEach(side => {
-                let touchStartTime = 0;
-                let isHovered = false;
-
-                // Touch start - start hover effect immediately
-                side.addEventListener('touchstart', function (e) {
-                    touchStartTime = Date.now();
-                    isHovered = true;
+        // Detect if device is touch/mobile
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        // On mobile, make content visible immediately - no hover needed
+        if (isTouchDevice || window.innerWidth <= 768) {
+            document.addEventListener('DOMContentLoaded', function () {
+                const venueSides = document.querySelectorAll('.venue-side');
+                venueSides.forEach(side => {
+                    // Add mobile-hover class immediately so content is visible
                     side.classList.add('mobile-hover');
-                    // Don't prevent default to allow button clicks
-                });
-
-                // Touch end - keep hover for a moment then fade
-                side.addEventListener('touchend', function (e) {
-                    // Check if the touch was on a button/link
-                    const target = e.target;
-                    const isButton = target.closest('.venue-button') || target.closest('a');
-
-                    if (isButton) {
-                        // If it's a button, let it handle the click naturally
-                        side.classList.remove('mobile-hover');
-                        isHovered = false;
-                    } else {
-                        // If it's not a button, keep hover effect
-                        setTimeout(() => {
-                            if (isHovered) {
-                                side.classList.remove('mobile-hover');
-                                isHovered = false;
-                            }
-                        }, 200); // Keep hover for 200ms after touch
-                    }
-                });
-
-                // Touch cancel - remove hover immediately
-                side.addEventListener('touchcancel', function (e) {
-                    side.classList.remove('mobile-hover');
-                    isHovered = false;
-                });
-
-                // Mouse events for desktop
-                side.addEventListener('mouseenter', function () {
-                    side.classList.add('mobile-hover');
-                });
-
-                side.addEventListener('mouseleave', function () {
-                    side.classList.remove('mobile-hover');
                 });
             });
-        });
+        } else {
+            // Desktop: Enhanced hover effects
+            document.addEventListener('DOMContentLoaded', function () {
+                const venueSides = document.querySelectorAll('.venue-side');
+
+                venueSides.forEach(side => {
+                    // Mouse events for desktop
+                    side.addEventListener('mouseenter', function () {
+                        side.classList.add('mobile-hover');
+                    });
+
+                    side.addEventListener('mouseleave', function () {
+                        side.classList.remove('mobile-hover');
+                    });
+                });
+            });
+        }
     </script>
 </body>
 
