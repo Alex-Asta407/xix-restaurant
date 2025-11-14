@@ -201,6 +201,12 @@
                 overflow: visible;
             }
 
+            /* Mirror section: Position content higher */
+            .mirror-side .venue-content {
+                top: 45%;
+                transform: translate(-50%, -50%);
+            }
+
             .venue-logo {
                 opacity: 1 !important;
                 visibility: visible !important;
@@ -436,15 +442,14 @@
                 width: 95%;
             }
 
-            .venue-button {
-                margin-bottom: 0;
+            /* Mirror section: Position content higher on small screens */
+            .mirror-side .venue-content {
+                top: 42%;
+                transform: translate(-50%, -50%);
             }
 
-            .landing-footer {
-                bottom: 20px;
-                font-size: 0.7rem;
-                opacity: 0.5;
-                z-index: 1;
+            .venue-button {
+                margin-bottom: 0;
             }
         }
 
@@ -501,9 +506,6 @@
         </div>
     </div>
 
-    <div class="landing-footer">
-        <p>Choose your experience • XIX Restaurant Group</p>
-    </div>
 
     <script>
         // Detect if device is touch/mobile
