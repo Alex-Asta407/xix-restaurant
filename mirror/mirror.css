@@ -1522,18 +1522,6 @@ legend {
     border-radius: 20px;
 }
 
-.experience-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.3);
-    z-index: 1;
-    transition: background 0.3s ease;
-}
-
 .experience-card img {
     width: 100%;
     height: 100%;
@@ -1541,7 +1529,7 @@ legend {
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 0;
+    z-index: 1;
 }
 
 /* Experience Content - Plain Text */
@@ -1628,9 +1616,6 @@ legend {
     border-color: rgba(255, 192, 203, 0.6);
 }
 
-.experience-card:hover::before {
-    background: rgba(0, 0, 0, 0.5);
-}
 
 .experience-title {
     color: #2d1f15;
@@ -2197,26 +2182,6 @@ textarea,
     .experience-card {
         min-height: 300px !important;
         margin: 0 !important;
-        transform: none !important;
-        transition: none !important;
-    }
-
-    .experience-card::before {
-        background: rgba(0, 0, 0, 0.7) !important;
-        transition: none !important;
-    }
-
-    .experience-card:hover {
-        transform: none !important;
-        box-shadow: none !important;
-    }
-
-    .experience-card:hover img {
-        filter: none !important;
-    }
-
-    .experience-card:hover::before {
-        background: rgba(0, 0, 0, 0.7) !important;
     }
 
     .experience-content {
@@ -2296,26 +2261,6 @@ textarea,
 
     .experience-card {
         min-height: 250px !important;
-        transform: none !important;
-        transition: none !important;
-    }
-
-    .experience-card::before {
-        background: rgba(0, 0, 0, 0.7) !important;
-        transition: none !important;
-    }
-
-    .experience-card:hover {
-        transform: none !important;
-        box-shadow: none !important;
-    }
-
-    .experience-card:hover img {
-        filter: none !important;
-    }
-
-    .experience-card:hover::before {
-        background: rgba(0, 0, 0, 0.7) !important;
     }
 
     .experience-content {
@@ -2329,21 +2274,6 @@ textarea,
 
     .experience-description {
         font-size: 0.9rem !important;
-    }
-}
-
-/* Touch devices - always show dark overlay without hover */
-@media (hover: none) and (pointer: coarse) {
-    .experience-card::before {
-        background: rgba(0, 0, 0, 0.7) !important;
-    }
-
-    .experience-card:hover::before {
-        background: rgba(0, 0, 0, 0.7) !important;
-    }
-
-    .experience-card:hover img {
-        filter: none !important;
     }
 }
 
