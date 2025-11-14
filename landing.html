@@ -255,6 +255,13 @@
             text-shadow: none;
         }
 
+        /* Mobile: Ensure proper spacing */
+        @media (max-width: 768px) {
+            .venue-description {
+                margin-bottom: 30px;
+            }
+        }
+
         .venue-button {
             display: inline-block;
             background: transparent;
@@ -377,16 +384,13 @@
             }
 
             .venue-button {
-                margin-bottom: 8rem;
-                /* Much more space below button */
+                margin-bottom: 0;
             }
 
             .landing-footer {
-                bottom: -80px;
-                /* Move footer much lower to avoid button overlap */
+                bottom: 20px;
                 font-size: 0.75rem;
                 opacity: 0.6;
-                /* Make footer less prominent */
                 z-index: 1;
             }
 
@@ -426,16 +430,13 @@
             }
 
             .venue-button {
-                margin-bottom: 6rem;
-                /* Even more space on smaller screens */
+                margin-bottom: 0;
             }
 
             .landing-footer {
-                bottom: -100px;
-                /* Move footer much lower on smaller screens to avoid button overlap */
+                bottom: 20px;
                 font-size: 0.7rem;
                 opacity: 0.5;
-                /* Make footer even less prominent */
                 z-index: 1;
             }
         }
