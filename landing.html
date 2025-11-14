@@ -109,20 +109,47 @@
 
         .xix-side {
             background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
-                url('photos/XIX_main.png') center/cover;
+                url('photos/XIX_main.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
 
         .mirror-side {
             background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
-                url('photos/mirror_landing.jpg') center/cover;
+                url('photos/mirror_landing.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
         
-        /* Mobile: Show images at full scale */
+        /* Mobile: Show images at full scale - fill entire section completely */
         @media (max-width: 768px) {
             .xix-side,
             .mirror-side {
-                background-size: cover;
-                background-position: center;
+                background-size: 100% 100%;
+                background-position: center center;
+                background-repeat: no-repeat;
+            }
+            
+            /* Ensure sections take full height */
+            .venue-side {
+                min-height: 50vh;
+                height: 50vh;
+            }
+        }
+        
+        /* For very small screens, ensure images fill properly */
+        @media (max-width: 480px) {
+            .xix-side,
+            .mirror-side {
+                background-size: 100% 100%;
+                background-position: center center;
+            }
+            
+            .venue-side {
+                min-height: 50vh;
+                height: 50vh;
             }
         }
 
