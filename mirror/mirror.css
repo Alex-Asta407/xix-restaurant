@@ -2197,9 +2197,25 @@ textarea,
     .experience-card {
         min-height: 300px !important;
         margin: 0 !important;
+        transform: none !important;
+        transition: none !important;
     }
 
     .experience-card::before {
+        background: rgba(0, 0, 0, 0.7) !important;
+        transition: none !important;
+    }
+
+    .experience-card:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+    .experience-card:hover img {
+        filter: none !important;
+    }
+
+    .experience-card:hover::before {
         background: rgba(0, 0, 0, 0.7) !important;
     }
 
@@ -2280,9 +2296,25 @@ textarea,
 
     .experience-card {
         min-height: 250px !important;
+        transform: none !important;
+        transition: none !important;
     }
 
     .experience-card::before {
+        background: rgba(0, 0, 0, 0.7) !important;
+        transition: none !important;
+    }
+
+    .experience-card:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+    .experience-card:hover img {
+        filter: none !important;
+    }
+
+    .experience-card:hover::before {
         background: rgba(0, 0, 0, 0.7) !important;
     }
 
@@ -2297,6 +2329,21 @@ textarea,
 
     .experience-description {
         font-size: 0.9rem !important;
+    }
+}
+
+/* Touch devices - always show dark overlay without hover */
+@media (hover: none) and (pointer: coarse) {
+    .experience-card::before {
+        background: rgba(0, 0, 0, 0.7) !important;
+    }
+
+    .experience-card:hover::before {
+        background: rgba(0, 0, 0, 0.7) !important;
+    }
+
+    .experience-card:hover img {
+        filter: none !important;
     }
 }
 
