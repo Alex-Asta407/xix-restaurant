@@ -225,7 +225,7 @@
         .venue-title {
             font-family: 'Gilda Display', serif;
             font-size: 2.5rem;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             transition: all 0.8s ease;
             color: #d4a574;
             text-shadow: none;
@@ -233,7 +233,7 @@
 
         .venue-subtitle {
             font-size: 1.2rem;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             opacity: 0;
             transform: translateY(20px);
             transition: all 0.8s ease;
@@ -243,8 +243,8 @@
 
         .venue-description {
             font-size: 1rem;
-            line-height: 1.6;
-            margin-bottom: 40px;
+            line-height: 1.5;
+            margin-bottom: 25px;
             opacity: 0;
             max-width: 400px;
             margin-left: auto;
@@ -255,10 +255,15 @@
             text-shadow: none;
         }
 
-        /* Mobile: Ensure proper spacing */
+        /* Mobile: Reduce spacing for tighter layout */
         @media (max-width: 768px) {
+            .venue-title {
+                margin-bottom: 10px;
+            }
+
             .venue-description {
-                margin-bottom: 30px;
+                margin-bottom: 20px;
+                font-size: 0.95rem;
             }
         }
 
@@ -365,8 +370,8 @@
 
             .venue-logo {
                 font-size: 3rem;
-                margin-top: 20px;
-                margin-bottom: 30px;
+                margin-top: 15px;
+                margin-bottom: 15px;
                 position: relative;
                 z-index: 10;
                 opacity: 1 !important;
@@ -377,6 +382,7 @@
 
             .venue-title {
                 font-size: 2rem;
+                margin-bottom: 10px;
             }
 
             .venue-subtitle {
@@ -411,8 +417,8 @@
 
             .venue-logo {
                 font-size: 2.5rem;
-                margin-top: 15px;
-                margin-bottom: 25px;
+                margin-top: 10px;
+                margin-bottom: 12px;
                 position: relative;
                 z-index: 10;
                 opacity: 1 !important;
@@ -423,6 +429,7 @@
 
             .venue-title {
                 font-size: 1.8rem;
+                margin-bottom: 8px;
             }
 
             .venue-content {
@@ -466,10 +473,8 @@
             <div class="venue-content">
                 <div class="venue-logo">XIX</div>
                 <h2 class="venue-title">XIX Restaurant</h2>
-                <p class="venue-subtitle">Where Flavor Meets Elegance</p>
                 <p class="venue-description">
-                    Experience modern dining with Ukrainian influences.
-                    Perfect for intimate dinners, casual meals, and small celebrations.
+                    The place where you can enjoy Ukrainian food, smoke hookah and enjoy board games.
                 </p>
                 <a href="/xix" class="venue-button">
                     <i class="fas fa-utensils"></i> Enter XIX
@@ -486,10 +491,8 @@
             <div class="venue-content">
                 <div class="venue-logo">Mirror</div>
                 <h2 class="venue-title">Ukrainian Banquet Hall</h2>
-                <p class="venue-subtitle">Elegant Celebrations & Events</p>
                 <p class="venue-description">
-                    Traditional Ukrainian hospitality meets modern elegance.
-                    Perfect for weddings, large celebrations, and cultural events.
+                    Where you can celebrate big events in your life.
                 </p>
                 <a href="/mirror" class="venue-button">
                     <i class="fas fa-users"></i> Enter Mirror
