@@ -1532,6 +1532,18 @@ legend {
     z-index: 1;
 }
 
+.experience-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0);
+    z-index: 2;
+    pointer-events: none;
+}
+
 /* Experience Content - Plain Text */
 .experience-content {
     background: transparent !important;
@@ -1539,7 +1551,7 @@ legend {
     padding: 2rem;
     text-align: center;
     position: relative;
-    z-index: 2;
+    z-index: 3;
     margin: 2rem;
     max-width: 90%;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
@@ -2184,6 +2196,10 @@ textarea,
         margin: 0 !important;
     }
 
+    .experience-card::after {
+        background: rgba(0, 0, 0, 0.6) !important;
+    }
+
     .experience-content {
         padding: 1.5rem !important;
         margin: 1rem !important;
@@ -2261,6 +2277,10 @@ textarea,
 
     .experience-card {
         min-height: 250px !important;
+    }
+
+    .experience-card::after {
+        background: rgba(0, 0, 0, 0.6) !important;
     }
 
     .experience-content {
