@@ -260,10 +260,22 @@
     align-items: center;
     gap: 0.5rem;
     color: var(--dark-gray);
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .feature i {
     color: var(--gold);
+}
+
+.feature span {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    display: inline !important;
 }
 
 .private-events-btn {

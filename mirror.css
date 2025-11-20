@@ -561,10 +561,7 @@ body {
 }
 
 /* Form Overrides with Menu Colors */
-.form-group label {
-    color: #2d1f15;
-    font-weight: 500;
-}
+/* Note: .form-group label styling moved to main form section (line ~1180) */
 
 .form-control {
     border: 1px solid rgba(255, 192, 203, 0.3);
@@ -982,6 +979,10 @@ body {
     align-items: center;
     gap: 1rem;
     margin: 1rem 0;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .feature i {
@@ -992,6 +993,11 @@ body {
 .feature span {
     color: #2d1f15;
     font-weight: 500;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    display: inline !important;
 }
 
 /* Reservations Page Specific Styling */
@@ -1080,11 +1086,12 @@ body {
 .reservation-form-container {
     max-width: 800px;
     margin: 0 auto;
-    background: var(--white);
+    background: transparent !important;
+    background-color: transparent !important;
     padding: 3rem;
-    border-radius: 20px;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
-    border: 1px solid rgba(168, 135, 26, 0.15);
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
     position: relative;
     overflow: hidden;
 }
@@ -1114,6 +1121,10 @@ body {
 .form-header {
     text-align: center;
     margin-bottom: 2rem;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .form-header h2 {
@@ -1121,10 +1132,18 @@ body {
     font-size: 2rem;
     margin-bottom: 0.5rem;
     color: #2d1f15;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .form-header p {
     color: #2d1f15;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .form-grid {
@@ -1132,11 +1151,19 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
     margin-bottom: 1.5rem;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .form-group.full-width {
@@ -1147,6 +1174,10 @@ body {
     font-weight: 500;
     margin-bottom: 0.5rem;
     color: #2d1f15;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .form-group input,
@@ -1220,11 +1251,12 @@ body {
 .info-card {
     text-align: center;
     padding: 2rem;
-    background: var(--white);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    background: transparent !important;
+    background-color: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 1px solid rgba(168, 135, 26, 0.15);
+    border: none !important;
     position: relative;
     overflow: hidden;
 }
@@ -1246,7 +1278,7 @@ body {
 
 .info-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+    box-shadow: none !important;
 }
 
 .info-card h3 {
@@ -1254,11 +1286,19 @@ body {
     font-size: 1.5rem;
     margin-bottom: 1rem;
     color: #2d1f15;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .info-card p {
     color: #2d1f15;
     line-height: 1.6;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 /* Mirror Reservations Specific Fixes */
@@ -1271,19 +1311,23 @@ body {
 .form-group label[for="menu-preference"] {
     color: #2d1f15 !important;
     font-weight: 500 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 /* Fix entertainment preferences font color */
 .form-group label[for="entertainment"] {
     color: #2d1f15 !important;
     font-weight: 500 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
-/* Ensure all form labels are visible */
-.form-group label {
-    color: #2d1f15 !important;
-    font-weight: 500 !important;
-}
+/* Note: .form-group label styling is defined above in the main form section (line ~1180) */
 
 /* Fix dropdown options color */
 .form-group select option {
@@ -1687,11 +1731,19 @@ legend {
 
 .contact-title {
     color: #2d1f15;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .contact-description {
     color: #2d1f15;
     opacity: 0.8;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
 }
 
 .book-now-btn {
