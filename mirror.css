@@ -36,6 +36,7 @@ body {
 
 /* Main Menu Title Styles */
 .menu-title {
+    font-family: 'Gilda Display', serif !important;
     font-size: 3.5rem;
     font-weight: 700;
     color: #2d1f15;
@@ -44,6 +45,7 @@ body {
 }
 
 .menu-subtitle {
+    font-family: 'Noto Sans', sans-serif !important;
     font-size: 1.3rem;
     color: #2d1f15;
     margin-bottom: 2rem;
@@ -74,6 +76,7 @@ body {
     border: 1px solid rgba(255, 192, 203, 0.3);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
+    font-family: 'Noto Sans', sans-serif !important;
 }
 
 .highlight-item:hover {
@@ -89,6 +92,7 @@ body {
 }
 
 .highlight-item span {
+    font-family: 'Noto Sans', sans-serif !important;
     font-weight: 500;
     color: #2d1f15;
     font-size: 0.95rem;
@@ -139,6 +143,7 @@ body {
 }
 
 .menu-tab small {
+    font-family: 'Noto Sans', sans-serif !important;
     font-size: 0.9rem;
     opacity: 0.7;
     color: #2d1f15;
@@ -207,6 +212,7 @@ body {
 }
 
 .category-title {
+    font-family: 'Gilda Display', serif !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -217,11 +223,19 @@ body {
 }
 
 .category-title i {
-    color: #d4a574;
-    font-size: 1.5rem;
+    color: #c49b6c !important;
+    font-size: 2rem !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline-block !important;
+    margin-right: 0.75rem !important;
+    text-shadow: none !important;
+    font-weight: normal !important;
+    line-height: 1 !important;
 }
 
 .category-description {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #2d1f15;
     font-style: italic;
     font-size: 1.1rem;
@@ -1921,6 +1935,12 @@ body {
 .hero-title {
     color: #2d1f15 !important;
     text-shadow: none;
+    line-height: 1.2;
+}
+
+.hero-title br {
+    display: block !important;
+    content: "" !important;
 }
 
 .hero-description {
@@ -2136,6 +2156,11 @@ ol {
     .hero-title {
         font-size: 2.5rem !important;
         word-wrap: break-word !important;
+        line-height: 1.2 !important;
+    }
+
+    .hero-title br {
+        display: block !important;
     }
 
     .hero-description {
@@ -2530,6 +2555,11 @@ ol {
         font-size: 2rem !important;
         margin-bottom: 1rem !important;
         word-wrap: break-word !important;
+        line-height: 1.2 !important;
+    }
+
+    .hero-title br {
+        display: block !important;
     }
 
     .hero-description {
@@ -2955,6 +2985,7 @@ a {
 .menu-header p *,
 .menu-subtitle,
 .menu-subtitle * {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #000000 !important;
     font-weight: 600 !important;
     font-size: 1.1rem !important;
@@ -2968,6 +2999,7 @@ a {
 .menu-category h3 *,
 .category-title,
 .category-title * {
+    /* font-family already defined in main .category-title rule (line ~214) */
     color: #000000 !important;
     font-weight: 700 !important;
     font-size: 1.4rem !important;
@@ -2981,6 +3013,7 @@ a {
 .menu-item h3 *,
 .item-name,
 .item-name * {
+    font-family: 'Gilda Display', serif !important;
     color: #000000 !important;
     font-weight: 700 !important;
     font-size: 1.2rem !important;
@@ -2998,6 +3031,7 @@ a {
 .item-description *,
 .item-translation,
 .item-translation * {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #000000 !important;
     font-weight: 600 !important;
     font-size: 1rem !important;
@@ -3013,6 +3047,7 @@ a {
 .item-price *,
 .price,
 .price * {
+    font-family: 'Gilda Display', serif !important;
     color: #000000 !important;
     font-weight: 800 !important;
     font-size: 1.3rem !important;
@@ -3022,7 +3057,7 @@ a {
     background-color: transparent !important;
 }
 
-/* Override ANY text in menu containers */
+/* Override ANY text in menu containers - Set default font to Noto Sans */
 .menu-content,
 .menu-content *,
 .menu-container,
@@ -3033,6 +3068,7 @@ a {
 .menu-card *,
 .menu-item,
 .menu-item * {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #000000 !important;
     opacity: 1 !important;
     text-shadow: none !important;
@@ -3040,14 +3076,32 @@ a {
     background-color: transparent !important;
 }
 
+/* Override headings in menu to use Gilda Display */
+.menu-content h1,
+.menu-content h2,
+.menu-content h3,
+.menu-content h4,
+.menu-content h5,
+.menu-content h6,
+.menu-section h1,
+.menu-section h2,
+.menu-section h3,
+.menu-section h4,
+.menu-section h5,
+.menu-section h6 {
+    font-family: 'Gilda Display', serif !important;
+}
+
 /* Make all menu text elements darker and more visible */
 .menu-content * {
     color: #2d1f15 !important;
 }
 
+/* font-family already defined above for all menu-content h1-h6 (line ~3078) */
 .menu-content h1,
 .menu-content h2,
 .menu-content h3 {
+    /* font-family: 'Gilda Display', serif !important; - redundant, already defined */
     color: #1a0f08 !important;
     font-weight: 700 !important;
 }
@@ -3055,12 +3109,14 @@ a {
 .menu-content p,
 .menu-content span,
 .menu-content div {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #2d1f15 !important;
     font-weight: 500 !important;
 }
 
 /* Target the actual menu classes used in the HTML */
 .menu-section-title {
+    font-family: 'Gilda Display', serif !important;
     color: #2d1f15 !important;
     font-weight: 700 !important;
     font-size: 2rem !important;
@@ -3069,6 +3125,7 @@ a {
 }
 
 .menu-badge {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #2d1f15 !important;
     font-weight: 600 !important;
     font-size: 1.1rem !important;
@@ -3077,6 +3134,7 @@ a {
 }
 
 .price-main {
+    font-family: 'Gilda Display', serif !important;
     color: #2d1f15 !important;
     font-weight: 700 !important;
     font-size: 2.5rem !important;
@@ -3087,6 +3145,7 @@ a {
 
 .price-per,
 .price-includes {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #2d1f15 !important;
     font-weight: 600 !important;
     font-size: 1rem !important;
@@ -3104,7 +3163,9 @@ a {
     font-size: 0.9rem !important;
 }
 
+/* .category-title font-family already defined in main rule (line ~214) */
 .category-title {
+    /* font-family removed - already defined in main .category-title rule */
     color: #2d1f15 !important;
     font-weight: 600 !important;
     font-size: 1.3rem !important;
@@ -3113,6 +3174,7 @@ a {
 }
 
 .category-description {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #2d1f15 !important;
     font-weight: 500 !important;
     font-size: 1rem !important;
@@ -3121,6 +3183,7 @@ a {
 }
 
 .item-name {
+    font-family: 'Gilda Display', serif !important;
     color: #2d1f15 !important;
     font-weight: 600 !important;
     font-size: 1.1rem !important;
@@ -3130,6 +3193,7 @@ a {
 }
 
 .item-description {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #2d1f15 !important;
     font-weight: 500 !important;
     font-size: 0.95rem !important;
@@ -3139,6 +3203,7 @@ a {
 }
 
 .menu-tab {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #2d1f15 !important;
     font-weight: 600 !important;
     font-size: 1.1rem !important;
@@ -3154,6 +3219,7 @@ a {
 }
 
 .menu-tab small {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #2d1f15 !important;
     font-weight: 500 !important;
     font-size: 0.9rem !important;
@@ -3163,6 +3229,7 @@ a {
 }
 
 .highlight-item span {
+    font-family: 'Noto Sans', sans-serif !important;
     color: #2d1f15 !important;
     font-weight: 500 !important;
 }

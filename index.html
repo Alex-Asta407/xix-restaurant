@@ -57,8 +57,31 @@
             </div>
         </div>
         <div class="hero-right">
-            <div class="hero-image">
-                <img src="photos/XIX_main.png" alt="XIX Restaurant Interior" class="hero-img">
+            <div class="hero-image hero-slider">
+                <div class="slider-container">
+                    <div class="slider-wrapper">
+                        <div class="slide active">
+                            <img src="photos/XIX_main.png" alt="XIX Restaurant Interior" class="hero-img">
+                        </div>
+                        <div class="slide">
+                            <img src="photos/XIX-main-1.jpg" alt="XIX Restaurant" class="hero-img">
+                        </div>
+                        <div class="slide">
+                            <img src="photos/XIX-main-borsch.jpg" alt="XIX Borsch" class="hero-img">
+                        </div>
+                    </div>
+                    <button class="slider-btn slider-btn-prev" aria-label="Previous image">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="slider-btn slider-btn-next" aria-label="Next image">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <div class="slider-dots">
+                        <span class="dot active" data-slide="0"></span>
+                        <span class="dot" data-slide="1"></span>
+                        <span class="dot" data-slide="2"></span>
+                    </div>
+                </div>
                 <div class="image-overlay">
                     <!-- <div class="logo-overlay">XIXNINETEEN</div> -->
                 </div>
@@ -187,14 +210,10 @@
                     </div>
 
                     <div class="map-container">
-                        <iframe 
+                        <iframe
                             src="https://maps.google.com/maps?q=369+High+St,+Greater,+London+E15+4QZ,+United+Kingdom&hl=en&z=14&output=embed"
-                            width="100%" 
-                            height="100%" 
-                            style="border:0; border-radius: 10px;" 
-                            allowfullscreen="" 
-                            loading="lazy" 
-                            referrerpolicy="no-referrer-when-downgrade">
+                            width="100%" height="100%" style="border:0; border-radius: 10px;" allowfullscreen=""
+                            loading="lazy" referrerpolicy="no-referrer-when-downgrade">
                         </iframe>
                     </div>
                 </div>
@@ -239,6 +258,159 @@
 
     <script src="script.js"></script>
     <script src="offline.js"></script>
+
+    <!-- Hero Slider Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const slides = document.querySelectorAll('.hero-slider .slide');
+            const dots = document.querySelectorAll('.hero-slider .dot');
+            const prevBtn = document.querySelector('.hero-slider .slider-btn-prev');
+            const nextBtn = document.querySelector('.hero-slider .slider-btn-next');
+            let currentSlide = 0;
+            let slideInterval;
+
+            // Function to show a specific slide
+            function showSlide(index) {
+                // Remove active class from all slides and dots
+                slides.forEach(slide => slide.classList.remove('active'));
+                dots.forEach(dot => dot.classList.remove('active'));
+
+                // Add active class to current slide and dot
+                if (slides[index]) {
+                    slides[index].classList.add('active');
+                }
+                if (dots[index]) {
+                    dots[index].classList.add('active');
+                }
+
+                currentSlide = index;
+            }
+
+            // Function to go to next slide
+            function nextSlide() {
+                const next = (currentSlide + 1) % slides.length;
+                showSlide(next);
+            }
+
+            // Function to go to previous slide
+            function prevSlide() {
+                const prev = (currentSlide - 1 + slides.length) % slides.length;
+                showSlide(prev);
+            }
+
+            // Event listeners for navigation buttons
+            if (nextBtn) {
+                nextBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    nextSlide();
+                    resetAutoSlide();
+                });
+            }
+
+            if (prevBtn) {
+                prevBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    prevSlide();
+                    resetAutoSlide();
+                });
+            }
+
+            // Event listeners for dots
+            dots.forEach((dot, index) => {
+                dot.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    showSlide(index);
+                    resetAutoSlide();
+                });
+            });
+
+            // Enhanced touch/swipe support for mobile
+            let touchStartX = 0;
+            let touchEndX = 0;
+            let touchStartY = 0;
+            let touchEndY = 0;
+            let isSwiping = false;
+            const sliderContainer = document.querySelector('.hero-slider .slider-container');
+
+            if (sliderContainer) {
+                // Prevent default touch behaviors that might interfere
+                sliderContainer.addEventListener('touchstart', function (e) {
+                    touchStartX = e.changedTouches[0].screenX;
+                    touchStartY = e.changedTouches[0].screenY;
+                    isSwiping = true;
+                }, { passive: true });
+
+                sliderContainer.addEventListener('touchmove', function (e) {
+                    if (isSwiping) {
+                        // Update touch position during move
+                        touchEndX = e.changedTouches[0].screenX;
+                        touchEndY = e.changedTouches[0].screenY;
+                    }
+                }, { passive: true });
+
+                sliderContainer.addEventListener('touchend', function (e) {
+                    if (!isSwiping) return;
+
+                    touchEndX = e.changedTouches[0].screenX;
+                    touchEndY = e.changedTouches[0].screenY;
+                    handleSwipe();
+                    isSwiping = false;
+                }, { passive: true });
+
+                function handleSwipe() {
+                    const swipeThreshold = 50;
+                    const diffX = touchStartX - touchEndX;
+                    const diffY = touchStartY - touchEndY;
+
+                    // Only trigger if horizontal swipe is greater than vertical (prevent accidental swipes)
+                    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
+                        if (diffX > 0) {
+                            // Swipe left - next slide
+                            nextSlide();
+                        } else {
+                            // Swipe right - previous slide
+                            prevSlide();
+                        }
+                        resetAutoSlide();
+                    }
+                }
+
+                // Prevent image drag on mobile
+                const slideImages = document.querySelectorAll('.hero-slider .slide img');
+                slideImages.forEach(img => {
+                    img.addEventListener('dragstart', function (e) {
+                        e.preventDefault();
+                    });
+                });
+            }
+
+            // Auto-slide function (gentle, optional)
+            function startAutoSlide() {
+                slideInterval = setInterval(function () {
+                    nextSlide();
+                }, 5000); // Change slide every 5 seconds
+            }
+
+            function resetAutoSlide() {
+                clearInterval(slideInterval);
+                startAutoSlide();
+            }
+
+            // Start auto-slide on load
+            startAutoSlide();
+
+            // Pause auto-slide on hover
+            if (sliderContainer) {
+                sliderContainer.addEventListener('mouseenter', function () {
+                    clearInterval(slideInterval);
+                });
+
+                sliderContainer.addEventListener('mouseleave', function () {
+                    startAutoSlide();
+                });
+            }
+        });
+    </script>
 
 </body>
 
