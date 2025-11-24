@@ -57,8 +57,32 @@
             </div>
         </div>
         <div class="hero-right">
-            <div class="hero-image">
-                <img src="../photos/mirror_hero.jpg" alt="Mirror Ukrainian Banquet Hall Interior" class="hero-img">
+            <div class="hero-image hero-slider">
+                <div class="slider-container">
+                    <div class="slider-wrapper">
+                        <div class="slide active">
+                            <img src="../photos/mirror_hero.jpg" alt="Mirror Ukrainian Banquet Hall Interior">
+                        </div>
+                        <div class="slide">
+                            <img src="../photos/M-main.jpg" alt="Mirror Banquet Hall">
+                        </div>
+                        <div class="slide">
+                            <img src="../photos/M-main-1.jpg" alt="Mirror Interior">
+                        </div>
+                        <div class="slide">
+                            <img src="../photos/M-main-2.jpg" alt="Mirror Event Space">
+                        </div>
+                        <div class="slide">
+                            <img src="../photos/M-main-3.jpg" alt="Mirror Banquet Hall">
+                        </div>
+                    </div>
+                    <button class="slider-btn slider-btn-prev" aria-label="Previous image">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="slider-btn slider-btn-next" aria-label="Next image">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
                 <div class="image-overlay">
                     <!-- Ukrainian cultural elements could be added here -->
                 </div>
@@ -249,6 +273,162 @@
 
     <script src="../script.js"></script>
     <script src="../offline.js"></script>
+
+    <!-- Hero Slider Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const slides = document.querySelectorAll('.hero-slider .slide');
+            const dots = document.querySelectorAll('.hero-slider .dot');
+            const prevBtn = document.querySelector('.hero-slider .slider-btn-prev');
+            const nextBtn = document.querySelector('.hero-slider .slider-btn-next');
+            let currentSlide = 0;
+            let slideInterval;
+
+            // Function to show a specific slide
+            function showSlide(index) {
+                // Remove active class from all slides and dots
+                slides.forEach(slide => slide.classList.remove('active'));
+                dots.forEach(dot => dot.classList.remove('active'));
+
+                // Add active class to current slide and dot
+                if (slides[index]) {
+                    slides[index].classList.add('active');
+                }
+                if (dots[index]) {
+                    dots[index].classList.add('active');
+                }
+
+                currentSlide = index;
+            }
+
+            // Function to go to next slide
+            function nextSlide() {
+                const next = (currentSlide + 1) % slides.length;
+                showSlide(next);
+            }
+
+            // Function to go to previous slide
+            function prevSlide() {
+                const prev = (currentSlide - 1 + slides.length) % slides.length;
+                showSlide(prev);
+            }
+
+            // Event listeners for navigation buttons
+            if (nextBtn) {
+                nextBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    nextSlide();
+                    resetAutoSlide();
+                });
+            }
+
+            if (prevBtn) {
+                prevBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    prevSlide();
+                    resetAutoSlide();
+                });
+            }
+
+            // Event listeners for dots
+            dots.forEach((dot, index) => {
+                dot.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    showSlide(index);
+                    resetAutoSlide();
+                });
+            });
+
+            // Enhanced touch/swipe support for mobile
+            let touchStartX = 0;
+            let touchEndX = 0;
+            let touchStartY = 0;
+            let touchEndY = 0;
+            let isSwiping = false;
+            const sliderContainer = document.querySelector('.hero-slider .slider-container');
+
+            if (sliderContainer) {
+                // Prevent default touch behaviors that might interfere
+                sliderContainer.addEventListener('touchstart', function (e) {
+                    touchStartX = e.changedTouches[0].screenX;
+                    touchStartY = e.changedTouches[0].screenY;
+                    isSwiping = true;
+                }, { passive: true });
+
+                sliderContainer.addEventListener('touchmove', function (e) {
+                    if (isSwiping) {
+                        // Update touch position during move
+                        touchEndX = e.changedTouches[0].screenX;
+                        touchEndY = e.changedTouches[0].screenY;
+                    }
+                }, { passive: true });
+
+                sliderContainer.addEventListener('touchend', function (e) {
+                    if (!isSwiping) return;
+
+                    touchEndX = e.changedTouches[0].screenX;
+                    touchEndY = e.changedTouches[0].screenY;
+                    handleSwipe();
+                    isSwiping = false;
+                }, { passive: true });
+
+                function handleSwipe() {
+                    const swipeThreshold = 50;
+                    const diffX = touchStartX - touchEndX;
+                    const diffY = touchStartY - touchEndY;
+
+                    // Only trigger if horizontal swipe is greater than vertical (prevent accidental swipes)
+                    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
+                        if (diffX > 0) {
+                            // Swipe left - next slide
+                            nextSlide();
+                        } else {
+                            // Swipe right - previous slide
+                            prevSlide();
+                        }
+                        resetAutoSlide();
+                    }
+                }
+
+                // Prevent image drag on mobile
+                const slideImages = document.querySelectorAll('.hero-slider .slide img');
+                slideImages.forEach(img => {
+                    img.addEventListener('dragstart', function (e) {
+                        e.preventDefault();
+                    });
+                });
+            }
+
+            // Auto-slide function (gentle, slower transitions)
+            function startAutoSlide() {
+                slideInterval = setInterval(function () {
+                    nextSlide();
+                }, 12000); // Change slide every 12 seconds - slower and more gentle
+            }
+
+            function resetAutoSlide() {
+                clearInterval(slideInterval);
+                startAutoSlide();
+            }
+
+            // Start auto-slide on load
+            startAutoSlide();
+
+            // Pause auto-slide on hover
+            if (sliderContainer) {
+                sliderContainer.addEventListener('mouseenter', function () {
+                    clearInterval(slideInterval);
+                });
+
+                sliderContainer.addEventListener('mouseleave', function () {
+                    startAutoSlide();
+                });
+            }
+
+            // Initialize first slide
+            showSlide(currentSlide);
+        });
+    </script>
 
 </body>
 
