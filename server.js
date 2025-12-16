@@ -252,7 +252,15 @@ app.get('/', (req, res) => {
 
 
 app.get('/xix/catering', (req, res) => {
-  res.sendFile(__dirname + '/catering.html');
+  console.log('✅ /xix/catering route hit');
+  const filePath = __dirname + '/catering.html';
+  console.log('Serving file from:', filePath);
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('Error serving catering.html:', err);
+      res.status(500).send('Error loading catering page');
+    }
+  });
 });
 
 app.get('/xix', (req, res) => {
@@ -5232,6 +5240,64 @@ app.get('/database-viewer', (req, res) => {
   }
 
   res.sendFile(__dirname + '/database-viewer.html');
+});
+
+// Delete All Reservations Endpoint (Clear all reservations)
+app.delete('/api/reservations/clear-all', (req, res) => {
+  const secretKey = req.query.key;
+  const expectedKey = process.env.ADMIN_SECRET_KEY;
+
+  if (secretKey !== expectedKey) {
+    return res.status(403).json({ error: 'Unauthorized access' });
+  }
+
+  // Get all reservations with Google Calendar event IDs before deleting
+  db.all('SELECT id, google_calendar_event_id FROM reservations WHERE google_calendar_event_id IS NOT NULL', [], (err, reservations) => {
+    if (err) {
+      console.error('Error fetching reservations:', err);
+      return res.status(500).json({ error: 'Failed to fetch reservations: ' + err.message });
+    }
+
+    const calendarEventIds = reservations.map(r => r.google_calendar_event_id).filter(Boolean);
+
+    // Delete all reservations from database
+    db.run('DELETE FROM reservations', [], function (deleteErr) {
+      if (deleteErr) {
+        console.error('Error deleting all reservations:', deleteErr);
+        return res.status(500).json({ error: 'Failed to delete reservations: ' + deleteErr.message });
+      }
+
+      const deletedCount = this.changes;
+      console.log(`✅ Deleted ${deletedCount} reservations from database`);
+
+      // Delete Google Calendar events if calendar is configured
+      if (calendarEventIds.length > 0 && calendar && process.env.GOOGLE_CALENDAR_ID) {
+        const calendarId = process.env.GOOGLE_CALENDAR_ID;
+        const deletePromises = calendarEventIds.map(eventId => {
+          return calendar.events.delete({
+            calendarId: calendarId,
+            eventId: eventId
+          }).catch((err) => {
+            console.error(`⚠️ Error deleting Google Calendar event ${eventId}:`, err.message);
+            return null; // Continue even if one fails
+          });
+        });
+
+        Promise.all(deletePromises).then(() => {
+          console.log(`✅ Deleted ${calendarEventIds.length} Google Calendar events`);
+          res.json({
+            success: true,
+            message: `Deleted ${deletedCount} reservations and ${calendarEventIds.length} Google Calendar events`
+          });
+        });
+      } else {
+        res.json({
+          success: true,
+          message: `Deleted ${deletedCount} reservations`
+        });
+      }
+    });
+  });
 });
 
 // Serve static files (HTML, CSS, JS, images) - AFTER all explicit routes

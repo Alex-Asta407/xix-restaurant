@@ -5,7 +5,12 @@ RewriteEngine On
 
 # Exclude API routes, payment-success, and Node.js routes from HTML rewriting
 # These routes are handled by Node.js, not static files
-RewriteCond %{REQUEST_URI} ^/(api|payment-success|xix/catering|xix|mirror) [NC]
+# Note: xix/catering must come BEFORE xix to match correctly
+RewriteCond %{REQUEST_URI} ^/(api|payment-success|xix/catering|mirror/catering) [NC]
+RewriteRule ^ - [L]
+
+# Exclude /xix and /mirror (but not their sub-paths) from HTML rewriting
+RewriteCond %{REQUEST_URI} ^/(xix|mirror)$ [NC]
 RewriteRule ^ - [L]
 
 # Remove .html extension from URLs

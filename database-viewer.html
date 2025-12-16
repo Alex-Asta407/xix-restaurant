@@ -115,13 +115,13 @@
             text-align: left;
             border-bottom: 1px solid var(--light-gray);
         }
-        
+
         /* Keep most columns compact with no wrap */
         th:not(:nth-child(12)):not(:nth-child(13)),
         td:not(:nth-child(12)):not(:nth-child(13)) {
             white-space: nowrap;
         }
-        
+
         /* Allow Special Requests and Occasion columns to wrap */
         th:nth-child(12),
         td:nth-child(12),
@@ -231,6 +231,10 @@
             </button>
             <button class="db-btn secondary" id="btnRefresh">
                 <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="db-btn secondary" id="btnClearAll" style="background: #dc3545; color: white;"
+                onclick="clearDatabase()">
+                <i class="fas fa-trash-alt"></i> Clear All Reservations
             </button>
         </div>
 
@@ -422,7 +426,7 @@
                     : 'N/A';
                 const time = formatTime(reservation.time);
                 const endTime = formatEndTime(reservation.end_time);
-                
+
                 // Format confirmation status
                 const status = reservation.confirmation_status || 'pending';
                 let statusClass = 'status-pending';
@@ -434,7 +438,7 @@
                     statusClass = 'status-cancelled';
                     statusText = 'Cancelled';
                 }
-                
+
                 // Use table_name (from JOIN) if available, otherwise assigned_table (ID), otherwise table_preference
                 const tableDisplay = reservation.table_name || reservation.assigned_table_display || reservation.assigned_table || reservation.table_preference || '-';
 
@@ -539,16 +543,16 @@
             const [hours, minutes] = endTime.split(':');
             let hour = parseInt(hours);
             let isNextDay = false;
-            
+
             if (hour >= 25) {
                 hour = hour - 24;
                 isNextDay = true;
             }
-            
+
             const ampm = hour >= 12 ? 'PM' : 'AM';
             const displayHour = hour % 12 || 12;
             const formatted = `${displayHour}:${minutes} ${ampm}`;
-            
+
             return isNextDay ? `${formatted} (next day)` : formatted;
         }
 
@@ -645,7 +649,60 @@
             }
 
             try {
-                const response = await fetch(`/api/reservations/${id}`, {
+                // Use absolute path to ensure it works on both local and server
+                const url = `/api/reservations/${id}`;
+                console.log('Deleting reservation:', url, 'ID:', id);
+
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    let errorMessage = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (e) {
+                        const errorText = await response.text();
+                        if (errorText) errorMessage = errorText;
+                    }
+                    console.error('Delete failed:', response.status, errorMessage);
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                console.log('Reservation deleted:', result);
+
+                // Show success message
+                alert(`Reservation #${id} deleted successfully.`);
+
+                // Reload the current table to refresh the view
+                loadCurrentTable();
+            } catch (error) {
+                console.error('Error deleting reservation:', error);
+                alert('Error deleting reservation: ' + error.message);
+            }
+        }
+
+        async function clearDatabase() {
+            if (!confirm('Are you sure you want to clear ALL reservations? This cannot be undone!')) {
+                return;
+            }
+
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const secretKey = urlParams.get('key');
+
+                if (!secretKey) {
+                    alert('Admin key required to clear database');
+                    return;
+                }
+
+                const response = await fetch(`/api/reservations/clear-all?key=${encodeURIComponent(secretKey)}`, {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json'
@@ -658,30 +715,15 @@
                 }
 
                 const result = await response.json();
-                console.log('Reservation deleted:', result);
-                
-                // Show success message
-                alert(`Reservation #${id} deleted successfully.`);
-                
+                console.log('Database cleared:', result);
+
+                alert(result.message || 'All reservations cleared successfully.');
+
                 // Reload the current table to refresh the view
                 loadCurrentTable();
             } catch (error) {
-                console.error('Error deleting reservation:', error);
-                alert('Error deleting reservation: ' + error.message);
-            }
-        }
-
-        async function clearDatabase() {
-            if (!confirm('Are you sure you want to clear all reservations? This cannot be undone!')) {
-                return;
-            }
-
-            try {
-                // This would need a new API endpoint to clear the database
-                alert('Database clear functionality would need to be implemented in the server');
-            } catch (error) {
                 console.error('Error clearing database:', error);
-                alert('Error clearing database');
+                alert('Error clearing database: ' + error.message);
             }
         }
 
