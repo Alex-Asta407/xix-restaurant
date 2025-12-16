@@ -252,7 +252,7 @@ app.get('/', (req, res) => {
 
 
 app.get('/xix/catering', (req, res) => {
-  res.sendFile(__dirname + '/mirror/catering.html');
+  res.sendFile(__dirname + '/catering.html');
 });
 
 app.get('/xix', (req, res) => {
@@ -288,7 +288,7 @@ app.get('/mirror/menu', (req, res) => {
 });
 
 app.get('/mirror/catering', (req, res) => {
-  res.sendFile(__dirname + '/mirror/catering.html');
+  res.sendFile(__dirname + '/catering.html');
 });
 
 app.get('/offline', (req, res) => {
