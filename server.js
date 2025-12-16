@@ -27,11 +27,49 @@ if (process.env.STRIPE_SECRET_KEY) {
   stripe = null;
 }
 
+// Initialize Google Calendar API (optional)
+let calendar;
+if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_ID) {
+  try {
+    const { google } = require('googleapis');
+    const auth = new google.auth.GoogleAuth({
+      keyFile: process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH,
+      scopes: ['https://www.googleapis.com/auth/calendar']
+    });
+    calendar = google.calendar({ version: 'v3', auth });
+    console.log('✅ Google Calendar API initialized');
+  } catch (err) {
+    console.warn('⚠️  Google Calendar API not configured. Calendar sync will be disabled.');
+    calendar = null;
+  }
+} else {
+  console.warn('⚠️  GOOGLE_CALENDAR_CREDENTIALS_PATH or GOOGLE_CALENDAR_ID not set. Calendar sync disabled.');
+  calendar = null;
+}
+
+// Initialize Twilio SMS (optional)
+let twilioClient;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.ENABLE_SMS_REMINDERS === 'true') {
+  try {
+    twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    console.log('✅ Twilio SMS initialized');
+  } catch (err) {
+    console.warn('⚠️  Twilio SMS not configured. SMS reminders will be disabled.');
+    twilioClient = null;
+  }
+} else {
+  console.warn('⚠️  Twilio credentials not set or SMS disabled. SMS reminders disabled.');
+  twilioClient = null;
+}
+
 const app = express();
 const port = process.env.PORT || 3001;
 
 // Trust proxy for dev tunnels and production deployments
-app.set('trust proxy', true);
+// Set to 1 to trust only the first proxy (prevents IP spoofing)
+// In production behind nginx/load balancer, this is safe
+// Set to true only if you're behind a trusted reverse proxy
+app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : true);
 
 // Security Logging Configuration
 const logger = winston.createLogger({
@@ -76,6 +114,9 @@ app.use(helmet({
 }));
 
 // Rate limiting - Very lenient for restaurant website
+// Note: trust proxy is configured above to trust only first proxy (1) in production
+// This prevents IP spoofing while still working correctly behind reverse proxies
+// The validation warning can be safely ignored since we're using a secure configuration
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === 'production' ? 1000 : 10000, // Very high limits
@@ -83,7 +124,7 @@ const limiter = rateLimit({
     error: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders: false
 });
 
 const reservationLimiter = rateLimit({
@@ -210,6 +251,10 @@ app.get('/', (req, res) => {
 });
 
 
+app.get('/xix/catering', (req, res) => {
+  res.sendFile(__dirname + '/mirror/catering.html');
+});
+
 app.get('/xix', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
@@ -240,6 +285,10 @@ app.get('/mirror/reservations', (req, res) => {
 
 app.get('/mirror/menu', (req, res) => {
   res.sendFile(__dirname + '/mirror/menu.html');
+});
+
+app.get('/mirror/catering', (req, res) => {
+  res.sendFile(__dirname + '/mirror/catering.html');
 });
 
 app.get('/offline', (req, res) => {
@@ -493,6 +542,208 @@ db.serialize(() => {
     }
   });
 
+  // Add table assignment and confirmation columns
+  db.run(`ALTER TABLE reservations ADD COLUMN assigned_table TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding assigned_table column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN end_time TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding end_time column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN google_calendar_event_id TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding google_calendar_event_id column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN confirmation_status TEXT DEFAULT 'pending'`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding confirmation_status column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN confirmation_deadline DATETIME`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding confirmation_deadline column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN confirmation_token TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding confirmation_token column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN confirmed_at DATETIME`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding confirmed_at column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN last_synced_at DATETIME`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding last_synced_at column:', err.message);
+    }
+  });
+
+  // Create tables reference table (22 tables with capacity 2-6 people)
+  db.run(`CREATE TABLE IF NOT EXISTS tables (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_number TEXT NOT NULL UNIQUE,
+    capacity INTEGER NOT NULL,
+    venue TEXT DEFAULT 'XIX',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`, (err) => {
+    if (err) {
+      console.error('Error creating tables table:', err.message);
+    } else {
+      console.log('Tables table created/verified');
+
+      // Initialize/Update tables based on actual restaurant layout
+      // 7 tables for 2 people, 1 table for 3 people, 6 tables for 4 people,
+      // 3 tables for 6 people, 1 table for 12 people
+      db.get('SELECT COUNT(*) as count FROM tables WHERE venue = ?', ['XIX'], (err, row) => {
+        if (err) {
+          console.error('Error checking tables:', err.message);
+          return;
+        }
+
+        const tables = [
+          // 7 tables for 2 people
+          { number: 'Table 2-1', capacity: 2 },
+          { number: 'Table 2-2', capacity: 2 },
+          { number: 'Table 2-3', capacity: 2 },
+          { number: 'Table 2-4', capacity: 2 },
+          { number: 'Table 2-5', capacity: 2 },
+          { number: 'Table 2-6', capacity: 2 },
+          { number: 'Table 2-7', capacity: 2 },
+          // 1 table for 3 people
+          { number: 'Table 3-1', capacity: 3 },
+          // 6 tables for 4 people
+          { number: 'Table 4-1', capacity: 4 },
+          { number: 'Table 4-2', capacity: 4 },
+          { number: 'Table 4-3', capacity: 4 },
+          { number: 'Table 4-4', capacity: 4 },
+          { number: 'Table 4-5', capacity: 4 },
+          { number: 'Table 4-6', capacity: 4 },
+          // 3 tables for 6 people
+          { number: 'Table 6-1', capacity: 6 },
+          { number: 'Table 6-2', capacity: 6 },
+          { number: 'Table 6-3', capacity: 6 },
+          // 1 table for 12 people (can be used for 7+ people, can be split for 2x5 via phone call)
+          { number: 'Table 12-1', capacity: 12 },
+        ];
+
+        if (row.count === 0) {
+          // No tables exist, initialize them
+          console.log('Initializing tables based on restaurant layout...');
+          const stmt = db.prepare('INSERT INTO tables (table_number, capacity, venue) VALUES (?, ?, ?)');
+
+          tables.forEach((table) => {
+            stmt.run(table.number, table.capacity, 'XIX');
+          });
+
+          stmt.finalize((err) => {
+            if (err) {
+              console.error('Error initializing tables:', err.message);
+            } else {
+              console.log(`✅ ${tables.length} tables initialized successfully`);
+              console.log('   - 7 tables for 2 people');
+              console.log('   - 1 table for 3 people');
+              console.log('   - 6 tables for 4 people');
+              console.log('   - 3 tables for 6 people');
+              console.log('   - 1 table for 12 people (for 7+ people, can be split for 2x5 via phone call)');
+            }
+          });
+        } else {
+          // Tables exist, update them to match the new layout while preserving IDs
+          console.log(`Updating existing tables (${row.count} found) to match new layout...`);
+
+          // Use UPSERT logic: Update existing tables, insert missing ones
+          // This preserves table IDs which are referenced in reservations
+          const updateStmt = db.prepare('UPDATE tables SET capacity = ? WHERE table_number = ? AND venue = ?');
+          const insertStmt = db.prepare('INSERT INTO tables (table_number, capacity, venue) VALUES (?, ?, ?)');
+
+          let updatedCount = 0;
+          let insertedCount = 0;
+          let processedCount = 0;
+
+          tables.forEach((table) => {
+            // Check if table exists by table_number
+            db.get('SELECT id FROM tables WHERE table_number = ? AND venue = ?', [table.number, 'XIX'], (err, existingTable) => {
+              if (err) {
+                console.error(`Error checking table ${table.number}:`, err.message);
+                processedCount++;
+                if (processedCount === tables.length) {
+                  finalizeUpdate();
+                }
+                return;
+              }
+
+              if (existingTable) {
+                // Table exists, update it (preserves ID)
+                updateStmt.run(table.capacity, table.number, 'XIX', (updateErr) => {
+                  if (updateErr) {
+                    console.error(`Error updating table ${table.number}:`, updateErr.message);
+                  } else {
+                    updatedCount++;
+                  }
+                  processedCount++;
+                  if (processedCount === tables.length) {
+                    finalizeUpdate();
+                  }
+                });
+              } else {
+                // Table doesn't exist, insert it
+                insertStmt.run(table.number, table.capacity, 'XIX', (insertErr) => {
+                  if (insertErr) {
+                    console.error(`Error inserting table ${table.number}:`, insertErr.message);
+                  } else {
+                    insertedCount++;
+                  }
+                  processedCount++;
+                  if (processedCount === tables.length) {
+                    finalizeUpdate();
+                  }
+                });
+              }
+            });
+          });
+
+          function finalizeUpdate() {
+            updateStmt.finalize();
+            insertStmt.finalize();
+
+            // Delete any tables that are no longer in the layout (orphaned tables)
+            const tableNumbers = tables.map(t => t.number);
+            const placeholders = tableNumbers.map(() => '?').join(',');
+            db.run(
+              `DELETE FROM tables WHERE venue = ? AND table_number NOT IN (${placeholders})`,
+              ['XIX', ...tableNumbers],
+              (deleteErr) => {
+                if (deleteErr) {
+                  console.error('Error deleting orphaned tables:', deleteErr.message);
+                } else {
+                  console.log(`✅ Tables updated successfully (${updatedCount} updated, ${insertedCount} inserted)`);
+                  console.log('   - 7 tables for 2 people');
+                  console.log('   - 1 table for 3 people');
+                  console.log('   - 6 tables for 4 people');
+                  console.log('   - 3 tables for 6 people');
+                  console.log('   - 1 table for 12 people (for 7+ people, can be split for 2x5 via phone call)');
+                }
+              }
+            );
+          }
+        }
+      });
+    }
+  });
+
   // Create payments table (separate from reservations for better database design)
   // Payments are for events and don't require reservations
   // NOTE: reservation_id is removed - payments don't need to link to reservations
@@ -665,13 +916,91 @@ app.get('/admin/all', (req, res) => {
 });
 
 // Get all reservations (for admin)
+// Join with tables table to get table_number when assigned_table is a table ID
 app.get('/api/reservations', (req, res) => {
-  db.all('SELECT * FROM reservations ORDER BY created_at DESC', (err, rows) => {
+  db.all(`
+    SELECT r.*, 
+           t.table_number as table_name,
+           t.capacity as table_capacity
+    FROM reservations r
+    LEFT JOIN tables t ON r.assigned_table = t.id
+    ORDER BY r.created_at DESC
+  `, (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
     }
-    res.json(rows);
+    // Map the result to include table_number in assigned_table for backward compatibility
+    const mappedRows = rows.map(row => ({
+      ...row,
+      // If assigned_table is an ID and we have table_name, use table_name for display
+      // Keep assigned_table as ID for internal use
+      assigned_table_display: row.table_name || row.assigned_table || null
+    }));
+    res.json(mappedRows);
+  });
+});
+
+// Delete reservation endpoint
+app.delete('/api/reservations/:id', (req, res) => {
+  const reservationId = parseInt(req.params.id);
+
+  if (!reservationId || isNaN(reservationId)) {
+    return res.status(400).json({ error: 'Invalid reservation ID' });
+  }
+
+  // First, get the reservation to check for Google Calendar event ID
+  db.get('SELECT google_calendar_event_id FROM reservations WHERE id = ?', [reservationId], (err, reservation) => {
+    if (err) {
+      console.error('Error fetching reservation:', err);
+      return res.status(500).json({ error: 'Failed to fetch reservation: ' + err.message });
+    }
+
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation not found' });
+    }
+
+    const calendarEventId = reservation.google_calendar_event_id;
+
+    // Delete from database
+    db.run('DELETE FROM reservations WHERE id = ?', [reservationId], function (deleteErr) {
+      if (deleteErr) {
+        console.error('Error deleting reservation:', deleteErr);
+        return res.status(500).json({ error: 'Failed to delete reservation: ' + deleteErr.message });
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
+
+      console.log(`✅ Reservation ${reservationId} deleted from database`);
+
+      // If there's a Google Calendar event ID, delete it from Google Calendar too
+      if (calendarEventId && calendar && process.env.GOOGLE_CALENDAR_ID) {
+        const calendarId = process.env.GOOGLE_CALENDAR_ID;
+        calendar.events.delete({
+          calendarId: calendarId,
+          eventId: calendarEventId
+        }).then(() => {
+          console.log(`✅ Google Calendar event ${calendarEventId} deleted successfully`);
+          res.json({
+            success: true,
+            message: `Reservation ${reservationId} and Google Calendar event deleted successfully`
+          });
+        }).catch((calendarErr) => {
+          console.error('⚠️ Error deleting Google Calendar event:', calendarErr.message);
+          // Still return success since DB deletion succeeded
+          res.json({
+            success: true,
+            message: `Reservation ${reservationId} deleted from database, but Google Calendar deletion failed: ${calendarErr.message}`,
+            warning: 'Google Calendar event may still exist'
+          });
+        });
+      } else {
+        // No calendar event to delete, or calendar not configured
+        res.json({ success: true, message: `Reservation ${reservationId} deleted successfully` });
+      }
+    });
   });
 });
 
@@ -953,15 +1282,32 @@ app.get('/api/availability/:date', (req, res) => {
   const dateObj = new Date(dateYear, dateMonth, dateDay);
   const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
 
-  // XIX Restaurant time slots (evening dining)
+  // XIX Restaurant time slots (9:00 AM to 1:00 AM)
+  // Generate all time slots from 9:00 AM to 1:00 AM (30-minute intervals)
+  const generateXIXTimeSlots = () => {
+    const slots = [];
+    // 9:00 AM to 11:59 PM
+    for (let hour = 9; hour < 24; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`);
+      slots.push(`${hour.toString().padStart(2, '0')}:30`);
+    }
+    // 12:00 AM to 1:00 AM
+    slots.push('00:00');
+    slots.push('00:30');
+    slots.push('01:00');
+    return slots;
+  };
+
+  const allXIXTimeSlots = generateXIXTimeSlots();
+
   const xixTimeSlots = {
-    'Monday': ['17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'],
-    'Tuesday': ['17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'],
-    'Wednesday': ['17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'],
-    'Thursday': ['17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'],
-    'Friday': ['17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30'],
-    'Saturday': ['17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30'],
-    'Sunday': ['17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00']
+    'Monday': allXIXTimeSlots,
+    'Tuesday': allXIXTimeSlots,
+    'Wednesday': allXIXTimeSlots,
+    'Thursday': allXIXTimeSlots,
+    'Friday': allXIXTimeSlots,
+    'Saturday': allXIXTimeSlots,
+    'Sunday': allXIXTimeSlots
   };
 
   // Mirror Banquet Hall time slots (all day events)
@@ -1080,11 +1426,11 @@ app.post('/api/send-reservation-email', async (req, res) => {
       const requestUrl = req.originalUrl || req.url || '';
 
       if (referrer.includes('/mirror') || requestUrl.includes('/mirror')) {
-        detectedVenue = 'mirror';
-        console.log('Auto-detected venue as mirror from referrer:', referrer, 'or URL:', requestUrl);
+        detectedVenue = 'Mirror'; // Capitalize for consistency
+        console.log('Auto-detected venue as Mirror from referrer:', referrer, 'or URL:', requestUrl);
       } else {
-        detectedVenue = 'xix';
-        console.log('Auto-detected venue as xix from referrer:', referrer, 'or URL:', requestUrl);
+        detectedVenue = 'XIX'; // Uppercase to match tables table
+        console.log('Auto-detected venue as XIX from referrer:', referrer, 'or URL:', requestUrl);
       }
     }
 
@@ -1099,7 +1445,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
       table: sanitizeInput(reservation.table),
       occasion: sanitizeInput(reservation.occasion),
       specialRequests: sanitizeInput(reservation.specialRequests),
-      venue: detectedVenue,
+      venue: detectedVenue ? detectedVenue.toUpperCase() : 'XIX', // Normalize to uppercase to match tables
       eventType: sanitizeInput(reservation.eventType || reservation['event-type']),
       menuPreference: sanitizeInput(reservation.menuPreference || reservation['menu-preference']),
       entertainment: sanitizeInput(reservation.entertainment)
@@ -1165,147 +1511,398 @@ app.post('/api/send-reservation-email', async (req, res) => {
     let reservationId; // Store reservation ID for updating email status
 
     // Save reservation to database with venue-specific fields
-    const stmt = db.prepare(`INSERT INTO reservations 
-      (name, email, phone, date, time, guests, table_preference, occasion, special_requests, venue, event_type, menu_preference, entertainment, email_sent_to_customer, email_sent_to_manager) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-
-    stmt.run([
-      sanitizedReservation.name,
-      sanitizedReservation.email,
-      sanitizedReservation.phone,
+    // Assign table and calculate end time
+    assignTable(
+      sanitizedReservation.guests,
       sanitizedReservation.date,
       sanitizedReservation.time,
-      sanitizedReservation.guests,
-      sanitizedReservation.table || null,
-      sanitizedReservation.occasion || null,
-      sanitizedReservation.specialRequests || null,
-      sanitizedReservation.venue || 'XIX', // Default to XIX if not specified
-      sanitizedReservation.eventType || null,
-      sanitizedReservation.menuPreference || null,
-      sanitizedReservation.entertainment || null,
-      0, // email_sent_to_customer - will be updated after sending
-      0  // email_sent_to_manager - will be updated after sending
-    ], function (err) {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Failed to save reservation' });
+      (sanitizedReservation.venue || 'XIX').toUpperCase(), // Normalize to uppercase
+      (err, assignedTable, endTime) => {
+        if (err) {
+          console.error('Error assigning table:', err);
+          // Continue without table assignment
+        }
+
+        // Generate confirmation token and deadline
+        const confirmationToken = generateConfirmationToken();
+        const confirmationDeadline = calculateConfirmationDeadline(sanitizedReservation.date, sanitizedReservation.time);
+
+        const stmt = db.prepare(`INSERT INTO reservations 
+          (name, email, phone, date, time, guests, table_preference, occasion, special_requests, venue, event_type, menu_preference, entertainment, 
+           assigned_table, end_time, confirmation_status, confirmation_token, confirmation_deadline, email_sent_to_customer, email_sent_to_manager, google_calendar_event_id) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+
+        stmt.run([
+          sanitizedReservation.name,
+          sanitizedReservation.email,
+          sanitizedReservation.phone,
+          sanitizedReservation.date,
+          sanitizedReservation.time,
+          sanitizedReservation.guests,
+          sanitizedReservation.table || null,
+          sanitizedReservation.occasion || null,
+          sanitizedReservation.specialRequests || null,
+          sanitizedReservation.venue || 'XIX', // Default to XIX if not specified
+          sanitizedReservation.eventType || null,
+          sanitizedReservation.menuPreference || null,
+          sanitizedReservation.entertainment || null,
+          assignedTable ? assignedTable.toString() : null,
+          endTime,
+          'pending',
+          confirmationToken,
+          confirmationDeadline,
+          0, // email_sent_to_customer - will be updated after sending
+          0, // email_sent_to_manager - will be updated after sending
+          null // google_calendar_event_id - will be set after creating calendar event
+        ], async function (err) {
+          if (err) {
+            console.error('Database error:', err);
+            return res.status(500).json({ error: 'Failed to save reservation' });
+          }
+
+          console.log(`Reservation saved with ID: ${this.lastID}, Table: ${assignedTable || 'Not assigned'}`);
+          reservationId = this.lastID; // Store for updating email status
+
+          // Create Google Calendar event for this reservation
+          if (calendar && process.env.GOOGLE_CALENDAR_ID) {
+            // Get full reservation data for calendar event
+            db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, fullReservation) => {
+              if (!err && fullReservation) {
+                const calendarEventId = await createGoogleCalendarEvent(fullReservation);
+                if (calendarEventId) {
+                  // Update reservation with calendar event ID
+                  db.run('UPDATE reservations SET google_calendar_event_id = ? WHERE id = ?', [calendarEventId, reservationId], (updateErr) => {
+                    if (updateErr) {
+                      console.error('Error updating reservation with calendar event ID:', updateErr);
+                    } else {
+                      console.log(`✅ Linked reservation ${reservationId} to Google Calendar event ${calendarEventId}`);
+                    }
+                  });
+                }
+              }
+            });
+          }
+
+          // Send response immediately (don't wait for email)
+          res.json({
+            success: true,
+            reservationId: reservationId,
+            reservation: {
+              name: sanitizedReservation.name,
+              email: sanitizedReservation.email,
+              phone: sanitizedReservation.phone,
+              date: sanitizedReservation.date,
+              time: sanitizedReservation.time,
+              guests: sanitizedReservation.guests,
+              table: sanitizedReservation.table || assignedTable,
+              occasion: sanitizedReservation.occasion,
+              specialRequests: sanitizedReservation.specialRequests,
+              venue: sanitizedReservation.venue, // Already normalized to uppercase
+              eventType: sanitizedReservation.eventType,
+              menuPreference: sanitizedReservation.menuPreference,
+              entertainment: sanitizedReservation.entertainment
+            }
+          });
+
+          // Assign table immediately if not already assigned (for pending reservations)
+          // This ensures tables are reserved even before customer confirms
+          if (!assignedTable) {
+            console.log('⚠️ No table assigned during creation, attempting to assign now...');
+            assignTable(
+              sanitizedReservation.guests,
+              sanitizedReservation.date,
+              sanitizedReservation.time,
+              (sanitizedReservation.venue || 'XIX').toUpperCase(), // Normalize to uppercase
+              (assignErr, newAssignedTable, newEndTime) => {
+                if (!assignErr && newAssignedTable) {
+                  // Update reservation with assigned table
+                  db.run(
+                    'UPDATE reservations SET assigned_table = ?, end_time = ? WHERE id = ?',
+                    [newAssignedTable.toString(), newEndTime, reservationId],
+                    (updateErr) => {
+                      if (updateErr) {
+                        console.error('Error updating reservation with assigned table:', updateErr);
+                      } else {
+                        console.log(`✅ Table ${newAssignedTable} assigned to reservation ${reservationId}`);
+                        assignedTable = newAssignedTable; // Update local variable for email
+                      }
+                      // Send email with assigned table
+                      sendPreliminaryReservationEmail(reservationId, assignedTable || newAssignedTable, sanitizedReservation).catch(err => {
+                        console.error('Error sending preliminary email:', err);
+                        logger.error('Failed to send preliminary reservation email', {
+                          reservationId: reservationId,
+                          error: err.message,
+                          stack: err.stack,
+                          timestamp: new Date().toISOString()
+                        });
+                      });
+                    }
+                  );
+                } else {
+                  console.log('⚠️ Could not assign table - all tables may be booked');
+                  // Send email anyway (table will be assigned later if available)
+                  sendPreliminaryReservationEmail(reservationId, assignedTable, sanitizedReservation).catch(err => {
+                    console.error('Error sending preliminary email:', err);
+                    logger.error('Failed to send preliminary reservation email', {
+                      reservationId: reservationId,
+                      error: err.message,
+                      stack: err.stack,
+                      timestamp: new Date().toISOString()
+                    });
+                  });
+                }
+              }
+            );
+          } else {
+            // Table already assigned, send email immediately
+            sendPreliminaryReservationEmail(reservationId, assignedTable, sanitizedReservation).catch(err => {
+              console.error('Error sending preliminary email:', err);
+              logger.error('Failed to send preliminary reservation email', {
+                reservationId: reservationId,
+                error: err.message,
+                stack: err.stack,
+                timestamp: new Date().toISOString()
+              });
+            });
+          }
+
+          // Send second email 5 minutes later (confirmation button only)
+          // BUT ONLY if table was assigned (skip for waitlist customers)
+          // (or immediately if reservation is less than 5 minutes away)
+          if (assignedTable) {
+            const reservationDateTime = new Date(`${sanitizedReservation.date}T${sanitizedReservation.time}`);
+            const now = new Date();
+            const timeUntilReservation = reservationDateTime.getTime() - now.getTime();
+            const fiveMinutes = 5 * 60 * 1000; // Changed to 5 minutes for testing
+
+            if (timeUntilReservation <= fiveMinutes) {
+              // If reservation is less than 5 minutes away, send confirmation button email immediately
+              console.log(`⏰ Reservation is less than 5 minutes away, sending confirmation button email immediately`);
+              sendConfirmationButtonEmail(reservationId, confirmationToken).catch(err => {
+                console.error('❌ Error sending immediate confirmation button email:', err);
+              });
+            } else {
+              // Otherwise, send confirmation button email 5 minutes after reservation creation
+              console.log(`⏰ Scheduling confirmation button email to be sent in 5 minutes for reservation ID: ${reservationId}`);
+              setTimeout(() => {
+                console.log(`⏰ Timeout triggered - sending confirmation button email for reservation ID: ${reservationId}`);
+                sendConfirmationButtonEmail(reservationId, confirmationToken).catch(err => {
+                  console.error('❌ Error sending scheduled confirmation button email:', err);
+                });
+              }, fiveMinutes);
+            }
+          } else {
+            console.log(`ℹ️ Skipping confirmation button email for waitlist reservation ${reservationId} (no table assigned)`);
+          }
+        });
+      }
+    );
+
+    // Function to send preliminary email immediately (with all info, no button)
+    // table parameter is now a table ID (integer), not table_number (string)
+    // If tableId is null/undefined, it means no table was available - send waitlist message
+    async function sendPreliminaryReservationEmail(resId, tableId, reservationData) {
+      console.log('📧 sendPreliminaryReservationEmail called with:', { resId, tableId, email: reservationData?.email });
+
+      // Check if table was assigned
+      const hasTable = tableId && tableId !== null && tableId !== undefined;
+
+      // Look up table_number from tables table if tableId is provided
+      let tableDisplay = null;
+      if (hasTable) {
+        try {
+          const tableInfo = await new Promise((resolve, reject) => {
+            db.get('SELECT table_number FROM tables WHERE id = ?', [tableId], (err, row) => {
+              if (err) reject(err);
+              else resolve(row);
+            });
+          });
+          if (tableInfo) {
+            tableDisplay = tableInfo.table_number;
+          }
+        } catch (err) {
+          console.warn('Could not look up table name for ID:', tableId, err.message);
+        }
       }
 
-      console.log(`Reservation saved with ID: ${this.lastID}`);
-      reservationId = this.lastID; // Store for updating email status
-    });
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: 587,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false
+      // If no table was assigned, use a waitlist message
+      if (!hasTable && !tableDisplay) {
+        tableDisplay = reservationData?.table || null; // Keep user's preference if they had one
       }
-    });
 
-    // Parse date string (YYYY-MM-DD) to avoid timezone issues
-    const dateParts = sanitizedReservation.date.split('-');
-    const dateYear = parseInt(dateParts[0], 10);
-    const dateMonth = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
-    const dateDay = parseInt(dateParts[2], 10);
-    const dateObj = new Date(dateYear, dateMonth, dateDay);
+      try {
+        if (!reservationData || !reservationData.email) {
+          console.error('❌ Invalid reservation data:', reservationData);
+          return;
+        }
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: 587,
+          secure: false,
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+          tls: {
+            rejectUnauthorized: false
+          }
+        });
 
-    const date = dateObj.toLocaleDateString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
+        // Parse date string (YYYY-MM-DD) to avoid timezone issues
+        const dateParts = reservationData.date.split('-');
+        const dateYear = parseInt(dateParts[0], 10);
+        const dateMonth = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+        const dateDay = parseInt(dateParts[2], 10);
+        const dateObj = new Date(dateYear, dateMonth, dateDay);
 
-    const time24 = sanitizedReservation.time || '19:00';
-    const [h, m] = time24.split(':');
-    const hh = parseInt(h, 10);
-    const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
+        const date = dateObj.toLocaleDateString('en-US', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        });
 
-    const from = process.env.MAIL_FROM || process.env.SMTP_USER;
-    const managerEmail = process.env.MANAGER_EMAIL || process.env.SMTP_USER;
+        const time24 = reservationData.time || '19:00';
+        const [h, m] = time24.split(':');
+        const hh = parseInt(h, 10);
+        const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
 
-    // Determine venue details
-    const isMirror = sanitizedReservation.venue === 'Mirror';
-    const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
-    const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
-    const eventDuration = isMirror ? 8 : 2; // Mirror events are all-day (8 hours), XIX is 2 hours
+        const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+        const managerEmail = process.env.MANAGER_EMAIL || process.env.SMTP_USER;
 
-    // Customer confirmation email
-    const customerSubject = `${venueName} Reservation Confirmed - ${date} at ${time12}`;
-    const customerHtml = `
-      <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
-        <h2 style="font-family: 'Gilda Display', Georgia, serif;">Reservation Confirmed</h2>
-        <p>Hi ${sanitizedReservation.name || ''},</p>
-        <p>Your reservation at <strong>${venueName}</strong> is confirmed. Here are the details:</p>
-        <ul>
-          <li><strong>Date:</strong> ${date}</li>
-          <li><strong>Time:</strong> ${time12}</li>
-          <li><strong>Guests:</strong> ${sanitizedReservation.guests}</li>
-          ${isMirror ? '' : `<li><strong>Table:</strong> ${sanitizedReservation.table || 'Any'}</li>`}
-          ${sanitizedReservation.occasion ? `<li><strong>Occasion:</strong> ${sanitizedReservation.occasion}</li>` : ''}
-          ${sanitizedReservation.eventType ? `<li><strong>Event Type:</strong> ${sanitizedReservation.eventType}</li>` : ''}
-          ${sanitizedReservation.menuPreference ? `<li><strong>Menu Preference:</strong> ${sanitizedReservation.menuPreference}</li>` : ''}
-          ${sanitizedReservation.entertainment ? `<li><strong>Entertainment:</strong> ${sanitizedReservation.entertainment}</li>` : ''}
-        </ul>
-        ${sanitizedReservation.specialRequests ? `<p><strong>Special requests:</strong> ${sanitizedReservation.specialRequests}</p>` : ''}
-        <p>We look forward to welcoming you.</p>
-        <p style="color:#6E6E6E">${venueAddress}</p>
-      </div>
-    `;
+        // Determine venue details
+        const isMirror = reservationData.venue === 'Mirror';
+        const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
+        const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
+        const eventDuration = isMirror ? 8 : 2;
 
-    // Create Google Calendar event URL
-    const eventDate = new Date(`${sanitizedReservation.date}T${sanitizedReservation.time}:00`);
-    const endDate = new Date(eventDate.getTime() + (eventDuration * 60 * 60 * 1000)); // Dynamic duration based on venue
+        // Create Google Calendar event URL
+        const eventDate = new Date(`${reservationData.date}T${reservationData.time}:00`);
+        const endDate = new Date(eventDate.getTime() + (eventDuration * 60 * 60 * 1000));
 
-    const eventTitle = `${isMirror ? 'Event' : 'Reservation'}: ${sanitizedReservation.name} (${sanitizedReservation.guests} guests)`;
-    const eventDetails = `Customer: ${sanitizedReservation.name}
-Email: ${sanitizedReservation.email}
-Phone: ${sanitizedReservation.phone}
-Guests: ${sanitizedReservation.guests}
-${isMirror ? '' : `Table Preference: ${sanitizedReservation.table || 'Any Available'}`}
-${sanitizedReservation.occasion ? `Occasion: ${sanitizedReservation.occasion}` : ''}
-${sanitizedReservation.eventType ? `Event Type: ${sanitizedReservation.eventType}` : ''}
-${sanitizedReservation.menuPreference ? `Menu Preference: ${sanitizedReservation.menuPreference}` : ''}
-${sanitizedReservation.entertainment ? `Entertainment: ${sanitizedReservation.entertainment}` : ''}
-${sanitizedReservation.specialRequests ? `Special Requests: ${sanitizedReservation.specialRequests}` : ''}
+        const eventTitle = `${isMirror ? 'Event' : 'Reservation'}: ${reservationData.name} (${reservationData.guests} guests)`;
+        const eventDetails = `Customer: ${reservationData.name}
+Email: ${reservationData.email}
+Phone: ${reservationData.phone}
+Guests: ${reservationData.guests}
+${isMirror ? '' : `Table: ${tableDisplay}`}
+${reservationData.occasion ? `Occasion: ${reservationData.occasion}` : ''}
+${reservationData.eventType ? `Event Type: ${reservationData.eventType}` : ''}
+${reservationData.menuPreference ? `Menu Preference: ${reservationData.menuPreference}` : ''}
+${reservationData.entertainment ? `Entertainment: ${reservationData.entertainment}` : ''}
+${reservationData.specialRequests ? `Special Requests: ${reservationData.specialRequests}` : ''}
 
 Reservation made through ${venueName} website.`;
 
-    const location = venueAddress;
+        const location = venueAddress;
 
-    // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ)
-    const formatDateForGoogle = (date) => {
-      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    };
+        // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ)
+        const formatDateForGoogle = (date) => {
+          return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        };
 
-    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatDateForGoogle(eventDate)}/${formatDateForGoogle(endDate)}&details=${encodeURIComponent(eventDetails)}&location=${encodeURIComponent(location)}`;
+        const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatDateForGoogle(eventDate)}/${formatDateForGoogle(endDate)}&details=${encodeURIComponent(eventDetails)}&location=${encodeURIComponent(location)}`;
 
-    // Manager notification email
-    const managerSubject = `New ${isMirror ? 'Event' : 'Reservation'} - ${sanitizedReservation.name} - ${date} at ${time12}`;
-    const managerHtml = `
+        // Customer preliminary email (all info, no confirmation button)
+        // Different message if no table was assigned (waitlist scenario)
+        const customerSubject = hasTable
+          ? `${venueName} Reservation Received - ${date} at ${time12}`
+          : `${venueName} Reservation Request Received - ${date} at ${time12}`;
+
+        const waitlistMessage = hasTable ? '' : `
+        <div style="margin: 25px 0; padding: 20px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+          <h3 style="margin-top: 0; color: #856404; font-size: 1.1em;">⏳ Table Availability Check</h3>
+          <p style="color: #856404; margin-bottom: 0;">
+            We've received your reservation request for <strong>${date} at ${time12}</strong>. 
+            All tables are currently booked for this time slot, but we're checking for availability.
+          </p>
+          <p style="color: #856404; margin-top: 10px; margin-bottom: 0;">
+            <strong>Our team will contact you shortly</strong> via phone at <strong>${reservationData.phone}</strong> 
+            to confirm availability or discuss alternative options. Please keep your phone nearby.
+          </p>
+        </div>
+        `;
+
+        const customerHtml = `
       <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
-        <h2 style="font-family: 'Gilda Display', Georgia, serif;">New ${isMirror ? 'Event Booking' : 'Table Reservation'}</h2>
+        <h2 style="font-family: 'Gilda Display', Georgia, serif;">${hasTable ? 'Reservation Received' : 'Reservation Request Received'}</h2>
+        <p>Hi ${reservationData.name || ''},</p>
+        ${hasTable
+            ? `<p>Thank you for your reservation at <strong>${venueName}</strong>. Here are your reservation details:</p>`
+            : `<p>Thank you for your interest in dining at <strong>${venueName}</strong>. We've received your reservation request:</p>`
+          }
+        <ul>
+          <li><strong>Date:</strong> ${date}</li>
+          <li><strong>Time:</strong> ${time12}</li>
+          <li><strong>Guests:</strong> ${reservationData.guests}</li>
+          ${isMirror ? '' : (hasTable && tableDisplay ? `<li><strong>Table:</strong> ${tableDisplay}</li>` : '')}
+          ${reservationData.occasion ? `<li><strong>Occasion:</strong> ${reservationData.occasion}</li>` : ''}
+          ${reservationData.eventType ? `<li><strong>Event Type:</strong> ${reservationData.eventType}</li>` : ''}
+          ${reservationData.menuPreference ? `<li><strong>Menu Preference:</strong> ${reservationData.menuPreference}</li>` : ''}
+          ${reservationData.entertainment ? `<li><strong>Entertainment:</strong> ${reservationData.entertainment}</li>` : ''}
+        </ul>
+        ${reservationData.specialRequests ? `<p><strong>Special requests:</strong> ${reservationData.specialRequests}</p>` : ''}
+        
+        ${waitlistMessage}
+        
+        ${hasTable ? `
+        <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #A8871A; border-radius: 4px;">
+          <h3 style="margin-top: 0; color: #A8871A;">📅 Add to Google Calendar</h3>
+          <p>Click the button below to add this reservation to your Google Calendar:</p>
+          <a href="${googleCalendarUrl}" 
+             style="display: inline-block; background-color: #A8871A; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 10px 0;">
+            📅 Add to Google Calendar
+          </a>
+        </div>
+        
+        <p style="margin-top: 20px; color: #666; font-size: 0.9em;">You will receive a confirmation email shortly. Please confirm your reservation when you receive it.</p>
+        ` : `
+        <p style="margin-top: 20px; color: #666; font-size: 0.9em;">
+          We appreciate your patience and will do our best to accommodate your request. 
+          If a table becomes available, we'll contact you immediately.
+        </p>
+        `}
+        <p>We look forward to welcoming you.</p>
+        <p style="color:#6E6E6E">${venueAddress}</p>
+        ${hasTable ? '' : `<p style="color:#6E6E6E; font-size: 0.9em;">Phone: ${process.env.RESTAURANT_PHONE || '+44 20 1234 5678'}</p>`}
+      </div>
+    `;
+
+        // Manager notification email
+        const managerSubject = hasTable
+          ? `New ${isMirror ? 'Event' : 'Reservation'} - ${reservationData.name} - ${date} at ${time12}`
+          : `⚠️ WAITLIST: ${isMirror ? 'Event' : 'Reservation'} Request - ${reservationData.name} - ${date} at ${time12}`;
+
+        const managerWaitlistWarning = hasTable ? '' : `
+        <div style="margin: 20px 0; padding: 15px; background-color: #ffebee; border-left: 4px solid #dc3545; border-radius: 4px;">
+          <h3 style="margin-top: 0; color: #c62828;">⚠️ No Table Assigned - Waitlist</h3>
+          <p style="color: #c62828; margin-bottom: 0;">
+            <strong>Action Required:</strong> All tables are booked for this time slot. 
+            Please contact the customer to confirm availability or suggest alternative times.
+          </p>
+        </div>
+        `;
+
+        const managerHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif;color:#020702">
+        <h2 style="font-family: 'Gilda Display', Georgia, serif;">${hasTable ? `New ${isMirror ? 'Event Booking' : 'Table Reservation'}` : `⚠️ ${isMirror ? 'Event' : 'Reservation'} Request - Waitlist`}</h2>
         <p><strong>Customer Details:</strong></p>
         <ul>
-          <li><strong>Name:</strong> ${sanitizedReservation.name}</li>
-          <li><strong>Email:</strong> ${sanitizedReservation.email}</li>
-          <li><strong>Phone:</strong> ${sanitizedReservation.phone}</li>
+          <li><strong>Name:</strong> ${reservationData.name}</li>
+          <li><strong>Email:</strong> ${reservationData.email}</li>
+          <li><strong>Phone:</strong> ${reservationData.phone}</li>
         </ul>
         <p><strong>${isMirror ? 'Event' : 'Reservation'} Details:</strong></p>
         <ul>
           <li><strong>Date:</strong> ${date}</li>
           <li><strong>Time:</strong> ${time12}</li>
-          <li><strong>Guests:</strong> ${sanitizedReservation.guests}</li>
-          ${isMirror ? '' : `<li><strong>Table Preference:</strong> ${sanitizedReservation.table || 'Any Available'}</li>`}
-          ${sanitizedReservation.occasion ? `<li><strong>Occasion:</strong> ${sanitizedReservation.occasion}</li>` : ''}
-          ${sanitizedReservation.eventType ? `<li><strong>Event Type:</strong> ${sanitizedReservation.eventType}</li>` : ''}
-          ${sanitizedReservation.menuPreference ? `<li><strong>Menu Preference:</strong> ${sanitizedReservation.menuPreference}</li>` : ''}
-          ${sanitizedReservation.entertainment ? `<li><strong>Entertainment:</strong> ${sanitizedReservation.entertainment}</li>` : ''}
+          <li><strong>Guests:</strong> ${reservationData.guests}</li>
+          ${isMirror ? '' : `<li><strong>Table:</strong> ${hasTable && tableDisplay ? tableDisplay : '<span style="color: #dc3545;">NOT ASSIGNED - Waitlist</span>'}</li>`}
+          ${reservationData.occasion ? `<li><strong>Occasion:</strong> ${reservationData.occasion}</li>` : ''}
+          ${reservationData.eventType ? `<li><strong>Event Type:</strong> ${reservationData.eventType}</li>` : ''}
+          ${reservationData.menuPreference ? `<li><strong>Menu Preference:</strong> ${reservationData.menuPreference}</li>` : ''}
+          ${reservationData.entertainment ? `<li><strong>Entertainment:</strong> ${reservationData.entertainment}</li>` : ''}
         </ul>
-        ${sanitizedReservation.specialRequests ? `<p><strong>Special Requests:</strong> ${sanitizedReservation.specialRequests}</p>` : ''}
+        ${reservationData.specialRequests ? `<p><strong>Special Requests:</strong> ${reservationData.specialRequests}</p>` : ''}
+        
+        ${managerWaitlistWarning}
         
         <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #A8871A; border-radius: 4px;">
           <h3 style="margin-top: 0; color: #A8871A;">📅 Add to Google Calendar</h3>
@@ -1319,97 +1916,381 @@ Reservation made through ${venueName} website.`;
           </p>
         </div>
         
-        <p style="color:#6E6E6E; font-size: 0.9em;">This reservation was made through the XIX Restaurant website.</p>
+        <p style="color:#6E6E6E; font-size: 0.9em;">This reservation was made through the ${venueName} website.</p>
+        ${hasTable ? '' : `<p style="color:#dc3545; font-size: 0.9em; font-weight: bold;">⚠️ Please contact customer at ${reservationData.phone} to confirm availability.</p>`}
       </div>
     `;
 
-    // Send both emails
-    console.log('Attempting to send emails...');
-    console.log('Customer email:', sanitizedReservation.email);
-    console.log('Manager email:', managerEmail);
+        // Send both emails
+        console.log('Sending preliminary reservation email...');
+        console.log('Customer email:', reservationData.email);
+        console.log('Manager email:', managerEmail);
 
-    const customerInfo = await transporter.sendMail({
-      from,
-      to: sanitizedReservation.email,
-      subject: customerSubject,
-      html: customerHtml
-    });
-    console.log('Customer email sent:', customerInfo.messageId);
+        const customerInfo = await transporter.sendMail({
+          from,
+          to: reservationData.email,
+          subject: customerSubject,
+          html: customerHtml
+        });
+        console.log('Preliminary customer email sent:', customerInfo.messageId);
 
-    const managerInfo = await transporter.sendMail({
-      from,
-      to: managerEmail,
-      subject: managerSubject,
-      html: managerHtml
-    });
-    console.log('Manager email sent:', managerInfo.messageId);
+        const managerInfo = await transporter.sendMail({
+          from,
+          to: managerEmail,
+          subject: managerSubject,
+          html: managerHtml
+        });
+        console.log('Manager email sent:', managerInfo.messageId);
 
-    // Update email status in database
-    if (reservationId) {
-      db.run(
-        'UPDATE reservations SET email_sent_to_customer = 1, email_sent_to_manager = 1 WHERE id = ?',
-        [reservationId],
-        (err) => {
-          if (err) {
-            console.error('Error updating email status:', err);
-          } else {
-            console.log('Email status updated for reservation ID:', reservationId);
-          }
+        // Update email status in database
+        if (resId) {
+          db.run(
+            'UPDATE reservations SET email_sent_to_customer = 1, email_sent_to_manager = 1 WHERE id = ?',
+            [resId],
+            (err) => {
+              if (err) {
+                console.error('Error updating email status:', err);
+              } else {
+                console.log('Email status updated for reservation ID:', resId);
+              }
+            }
+          );
         }
-      );
+
+        // Log successful email sending
+        logger.info('Preliminary reservation email sent', {
+          ip: req.ip,
+          userAgent: req.get('User-Agent'),
+          reservationId: resId,
+          customerEmail: reservationData.email,
+          customerName: reservationData.name,
+          date: reservationData.date,
+          time: reservationData.time,
+          guests: reservationData.guests,
+          timestamp: new Date().toISOString()
+        });
+      } catch (emailErr) {
+        console.error('Error sending preliminary email:', emailErr);
+        logger.error('Preliminary reservation email send failed', {
+          ip: req.ip,
+          userAgent: req.get('User-Agent'),
+          error: emailErr.message,
+          stack: emailErr.stack,
+          reservationId: resId,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
 
-    // Log successful reservation
-    logger.info('Reservation successfully created', {
-      ip: req.ip,
-      userAgent: req.get('User-Agent'),
-      reservationId: reservationId,
-      customerEmail: sanitizedReservation.email,
-      customerName: sanitizedReservation.name,
-      date: sanitizedReservation.date,
-      time: sanitizedReservation.time,
-      guests: sanitizedReservation.guests,
-      timestamp: new Date().toISOString()
-    });
+    // Function to send confirmation button email (5 minutes later, only button)
+    async function sendConfirmationButtonEmail(resId, token) {
+      console.log('📧 sendConfirmationButtonEmail called with:', { resId, token });
+      try {
+        // Fetch reservation data from database - wrap callback in Promise
+        const reservation = await new Promise((resolve, reject) => {
+          db.get('SELECT * FROM reservations WHERE id = ?', [resId], (err, row) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(row);
+            }
+          });
+        });
 
-    res.json({
-      success: true,
-      customerMessageId: customerInfo.messageId,
-      managerMessageId: managerInfo.messageId,
-      reservation: {
-        name: sanitizedReservation.name,
-        email: sanitizedReservation.email,
-        phone: sanitizedReservation.phone,
-        date: sanitizedReservation.date,
-        time: sanitizedReservation.time,
-        guests: sanitizedReservation.guests,
-        table: sanitizedReservation.table,
-        occasion: sanitizedReservation.occasion,
-        specialRequests: sanitizedReservation.specialRequests,
-        venue: sanitizedReservation.venue,
-        eventType: sanitizedReservation.eventType,
-        menuPreference: sanitizedReservation.menuPreference,
-        entertainment: sanitizedReservation.entertainment
+        if (!reservation) {
+          console.error('❌ Reservation not found for confirmation email:', resId);
+          return;
+        }
+
+        console.log('✅ Reservation found:', { id: reservation.id, email: reservation.email, status: reservation.confirmation_status });
+
+        // Check if already confirmed
+        if (reservation.confirmation_status === 'confirmed') {
+          console.log('ℹ️ Reservation already confirmed, skipping confirmation button email');
+          return;
+        }
+
+        const confirmationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/confirm-reservation/${token}`;
+
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: 587,
+          secure: false,
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+          tls: {
+            rejectUnauthorized: false
+          }
+        });
+
+        const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+
+        // Determine venue details
+        const isMirror = reservation.venue === 'Mirror';
+        const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
+
+        // Parse date string (YYYY-MM-DD) to avoid timezone issues
+        const dateParts = reservation.date.split('-');
+        const dateYear = parseInt(dateParts[0], 10);
+        const dateMonth = parseInt(dateParts[1], 10) - 1;
+        const dateDay = parseInt(dateParts[2], 10);
+        const dateObj = new Date(dateYear, dateMonth, dateDay);
+
+        const date = dateObj.toLocaleDateString('en-US', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        });
+
+        const time24 = reservation.time || '19:00';
+        const [h, m] = time24.split(':');
+        const hh = parseInt(h, 10);
+        const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
+
+        // Confirmation button email (only button, minimal info)
+        const cancellationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/cancel-reservation/${token}`;
+        const customerSubject = `Please Confirm Your Reservation - ${venueName}`;
+        const customerHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif;color:#020702; text-align: center; padding: 40px 20px;">
+        <h2 style="font-family: 'Gilda Display', Georgia, serif; color: #A8871A;">Confirm Your Reservation</h2>
+        <p>Hi ${reservation.name || ''},</p>
+        <p style="font-size: 16px; margin-bottom: 30px;">Please confirm your reservation at <strong>${venueName}</strong> for ${date} at ${time12}.</p>
+        
+        <div style="text-align: center; margin: 40px 0;">
+          <a href="${confirmationUrl}" 
+             style="display: inline-block; background-color: #28a745; color: white; padding: 20px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-right: 15px;">
+            ✅ Confirm Reservation
+          </a>
+          <a href="${cancellationUrl}" 
+             style="display: inline-block; background-color: #dc3545; color: white; padding: 20px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            ❌ Cancel Booking
+          </a>
+        </div>
+        
+        <p style="color: #666; font-size: 0.9em; margin-top: 30px;">Or copy this link: ${confirmationUrl}</p>
+        <p style="color: #999; font-size: 0.85em; margin-top: 20px;">If you don't confirm your reservation, it may be automatically cancelled.</p>
+      </div>
+    `;
+
+        console.log('📧 Sending confirmation button email...');
+        console.log('📧 Customer email:', reservation.email);
+        console.log('📧 Confirmation URL:', confirmationUrl);
+
+        const customerInfo = await transporter.sendMail({
+          from,
+          to: reservation.email,
+          subject: customerSubject,
+          html: customerHtml
+        });
+        console.log('✅ Confirmation button email sent successfully:', customerInfo.messageId);
+
+        // Log successful email sending
+        logger.info('Confirmation button email sent', {
+          reservationId: resId,
+          customerEmail: reservation.email,
+          customerName: reservation.name,
+          date: reservation.date,
+          time: reservation.time,
+          timestamp: new Date().toISOString()
+        });
+      } catch (emailErr) {
+        console.error('❌ Error in sendConfirmationButtonEmail function:', emailErr);
+        logger.error('Confirmation button email function error', {
+          error: emailErr.message,
+          stack: emailErr.stack,
+          reservationId: resId,
+          timestamp: new Date().toISOString()
+        });
+        // Re-throw to allow caller's .catch() to handle it
+        throw emailErr;
       }
-    });
+    }
   } catch (err) {
-    console.error('Email send error:', err);
-    logger.error('Reservation email send failed', {
+    console.error('Reservation creation error:', err);
+    logger.error('Reservation creation failed', {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
       error: err.message,
       stack: err.stack,
-      reservationData: {
-        name: sanitizedReservation?.name,
-        email: sanitizedReservation?.email,
-        date: sanitizedReservation?.date,
-        time: sanitizedReservation?.time
-      },
       timestamp: new Date().toISOString()
     });
-    res.status(500).json({ error: 'Failed to send email' });
+    res.status(500).json({ error: 'Failed to create reservation' });
   }
 });
+
+// Function to send waitlist assignment email (when waitlist customer gets a table)
+// Must be defined at module level to be accessible from reassignTableToWaitlist
+async function sendWaitlistAssignmentEmail(resId, tableId, confirmationToken, reservationData) {
+  console.log('📧 sendWaitlistAssignmentEmail called with:', { resId, tableId, email: reservationData?.email });
+
+  // Look up table_number from tables table
+  let tableDisplay = null;
+  if (tableId) {
+    try {
+      const tableInfo = await new Promise((resolve, reject) => {
+        db.get('SELECT table_number FROM tables WHERE id = ?', [tableId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+      if (tableInfo) {
+        tableDisplay = tableInfo.table_number;
+      }
+    } catch (err) {
+      console.warn('Could not look up table name for ID:', tableId, err.message);
+    }
+  }
+
+  try {
+    if (!reservationData || !reservationData.email) {
+      console.error('❌ Invalid reservation data:', reservationData);
+      return;
+    }
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    // Parse date string (YYYY-MM-DD) to avoid timezone issues
+    const dateParts = reservationData.date.split('-');
+    const dateYear = parseInt(dateParts[0], 10);
+    const dateMonth = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+    const dateDay = parseInt(dateParts[2], 10);
+    const dateObj = new Date(dateYear, dateMonth, dateDay);
+
+    const date = dateObj.toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    const time24 = reservationData.time || '19:00';
+    const [h, m] = time24.split(':');
+    const hh = parseInt(h, 10);
+    const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
+
+    const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+
+    // Determine venue details
+    const isMirror = reservationData.venue === 'Mirror';
+    const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
+    const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
+    const eventDuration = isMirror ? 8 : 2;
+
+    // Create Google Calendar event URL
+    const eventDate = new Date(`${reservationData.date}T${reservationData.time}:00`);
+    const endDate = new Date(eventDate.getTime() + (eventDuration * 60 * 60 * 1000));
+
+    const eventTitle = `${isMirror ? 'Event' : 'Reservation'}: ${reservationData.name} (${reservationData.guests} guests)`;
+    const eventDetails = `Customer: ${reservationData.name}
+Email: ${reservationData.email}
+Phone: ${reservationData.phone}
+Guests: ${reservationData.guests}
+${isMirror ? '' : `Table: ${tableDisplay}`}
+${reservationData.occasion ? `Occasion: ${reservationData.occasion}` : ''}
+${reservationData.specialRequests ? `Special Requests: ${reservationData.specialRequests}` : ''}
+
+Reservation made through ${venueName} website.`;
+
+    const location = venueAddress;
+
+    // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ)
+    const formatDateForGoogle = (date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatDateForGoogle(eventDate)}/${formatDateForGoogle(endDate)}&details=${encodeURIComponent(eventDetails)}&location=${encodeURIComponent(location)}`;
+
+    const confirmationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/confirm-reservation/${confirmationToken}`;
+    const cancellationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/cancel-reservation/${confirmationToken}`;
+
+    // Waitlist assignment email - table is now available!
+    const customerSubject = `🎉 Table Available! - ${venueName} Reservation Confirmed`;
+    const customerHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif;color:#020702; text-align: center; padding: 40px 20px;">
+        <div style="margin: 25px 0; padding: 20px; background-color: #d4edda; border-left: 4px solid #28a745; border-radius: 4px;">
+          <h2 style="font-family: 'Gilda Display', Georgia, serif; color: #155724; margin-top: 0; font-size: 1.5em;">🎉 Great News! Your Table is Available</h2>
+          <p style="color: #155724; margin-bottom: 0; font-size: 16px;">
+            We're excited to inform you that a table has become available for your reservation request!
+          </p>
+        </div>
+        
+        <h2 style="font-family: 'Gilda Display', Georgia, serif; color: #A8871A; margin-top: 30px;">Your Reservation Details</h2>
+        <p>Hi ${reservationData.name || ''},</p>
+        <p style="font-size: 16px; margin-bottom: 30px;">Your reservation at <strong>${venueName}</strong> has been confirmed:</p>
+        
+        <div style="text-align: left; max-width: 500px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+          <ul style="list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>Date:</strong> ${date}</li>
+            <li style="margin: 10px 0;"><strong>Time:</strong> ${time12}</li>
+            <li style="margin: 10px 0;"><strong>Guests:</strong> ${reservationData.guests}</li>
+            ${isMirror ? '' : `<li style="margin: 10px 0;"><strong>Table:</strong> ${tableDisplay}</li>`}
+            ${reservationData.occasion ? `<li style="margin: 10px 0;"><strong>Occasion:</strong> ${reservationData.occasion}</li>` : ''}
+          </ul>
+          ${reservationData.specialRequests ? `<p style="margin-top: 15px;"><strong>Special Requests:</strong> ${reservationData.specialRequests}</p>` : ''}
+        </div>
+        
+        <div style="text-align: center; margin: 40px 0;">
+          <a href="${confirmationUrl}" 
+             style="display: inline-block; background-color: #28a745; color: white; padding: 20px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-right: 15px;">
+            ✅ Confirm Reservation
+          </a>
+          <a href="${cancellationUrl}" 
+             style="display: inline-block; background-color: #dc3545; color: white; padding: 20px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            ❌ Cancel Booking
+          </a>
+        </div>
+        
+        <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #A8871A; border-radius: 4px;">
+          <h3 style="margin-top: 0; color: #A8871A;">📅 Add to Google Calendar</h3>
+          <p>Click the button below to add this reservation to your Google Calendar:</p>
+          <a href="${googleCalendarUrl}" 
+             style="display: inline-block; background-color: #A8871A; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 10px 0;">
+            📅 Add to Google Calendar
+          </a>
+        </div>
+        
+        <p style="color: #666; font-size: 0.9em; margin-top: 30px;">Please confirm your reservation as soon as possible to secure your table.</p>
+        <p style="color: #999; font-size: 0.85em; margin-top: 20px;">If you don't confirm your reservation, it may be automatically cancelled.</p>
+        <p>We look forward to welcoming you!</p>
+        <p style="color:#6E6E6E">${venueAddress}</p>
+      </div>
+    `;
+
+    console.log('📧 Sending waitlist assignment email...');
+    console.log('📧 Customer email:', reservationData.email);
+
+    const customerInfo = await transporter.sendMail({
+      from,
+      to: reservationData.email,
+      subject: customerSubject,
+      html: customerHtml
+    });
+    console.log('✅ Waitlist assignment email sent successfully:', customerInfo.messageId);
+
+    // Log successful email sending
+    logger.info('Waitlist assignment email sent', {
+      reservationId: resId,
+      customerEmail: reservationData.email,
+      messageId: customerInfo.messageId,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error sending waitlist assignment email:', error);
+    logger.error('Failed to send waitlist assignment email', {
+      reservationId: resId,
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+  }
+}
 
 // Payment email endpoint - same pattern as reservation emails
 app.post('/api/send-payment-email', async (req, res) => {
@@ -1528,37 +2409,1490 @@ app.get('/api/available-times', (req, res) => {
 
   const detectedVenue = venue || 'xix'; // Default to xix if not specified
 
-  // Define all possible time slots
-  const allTimeSlots = [
-    '12:00', '13:00', '14:00', '15:00', '16:00',
-    '17:00', '18:00', '19:00', '20:00', '21:00'
-  ];
-
-  // Optimized: Only query reservations for this specific date and venue
-  db.all('SELECT time FROM reservations WHERE date = ? AND venue = ?', [date, detectedVenue], (err, rows) => {
-    if (err) {
-      console.error('Database error checking availability:', err);
-      res.status(500).json({ error: err.message });
-      return;
+  // Define all possible time slots (9:00 AM to 1:00 AM)
+  const generateAllTimeSlots = () => {
+    const slots = [];
+    // 9:00 AM to 11:59 PM
+    for (let hour = 9; hour < 24; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`);
+      slots.push(`${hour.toString().padStart(2, '0')}:30`);
     }
+    // 12:00 AM to 1:00 AM
+    slots.push('00:00');
+    slots.push('00:30');
+    slots.push('01:00');
+    return slots;
+  };
 
-    // Get booked times - filter out null values
-    const bookedTimes = rows
-      .map(r => r.time)
-      .filter(time => time !== null && time !== undefined);
+  const allTimeSlots = generateAllTimeSlots();
 
-    // Filter out booked times
-    const availableTimes = allTimeSlots.filter(time => !bookedTimes.includes(time));
-
-    res.json({
-      date: date,
-      venue: detectedVenue,
-      availableTimes: availableTimes,
-      bookedTimes: bookedTimes,
-      totalReservations: rows.length
-    });
+  // Return all time slots - table availability is checked separately via /api/table-availability
+  // This endpoint should show all possible times, and the frontend will check table availability
+  // for each time slot based on guest count
+  res.json({
+    date: date,
+    venue: detectedVenue,
+    availableTimes: allTimeSlots,
+    totalReservations: 0 // Not needed, but kept for compatibility
   });
 });
+
+// API endpoint to check table availability based on guest count
+app.get('/api/table-availability', (req, res) => {
+  const { date, time, guests, venue } = req.query;
+
+  if (!date || !time || !guests) {
+    return res.status(400).json({ error: 'Date, time, and guests parameters are required' });
+  }
+
+  // Normalize venue to uppercase for consistency (tables are stored as 'XIX')
+  const detectedVenue = venue ? venue.toUpperCase() : 'XIX';
+  const guestCount = parseInt(guests, 10);
+
+  if (isNaN(guestCount) || guestCount < 1) {
+    return res.status(400).json({ error: 'Invalid guest count' });
+  }
+
+  // Calculate end time (default 2 hours after start) - handles midnight crossover
+  const endTime = calculateEndTime(date, time, 2);
+
+  // Determine which table capacities to show based on guest count
+  // Logic: Show only appropriate tables (not too large)
+  let allowedCapacities = [];
+  if (guestCount === 1 || guestCount === 2) {
+    allowedCapacities = [2]; // Only 2-person tables
+  } else if (guestCount === 3) {
+    allowedCapacities = [3, 4]; // 3-person and 4-person tables
+  } else if (guestCount === 4) {
+    allowedCapacities = [4]; // Only 4-person tables
+  } else if (guestCount === 5) {
+    allowedCapacities = [6]; // Only 6-person tables (no 5-person tables)
+  } else if (guestCount === 6) {
+    allowedCapacities = [6]; // Only 6-person tables
+  } else {
+    // 7+ guests
+    allowedCapacities = [12]; // Only 12-person table
+  }
+
+  // First, count how many reservations (with or without assigned tables) overlap with this time slot
+  // and would need tables of the same capacity
+  // Calculate end_time for reservations that don't have it (default 2 hours after start)
+  db.all(
+    `SELECT COUNT(*) as overlapping_count FROM reservations r
+     WHERE r.date = ? AND UPPER(r.venue) = UPPER(?) 
+     AND r.confirmation_status != 'cancelled'
+     AND (
+       -- Two time slots overlap if: existing_start < requested_end AND existing_end >= requested_start
+       -- Handle midnight crossover: end_time >= 25 indicates next day (e.g., "25:00" = 1:00 AM next day)
+       -- Normalize both sides: times >= 25 are normalized to "99:00" for comparison
+       (
+         -- Compare: existing_start < requested_end
+         CASE 
+           WHEN CAST(SUBSTR(r.time, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+           ELSE r.time
+         END < 
+         CASE 
+           WHEN CAST(SUBSTR(?, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+           ELSE ?
+         END
+         AND
+         -- Compare: existing_end >= requested_start
+         CASE 
+           WHEN r.end_time IS NOT NULL THEN 
+             CASE 
+               WHEN CAST(SUBSTR(r.end_time, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+               ELSE r.end_time
+             END
+           ELSE 
+             -- Calculate end_time: if result crosses midnight, use "25:00" format
+             CASE 
+               WHEN CAST(SUBSTR(time(r.time, '+2 hours'), 1, 2) AS INTEGER) < CAST(SUBSTR(r.time, 1, 2) AS INTEGER) THEN
+                 -- Crossed midnight: add 24 hours to hour part
+                 CASE 
+                   WHEN CAST(SUBSTR(time(r.time, '+2 hours'), 1, 2) AS INTEGER) + 24 < 100 THEN
+                     printf('%02d:%s', CAST(SUBSTR(time(r.time, '+2 hours'), 1, 2) AS INTEGER) + 24, SUBSTR(time(r.time, '+2 hours'), 4))
+                   ELSE
+                     '99:00'
+                 END
+               ELSE
+                 time(r.time, '+2 hours')
+             END
+         END >= 
+         CASE 
+           WHEN CAST(SUBSTR(?, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+           ELSE ?
+         END
+       )
+     )
+     AND (
+       -- Check if reservation needs tables of the same capacity
+       -- For 1-2 guests: match reservations with 1-2 guests
+       ((? = 1 OR ? = 2) AND (r.guests = 1 OR r.guests = 2)) OR
+       -- For 3 guests: match reservations with 3-4 guests
+       (? = 3 AND (r.guests = 3 OR r.guests = 4)) OR
+       -- For 4 guests: match reservations with 4 guests
+       (? = 4 AND r.guests = 4) OR
+       -- For 5-6 guests: match reservations with 5-6 guests
+       ((? = 5 OR ? = 6) AND (r.guests = 5 OR r.guests = 6)) OR
+       -- For 7+ guests: match reservations with 7+ guests
+       (? >= 7 AND r.guests >= 7)
+     )`,
+    [date, detectedVenue, endTime, endTime, time, time, guestCount, guestCount, guestCount, guestCount, guestCount, guestCount, guestCount],
+    (err, overlapRows) => {
+      if (err) {
+        console.error('Error counting overlapping reservations:', err);
+        return res.status(500).json({ error: 'Database error checking table availability' });
+      }
+
+      const overlappingReservations = overlapRows[0]?.overlapping_count || 0;
+      console.log(`📊 Table availability check: ${overlappingReservations} overlapping reservations found for ${guestCount} guests at ${time} on ${date}`);
+
+      // Find available tables that match the allowed capacities
+      const capacityPlaceholders = allowedCapacities.map(() => '?').join(',');
+      db.all(
+        `SELECT t.* FROM tables t 
+         WHERE UPPER(t.venue) = UPPER(?) AND t.capacity IN (${capacityPlaceholders})
+         AND t.id NOT IN (
+           -- Exclude tables already assigned to overlapping reservations (using table ID)
+           SELECT r.assigned_table FROM reservations r
+           WHERE r.date = ? AND UPPER(r.venue) = UPPER(?) 
+           AND r.confirmation_status != 'cancelled'
+           AND r.assigned_table IS NOT NULL
+           AND r.end_time IS NOT NULL
+           AND (
+             -- Two time slots overlap if: existing_start < requested_end AND existing_end >= requested_start
+             -- Using >= ensures a table booked until 4:00 PM blocks bookings starting at 4:00 PM
+             CASE 
+               WHEN CAST(SUBSTR(r.time, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+               ELSE r.time
+             END < 
+             CASE 
+               WHEN CAST(SUBSTR(?, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+               ELSE ?
+             END
+             AND
+             CASE 
+               WHEN r.end_time IS NOT NULL THEN
+                 CASE 
+                   WHEN CAST(SUBSTR(r.end_time, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+                   ELSE r.end_time
+                 END
+               ELSE
+                 CASE 
+                   WHEN CAST(SUBSTR(time(r.time, '+2 hours'), 1, 2) AS INTEGER) >= 25 THEN '99:00'
+                   ELSE time(r.time, '+2 hours')
+                 END
+             END >= 
+             CASE 
+               WHEN CAST(SUBSTR(?, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+               ELSE ?
+             END
+           )
+         )
+         ORDER BY t.capacity ASC`,
+        [detectedVenue, ...allowedCapacities, date, detectedVenue, endTime, endTime, time, time],
+        (err, availableTables) => {
+          if (err) {
+            console.error('Error checking table availability:', err);
+            return res.status(500).json({ error: 'Database error checking table availability' });
+          }
+
+          // Get total tables with allowed capacities
+          db.all(
+            `SELECT COUNT(*) as total FROM tables WHERE UPPER(venue) = UPPER(?) AND capacity IN (${capacityPlaceholders})`,
+            [detectedVenue, ...allowedCapacities],
+            (err, totalRows) => {
+              if (err) {
+                console.error('Error counting total tables:', err);
+                return res.status(500).json({ error: 'Database error counting tables' });
+              }
+
+              const totalTables = totalRows[0]?.total || 0;
+              // Calculate actual available count: total tables minus overlapping reservations
+              // This accounts for reservations with or without assigned_table
+              const actualAvailableCount = Math.max(0, totalTables - overlappingReservations);
+              const bookedCount = totalTables - actualAvailableCount;
+
+              // Determine availability status
+              let availabilityStatus = 'available';
+              if (actualAvailableCount === 0) {
+                availabilityStatus = 'full';
+              } else if (actualAvailableCount <= 2) {
+                availabilityStatus = 'limited';
+              }
+
+              res.json({
+                date,
+                time,
+                guests: guestCount,
+                venue: detectedVenue,
+                availableTables: availableTables.slice(0, actualAvailableCount).map(t => ({
+                  tableNumber: t.table_number,
+                  capacity: t.capacity
+                })),
+                availableCount: actualAvailableCount,
+                totalTables,
+                bookedCount,
+                availabilityStatus,
+                message: availabilityStatus === 'full'
+                  ? 'Sorry, all tables for this party size are currently booked. Please provide your phone number and we will contact you if a table becomes available.'
+                  : availabilityStatus === 'limited'
+                    ? `Only ${actualAvailableCount} table(s) available for ${guestCount} guests. Book soon!`
+                    : `${actualAvailableCount} table(s) available for ${guestCount} guests.`
+              });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+// ============================================
+// TABLE ASSIGNMENT & CONFIRMATION SYSTEM
+// ============================================
+
+// Helper function to calculate end_time, handling midnight crossover
+// Returns end_time in format "HH:MM" or "25:MM" (hours > 24) if crossing midnight
+function calculateEndTime(date, time, durationHours = 2) {
+  const startDateTime = new Date(`${date}T${time}`);
+  const endDateTime = new Date(startDateTime);
+  endDateTime.setHours(endDateTime.getHours() + durationHours);
+
+  // Check if end time is on the next day
+  const endDate = endDateTime.toISOString().split('T')[0];
+  const isNextDay = endDate !== date;
+
+  if (isNextDay) {
+    // Store as hours > 24 to indicate next day (e.g., "25:00" for 1:00 AM next day)
+    const nextDayHour = endDateTime.getHours() + 24;
+    return `${nextDayHour.toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`;
+  } else {
+    return `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`;
+  }
+}
+
+// Helper function to assign best available table
+function assignTable(guests, date, time, venue, callback) {
+  // Calculate end time (default 2 hours after start) - handles midnight crossover
+  const endTime = calculateEndTime(date, time, 2);
+
+  // Determine which table capacities to use based on guest count (same logic as table-availability)
+  let capacityQuery = '';
+  if (guests >= 1 && guests <= 2) {
+    capacityQuery = 't.capacity = 2';
+  } else if (guests === 3) {
+    capacityQuery = 't.capacity = 3 OR t.capacity = 4';
+  } else if (guests === 4) {
+    capacityQuery = 't.capacity = 4';
+  } else if (guests >= 5 && guests <= 6) {
+    capacityQuery = 't.capacity = 6';
+  } else if (guests >= 7) {
+    capacityQuery = 't.capacity = 12';
+  } else {
+    return callback(new Error('Invalid guest count for table assignment'), null, endTime);
+  }
+
+  // Find available tables that can accommodate guests
+  // Use table ID instead of table_number for simpler joins
+  // Handle both cases: assigned_table might be table_number (string) or table ID (integer)
+  console.log(`🔍 assignTable: Looking for table for ${guests} guests on ${date} at ${time} (endTime: ${endTime}, capacity: ${capacityQuery})`);
+
+  // First, get all tables of the required capacity
+  // Normalize venue to uppercase for consistency (tables are stored as 'XIX')
+  // IMPORTANT: Order by capacity ASC to prioritize smaller tables first
+  // For 3 guests, this ensures capacity 3 tables are checked before capacity 4 tables
+  const normalizedVenue = venue ? venue.toUpperCase() : 'XIX';
+  console.log(`🔍 Query parameters: venue="${venue}" → normalized="${normalizedVenue}", capacityQuery="${capacityQuery}"`);
+  db.all(
+    `SELECT t.* FROM tables t 
+     WHERE UPPER(t.venue) = UPPER(?) AND (${capacityQuery})
+     ORDER BY t.capacity ASC`,
+    [normalizedVenue],
+    (err, allTables) => {
+      if (err) {
+        console.error('❌ Error fetching tables:', err);
+        return callback(err, null, endTime);
+      }
+
+      console.log(`📋 Found ${allTables.length} total tables matching capacity (${capacityQuery})`);
+
+      // Debug: Check if tables exist at all
+      if (allTables.length === 0) {
+        console.warn(`⚠️ No tables found! Checking if tables exist in database...`);
+        db.all('SELECT COUNT(*) as count FROM tables WHERE UPPER(venue) = UPPER(?)', [normalizedVenue], (err2, countRows) => {
+          if (!err2 && countRows.length > 0) {
+            const totalTables = countRows[0].count;
+            console.warn(`   Total tables in database for venue "${normalizedVenue}": ${totalTables}`);
+            if (totalTables === 0) {
+              console.error(`   ❌ No tables exist in database for venue "${normalizedVenue}"!`);
+              console.error(`   Please check if tables were initialized correctly.`);
+            } else {
+              // Check what capacities exist
+              db.all('SELECT DISTINCT capacity FROM tables WHERE UPPER(venue) = UPPER(?)', [normalizedVenue], (err3, capacityRows) => {
+                if (!err3) {
+                  const capacities = capacityRows.map(r => r.capacity).join(', ');
+                  console.warn(`   Available capacities for venue "${normalizedVenue}": ${capacities}`);
+                  console.warn(`   Looking for capacity matching: ${capacityQuery}`);
+                }
+              });
+            }
+          }
+        });
+      }
+
+      // Now get overlapping reservations and determine which tables are blocked
+      // IMPORTANT: We need to check ALL overlapping reservations, not just those with assigned_table
+      // because reservations without assigned_table still need tables and should block availability
+      db.all(
+        `SELECT r.assigned_table, r.time, r.end_time, r.guests
+         FROM reservations r
+         WHERE r.date = ? AND UPPER(r.venue) = UPPER(?) 
+         AND r.confirmation_status != 'cancelled'
+         AND (
+           -- Two time slots overlap if: existing_start < requested_end AND existing_end >= requested_start
+           CASE 
+             WHEN CAST(SUBSTR(r.time, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+             ELSE r.time
+           END < 
+           CASE 
+             WHEN CAST(SUBSTR(?, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+             ELSE ?
+           END
+           AND
+           CASE 
+             WHEN r.end_time IS NOT NULL THEN
+               CASE 
+                 WHEN CAST(SUBSTR(r.end_time, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+                 ELSE r.end_time
+               END
+             ELSE
+               CASE 
+                 WHEN CAST(SUBSTR(time(r.time, '+2 hours'), 1, 2) AS INTEGER) >= 25 THEN '99:00'
+                 ELSE time(r.time, '+2 hours')
+               END
+           END >= 
+           CASE 
+             WHEN CAST(SUBSTR(?, 1, 2) AS INTEGER) >= 25 THEN '99:00'
+             ELSE ?
+           END
+         )`,
+        [date, normalizedVenue, endTime, endTime, time, time],
+        (err2, overlappingReservations) => {
+          if (err2) {
+            console.error('❌ Error checking overlapping reservations:', err2);
+            return callback(err2, null, endTime);
+          }
+
+          console.log(`🔍 Found ${overlappingReservations.length} overlapping reservations (including those without assigned tables)`);
+
+          // Convert assigned_table values to table IDs
+          // assigned_table might be:
+          // 1. A table ID (integer as string, e.g., "257")
+          // 2. A table_number (string, e.g., "Table 2-1")
+          // 3. NULL (reservation without assigned table - still needs a table, so we count it)
+          const blockedTableIds = new Set();
+          let reservationsWithoutTables = 0;
+
+          // For 3 guests: count how many unassigned reservations need capacity 3 vs capacity 4
+          // This helps us prioritize skipping capacity 4 tables before capacity 3 tables
+          let unassignedNeedingCapacity3 = 0;
+          let unassignedNeedingCapacity4 = 0;
+
+          if (overlappingReservations.length > 0) {
+            // Separate reservations with and without assigned tables
+            const reservationsWithTables = overlappingReservations.filter(r => r.assigned_table);
+            const reservationsWithoutAssignedTables = overlappingReservations.filter(r => !r.assigned_table);
+
+            reservationsWithoutTables = reservationsWithoutAssignedTables.length;
+            console.log(`   📊 ${reservationsWithTables.length} reservations with assigned tables, ${reservationsWithoutTables} without`);
+
+            // For 3 guests: categorize unassigned reservations by their capacity needs
+            if (guests === 3 && reservationsWithoutAssignedTables.length > 0) {
+              reservationsWithoutAssignedTables.forEach(r => {
+                const resGuestCount = parseInt(r.guests, 10);
+                if (resGuestCount === 3) {
+                  // Reservation for 3 guests can use capacity 3 or 4, but we'll prioritize capacity 3
+                  // Count it as needing capacity 3 first
+                  unassignedNeedingCapacity3++;
+                } else if (resGuestCount === 4) {
+                  // Reservation for 4 guests needs capacity 4
+                  unassignedNeedingCapacity4++;
+                } else {
+                  // Other guest counts - count as needing capacity 4 (larger)
+                  unassignedNeedingCapacity4++;
+                }
+              });
+              console.log(`   📊 Unassigned reservations: ${unassignedNeedingCapacity3} need capacity 3, ${unassignedNeedingCapacity4} need capacity 4`);
+            }
+
+            // Block tables that are already assigned
+            if (reservationsWithTables.length > 0) {
+              const assignedTableValues = reservationsWithTables.map(r => r.assigned_table).filter(Boolean);
+              console.log(`🔍 Checking assigned_table values:`, assignedTableValues);
+
+              assignedTableValues.forEach((assignedTable) => {
+                // If it's a number (table ID), use it directly
+                if (!isNaN(assignedTable) && assignedTable !== '') {
+                  const tableId = parseInt(assignedTable, 10);
+                  // Verify this ID exists and matches our capacity
+                  const matchingTable = allTables.find(t => t.id === tableId);
+                  if (matchingTable) {
+                    blockedTableIds.add(tableId);
+                    console.log(`   ✅ Blocked table ID ${tableId} (${matchingTable.table_number}) - assigned_table was ID`);
+                  }
+                } else {
+                  // It's a table_number string, need to look it up
+                  const matchingTable = allTables.find(t => t.table_number === assignedTable);
+                  if (matchingTable) {
+                    blockedTableIds.add(matchingTable.id);
+                    console.log(`   ✅ Blocked table ID ${matchingTable.id} (${assignedTable}) - assigned_table was table_number`);
+                  } else {
+                    console.log(`   ⚠️ Could not find table for assigned_table: "${assignedTable}"`);
+                  }
+                }
+              });
+            }
+
+            // For reservations without assigned tables, we need to reserve tables for them too
+            // Count how many tables we need to reserve for these overlapping reservations
+            // This prevents double-booking: if 2 reservations overlap and both need 2-person tables,
+            // we need to reserve 2 tables total, not just 1
+            if (reservationsWithoutAssignedTables.length > 0) {
+              console.log(`   ⚠️ ${reservationsWithoutAssignedTables.length} overlapping reservations without assigned tables - they also need tables!`);
+            }
+          }
+
+          // Calculate how many tables we need to reserve for overlapping reservations without assigned tables
+          // Each overlapping reservation without a table needs a table, so we need to block that many
+          const tablesNeededForUnassigned = reservationsWithoutTables;
+          const totalBlocked = blockedTableIds.size + tablesNeededForUnassigned;
+          const availableCount = allTables.length - totalBlocked;
+
+          console.log(`📊 Total tables: ${allTables.length}, Blocked (with tables): ${blockedTableIds.size}, Unassigned overlapping: ${reservationsWithoutTables}, Total blocked: ${totalBlocked}, Available: ${availableCount}`);
+
+          // Find first available table (not in blocked set)
+          // For 3 guests: prioritize capacity 3 tables, skip capacity 4 tables first for unassigned reservations
+          let skippedForUnassigned = 0;
+          let skippedCapacity4ForUnassigned = 0;
+          const availableTable = allTables.find(t => {
+            if (blockedTableIds.has(t.id)) {
+              return false; // Table is already assigned to another reservation
+            }
+
+            // For 3 guests: smart skipping logic
+            if (guests === 3) {
+              // If this is a capacity 4 table and we still need to skip capacity 4 tables for unassigned reservations
+              if (t.capacity === 4 && skippedCapacity4ForUnassigned < unassignedNeedingCapacity4) {
+                skippedCapacity4ForUnassigned++;
+                skippedForUnassigned++;
+                console.log(`   ⏭️ Skipping capacity 4 table ${t.table_number} for unassigned reservation (${skippedCapacity4ForUnassigned}/${unassignedNeedingCapacity4})`);
+                return false;
+              }
+
+              // If this is a capacity 3 table and we still need to skip capacity 3 tables for unassigned reservations
+              if (t.capacity === 3 && skippedForUnassigned < unassignedNeedingCapacity3) {
+                skippedForUnassigned++;
+                console.log(`   ⏭️ Skipping capacity 3 table ${t.table_number} for unassigned reservation (${skippedForUnassigned}/${unassignedNeedingCapacity3})`);
+                return false;
+              }
+
+              // If we've skipped enough tables for unassigned reservations, this table is available
+              if (skippedForUnassigned >= reservationsWithoutTables) {
+                return true;
+              }
+
+              // For capacity 4 tables, skip them if we still need to reserve capacity 4 for unassigned
+              if (t.capacity === 4 && skippedForUnassigned < reservationsWithoutTables) {
+                skippedForUnassigned++;
+                return false;
+              }
+
+              // Capacity 3 table is available (we've skipped enough or no unassigned reservations need capacity 3)
+              if (t.capacity === 3) {
+                return true;
+              }
+            } else {
+              // For other guest counts: original logic
+              if (skippedForUnassigned >= reservationsWithoutTables) {
+                return true;
+              }
+              skippedForUnassigned++;
+              return false;
+            }
+
+            return true; // Default: table is available
+          });
+
+          if (!availableTable) {
+            console.warn(`⚠️ No available table for ${guests} guests on ${date} at ${time}`);
+            console.warn(`   All ${allTables.length} tables are blocked (${blockedTableIds.size} with assigned tables + ${reservationsWithoutTables} needed for unassigned overlapping reservations)`);
+            return callback(null, null, endTime);
+          }
+
+          console.log(`✅ Assigned table ID ${availableTable.id} (${availableTable.table_number}, capacity: ${availableTable.capacity}) to ${guests} guests on ${date} at ${time}`);
+          callback(null, availableTable.id, endTime);
+        }
+      );
+    }
+  );
+}
+
+// Generate unique confirmation token
+function generateConfirmationToken() {
+  return require('crypto').randomBytes(32).toString('hex');
+}
+
+// Calculate confirmation deadline (3 hours before reservation, but minimum 30 minutes from now)
+function calculateConfirmationDeadline(date, time) {
+  const [hours, minutes] = time.split(':');
+  const reservationDateTime = new Date(`${date}T${time}`);
+  const now = new Date();
+
+  // Calculate 3 hours before reservation
+  const deadline = new Date(reservationDateTime);
+  deadline.setHours(deadline.getHours() - 3);
+
+  // If deadline is in the past or less than 30 minutes from now, set it to 30 minutes from now
+  const minDeadline = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes from now
+
+  if (deadline < minDeadline) {
+    return minDeadline.toISOString();
+  }
+
+  return deadline.toISOString();
+}
+
+// Confirmation endpoint - one-click confirmation
+app.get('/api/confirm-reservation/:token', (req, res) => {
+  const { token } = req.params;
+
+  db.get('SELECT * FROM reservations WHERE confirmation_token = ?', [token], (err, reservation) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #d32f2f;">Error</h1>
+            <p>An error occurred. Please contact the restaurant.</p>
+            <a href="/">Return to Home</a>
+          </body>
+        </html>
+      `);
+    }
+
+    if (!reservation) {
+      return res.status(404).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #d32f2f;">Invalid Confirmation Link</h1>
+            <p>This confirmation link is invalid or has expired.</p>
+            <a href="/">Return to Home</a>
+          </body>
+        </html>
+      `);
+    }
+
+    // Check if already confirmed
+    if (reservation.confirmation_status === 'confirmed') {
+      return res.send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #28a745;">Already Confirmed</h1>
+            <p>Your reservation for ${reservation.date} at ${reservation.time} has already been confirmed.</p>
+            <a href="/">Return to Home</a>
+          </body>
+        </html>
+      `);
+    }
+
+    // Check if deadline passed
+    if (reservation.confirmation_deadline) {
+      const deadline = new Date(reservation.confirmation_deadline);
+      if (new Date() > deadline) {
+        // Auto-cancel
+        const cancelledTableId = reservation.assigned_table;
+        const cancelledDate = reservation.date;
+        const cancelledTime = reservation.time;
+        const cancelledGuests = reservation.guests;
+        const cancelledVenue = reservation.venue || 'XIX';
+
+        db.run('UPDATE reservations SET confirmation_status = ? WHERE id = ?', ['cancelled', reservation.id], (err) => {
+          if (err) {
+            console.error('Error cancelling reservation:', err);
+          } else {
+            // Try to reassign table to waitlist reservations
+            if (cancelledTableId) {
+              reassignTableToWaitlist(cancelledTableId, cancelledDate, cancelledTime, cancelledGuests, cancelledVenue);
+            }
+          }
+        });
+        return res.send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1 style="color: #d32f2f;">Confirmation Deadline Passed</h1>
+              <p>Your reservation has been cancelled because it was not confirmed within 3 hours of the booking time.</p>
+              <p>Please make a new reservation.</p>
+              <a href="/reservations">Make New Reservation</a>
+            </body>
+          </html>
+        `);
+      }
+    }
+
+    // Confirm reservation
+    db.run(
+      'UPDATE reservations SET confirmation_status = ?, confirmed_at = CURRENT_TIMESTAMP WHERE id = ?',
+      ['confirmed', reservation.id],
+      (err) => {
+        if (err) {
+          console.error('Error confirming reservation:', err);
+          return res.status(500).send(`
+            <html>
+              <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+                <h1 style="color: #d32f2f;">Error</h1>
+                <p>An error occurred while confirming your reservation.</p>
+                <a href="/">Return to Home</a>
+              </body>
+            </html>
+          `);
+        }
+
+        res.send(`
+          <html>
+            <head>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+                .success-box { background: white; padding: 40px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h1 { color: #28a745; margin-bottom: 20px; }
+                .details { text-align: left; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 5px; }
+                .details p { margin: 10px 0; }
+                a { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #A8871A; color: white; text-decoration: none; border-radius: 5px; }
+              </style>
+            </head>
+            <body>
+              <div class="success-box">
+                <h1>✅ Reservation Confirmed!</h1>
+                <p>Thank you for confirming your reservation.</p>
+                <div class="details">
+                  <p><strong>Name:</strong> ${reservation.name}</p>
+                  <p><strong>Date:</strong> ${reservation.date}</p>
+                  <p><strong>Time:</strong> ${reservation.time}</p>
+                  <p><strong>Guests:</strong> ${reservation.guests}</p>
+                  ${reservation.assigned_table ? `<p><strong>Table:</strong> ${reservation.assigned_table}</p>` : ''}
+                </div>
+                <p style="color: #666; font-size: 0.9em;">We look forward to seeing you!</p>
+                <a href="/">Return to Home</a>
+              </div>
+            </body>
+          </html>
+        `);
+      }
+    );
+  });
+});
+
+// Cancellation endpoint - allows customers to cancel their reservation
+app.get('/api/cancel-reservation/:token', (req, res) => {
+  const { token } = req.params;
+
+  db.get('SELECT * FROM reservations WHERE confirmation_token = ?', [token], (err, reservation) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #d32f2f;">Error</h1>
+            <p>An error occurred. Please contact the restaurant.</p>
+            <a href="/">Return to Home</a>
+          </body>
+        </html>
+      `);
+    }
+
+    if (!reservation) {
+      return res.status(404).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #d32f2f;">Invalid Cancellation Link</h1>
+            <p>This cancellation link is invalid or has expired.</p>
+            <a href="/">Return to Home</a>
+          </body>
+        </html>
+      `);
+    }
+
+    // Check if already cancelled
+    if (reservation.confirmation_status === 'cancelled') {
+      return res.send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #ff9800;">Already Cancelled</h1>
+            <p>Your reservation for ${reservation.date} at ${reservation.time} has already been cancelled.</p>
+            <a href="/">Return to Home</a>
+          </body>
+        </html>
+      `);
+    }
+
+    // Cancel reservation
+    const cancelledTableId = reservation.assigned_table;
+    const cancelledDate = reservation.date;
+    const cancelledTime = reservation.time;
+    const cancelledGuests = reservation.guests;
+    const cancelledVenue = reservation.venue || 'XIX';
+    const calendarEventId = reservation.google_calendar_event_id;
+
+    db.run(
+      'UPDATE reservations SET confirmation_status = ? WHERE id = ?',
+      ['cancelled', reservation.id],
+      (err) => {
+        if (err) {
+          console.error('Error cancelling reservation:', err);
+          return res.status(500).send(`
+            <html>
+              <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+                <h1 style="color: #d32f2f;">Error</h1>
+                <p>An error occurred while cancelling your reservation.</p>
+                <a href="/">Return to Home</a>
+              </body>
+            </html>
+          `);
+        }
+
+        console.log(`✅ Reservation ${reservation.id} cancelled by customer`);
+
+        // Delete from Google Calendar if event exists
+        if (calendarEventId && calendar && process.env.GOOGLE_CALENDAR_ID) {
+          const calendarId = process.env.GOOGLE_CALENDAR_ID;
+          calendar.events.delete({
+            calendarId: calendarId,
+            eventId: calendarEventId
+          }).then(() => {
+            console.log(`✅ Google Calendar event ${calendarEventId} deleted after cancellation`);
+          }).catch((calendarErr) => {
+            console.error('⚠️ Error deleting Google Calendar event after cancellation:', calendarErr.message);
+            // Don't fail the cancellation if calendar deletion fails
+          });
+        }
+
+        // Try to reassign table to waitlist reservations
+        if (cancelledTableId) {
+          reassignTableToWaitlist(cancelledTableId, cancelledDate, cancelledTime, cancelledGuests, cancelledVenue);
+        }
+
+        res.send(`
+          <html>
+            <head>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+                .success-box { background: white; padding: 40px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                h1 { color: #dc3545; margin-bottom: 20px; }
+                .details { text-align: left; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 5px; }
+                .details p { margin: 10px 0; }
+                a { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #A8871A; color: white; text-decoration: none; border-radius: 5px; }
+              </style>
+            </head>
+            <body>
+              <div class="success-box">
+                <h1>❌ Reservation Cancelled</h1>
+                <p>Your reservation has been successfully cancelled.</p>
+                <div class="details">
+                  <p><strong>Name:</strong> ${reservation.name}</p>
+                  <p><strong>Date:</strong> ${reservation.date}</p>
+                  <p><strong>Time:</strong> ${reservation.time}</p>
+                  <p><strong>Guests:</strong> ${reservation.guests}</p>
+                </div>
+                <p style="color: #666; font-size: 0.9em;">We're sorry to see you go. We hope to serve you another time!</p>
+                <a href="/reservations">Make New Reservation</a>
+              </div>
+            </body>
+          </html>
+        `);
+      }
+    );
+  });
+});
+
+// Function to reassign a cancelled table to waitlist reservations
+function reassignTableToWaitlist(freedTableId, date, time, guests, venue) {
+  console.log(`🔄 Attempting to reassign table ${freedTableId} to waitlist reservations for ${date} at ${time} (${guests} guests, venue: ${venue})`);
+
+  // Find waitlist reservations (pending, no assigned_table) for the same date/time/guest count
+  db.all(
+    `SELECT id, guests, date, time, venue, assigned_table 
+     FROM reservations 
+     WHERE confirmation_status = 'pending' 
+     AND assigned_table IS NULL 
+     AND date = ? 
+     AND time = ? 
+     AND guests = ? 
+     AND UPPER(venue) = UPPER(?)
+     ORDER BY id ASC
+     LIMIT 1`,
+    [date, time, guests, venue],
+    (err, waitlistReservations) => {
+      if (err) {
+        console.error('❌ Error finding waitlist reservations:', err);
+        return;
+      }
+
+      if (waitlistReservations.length === 0) {
+        console.log(`ℹ️ No waitlist reservations found for ${date} at ${time} (${guests} guests)`);
+        return;
+      }
+
+      const waitlistReservation = waitlistReservations[0];
+      console.log(`✅ Found waitlist reservation ${waitlistReservation.id} - assigning table ${freedTableId}`);
+
+      // Calculate end_time for the waitlist reservation
+      const endTime = calculateEndTime(date, time, 2);
+
+      // Assign the freed table to the waitlist reservation
+      db.run(
+        'UPDATE reservations SET assigned_table = ?, end_time = ? WHERE id = ?',
+        [freedTableId.toString(), endTime, waitlistReservation.id],
+        (updateErr) => {
+          if (updateErr) {
+            console.error(`❌ Error assigning table ${freedTableId} to waitlist reservation ${waitlistReservation.id}:`, updateErr);
+          } else {
+            console.log(`✅ Successfully assigned table ${freedTableId} to waitlist reservation ${waitlistReservation.id}`);
+
+            // Send waitlist assignment notification email to the customer
+            db.get('SELECT * FROM reservations WHERE id = ?', [waitlistReservation.id], (err, fullReservation) => {
+              if (!err && fullReservation) {
+                const reservationData = {
+                  name: fullReservation.name,
+                  email: fullReservation.email,
+                  phone: fullReservation.phone,
+                  date: fullReservation.date,
+                  time: fullReservation.time,
+                  guests: fullReservation.guests,
+                  venue: fullReservation.venue,
+                  occasion: fullReservation.occasion,
+                  specialRequests: fullReservation.special_requests
+                };
+                sendWaitlistAssignmentEmail(waitlistReservation.id, freedTableId, fullReservation.confirmation_token, reservationData).catch(err => {
+                  console.error('Error sending waitlist assignment email:', err);
+                });
+              }
+            });
+          }
+        }
+      );
+    }
+  );
+}
+
+// Auto-cancellation job - cancels unconfirmed reservations after confirmation deadline passes
+// Only cancels if deadline has passed AND reservation time hasn't passed yet
+// Also triggers automatic reassignment to waitlist
+setInterval(() => {
+  const now = new Date();
+
+  // First, get reservations that will be cancelled (including Google Calendar event IDs)
+  db.all(
+    `SELECT id, assigned_table, date, time, guests, venue, google_calendar_event_id 
+     FROM reservations 
+     WHERE confirmation_status = 'pending' 
+     AND confirmation_deadline IS NOT NULL 
+     AND datetime(confirmation_deadline) < datetime(?)
+     AND datetime(date || ' ' || time) > datetime(?)`,
+    [now.toISOString(), now.toISOString()],
+    (err, reservationsToCancel) => {
+      if (err) {
+        console.error('Error fetching reservations to cancel:', err);
+        return;
+      }
+
+      if (reservationsToCancel.length === 0) {
+        return; // No reservations to cancel
+      }
+
+      // Cancel each reservation individually to handle Google Calendar deletion
+      reservationsToCancel.forEach((reservation) => {
+        const calendarEventId = reservation.google_calendar_event_id;
+
+        // Update status to cancelled
+        db.run(
+          `UPDATE reservations 
+           SET confirmation_status = 'cancelled' 
+           WHERE id = ?`,
+          [reservation.id],
+          (updateErr) => {
+            if (updateErr) {
+              console.error(`Error cancelling reservation ${reservation.id}:`, updateErr);
+              return;
+            }
+
+            console.log(`⚠️ Auto-cancelled reservation ${reservation.id}`);
+
+            // Delete from Google Calendar if event exists
+            if (calendarEventId && calendar && process.env.GOOGLE_CALENDAR_ID) {
+              const calendarId = process.env.GOOGLE_CALENDAR_ID;
+              calendar.events.delete({
+                calendarId: calendarId,
+                eventId: calendarEventId
+              }).then(() => {
+                console.log(`✅ Google Calendar event ${calendarEventId} deleted after auto-cancellation`);
+              }).catch((calendarErr) => {
+                console.error(`⚠️ Error deleting Google Calendar event ${calendarEventId} after auto-cancellation:`, calendarErr.message);
+              });
+            }
+
+            // Try to reassign table to waitlist reservations
+            if (reservation.assigned_table) {
+              reassignTableToWaitlist(
+                reservation.assigned_table,
+                reservation.date,
+                reservation.time,
+                reservation.guests,
+                reservation.venue || 'XIX'
+              );
+            }
+          }
+        );
+      });
+    }
+  );
+}, 5 * 60 * 1000); // Every 5 minutes
+
+// Reminder sending job - sends reminders 4-5 hours before reservation
+setInterval(() => {
+  const now = new Date();
+  const reminderWindowStart = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours from now
+  const reminderWindowEnd = new Date(now.getTime() + 5 * 60 * 60 * 1000); // 5 hours from now
+
+  // Find reservations that need reminders
+  db.all(
+    `SELECT * FROM reservations 
+     WHERE confirmation_status = 'pending' 
+     AND date || ' ' || time BETWEEN datetime(?) AND datetime(?)
+     AND (email_sent_to_customer = 0 OR email_sent_to_customer IS NULL)`,
+    [reminderWindowStart.toISOString().slice(0, 16), reminderWindowEnd.toISOString().slice(0, 16)],
+    (err, reservations) => {
+      if (err) {
+        console.error('Error finding reservations for reminders:', err);
+        return;
+      }
+
+      reservations.forEach(reservation => {
+        sendConfirmationReminder(reservation);
+      });
+    }
+  );
+}, 10 * 60 * 1000); // Check every 10 minutes
+
+// Function to send confirmation reminder email and SMS
+function sendConfirmationReminder(reservation) {
+  const confirmationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/confirm-reservation/${reservation.confirmation_token}`;
+
+  // Send email reminder
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const from = process.env.MAIL_FROM || process.env.SMTP_USER;
+    const subject = `Please Confirm Your Reservation - ${reservation.date} at ${reservation.time}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #A8871A;">Please Confirm Your Reservation</h2>
+        <p>Hello ${reservation.name},</p>
+        <p>This is a reminder to confirm your reservation at XIX Restaurant:</p>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Date:</strong> ${reservation.date}</p>
+          <p><strong>Time:</strong> ${reservation.time}</p>
+          <p><strong>Guests:</strong> ${reservation.guests}</p>
+          ${reservation.assigned_table ? `<p><strong>Table:</strong> ${reservation.assigned_table}</p>` : ''}
+        </div>
+        <p style="color: #d32f2f; font-weight: bold;">⚠️ Important: Please confirm your reservation within 3 hours, or it will be automatically cancelled.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${confirmationUrl}" 
+             style="display: inline-block; background-color: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+            ✅ Confirm Reservation
+          </a>
+        </div>
+        <p style="color: #666; font-size: 0.9em;">Or copy this link: ${confirmationUrl}</p>
+        <p style="color: #666; font-size: 0.9em; margin-top: 30px;">If you need to cancel or change your reservation, please contact us.</p>
+      </div>
+    `;
+
+    transporter.sendMail({
+      from,
+      to: reservation.email,
+      subject,
+      html
+    }, (err, info) => {
+      if (err) {
+        console.error('Error sending reminder email:', err);
+      } else {
+        console.log(`✅ Reminder email sent to ${reservation.email}`);
+      }
+    });
+  }
+
+  // Send SMS reminder (if enabled)
+  if (twilioClient && process.env.TWILIO_PHONE_NUMBER && reservation.phone) {
+    const smsMessage = `XIX Restaurant: Please confirm your reservation for ${reservation.date} at ${reservation.time}. Confirm: ${confirmationUrl}`;
+
+    twilioClient.messages.create({
+      body: smsMessage,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: reservation.phone
+    }).then(message => {
+      console.log(`✅ Reminder SMS sent to ${reservation.phone}: ${message.sid}`);
+    }).catch(err => {
+      console.error('Error sending reminder SMS:', err);
+    });
+  }
+
+  // Mark as reminder sent
+  db.run('UPDATE reservations SET email_sent_to_customer = 1 WHERE id = ?', [reservation.id]);
+}
+
+// Helper function to create a Google Calendar event for a reservation
+async function createGoogleCalendarEvent(reservation) {
+  if (!calendar || !process.env.GOOGLE_CALENDAR_ID) {
+    return null; // Calendar not configured
+  }
+
+  try {
+    const calendarId = process.env.GOOGLE_CALENDAR_ID;
+
+    // Parse date and time
+    const [year, month, day] = reservation.date.split('-');
+    const [hours, minutes] = reservation.time.split(':');
+    const startDateTime = new Date(year, month - 1, day, parseInt(hours), parseInt(minutes));
+
+    // Calculate end time (default 2 hours, or use end_time if available)
+    let endDateTime;
+    if (reservation.end_time) {
+      // Parse end_time (handles midnight crossover like "25:00")
+      const [endHours, endMinutes] = reservation.end_time.split(':');
+      let endHour = parseInt(endHours);
+      let endDay = parseInt(day);
+
+      // Handle midnight crossover (hours >= 25 means next day)
+      if (endHour >= 25) {
+        endHour = endHour - 24;
+        endDay = endDay + 1;
+      }
+
+      endDateTime = new Date(year, month - 1, endDay, endHour, parseInt(endMinutes));
+    } else {
+      endDateTime = new Date(startDateTime);
+      endDateTime.setHours(endDateTime.getHours() + 2); // Default 2 hours
+    }
+
+    // Get table number for display
+    let tableDisplay = 'Not assigned';
+    if (reservation.assigned_table) {
+      try {
+        const tableInfo = await new Promise((resolve, reject) => {
+          db.get('SELECT table_number FROM tables WHERE id = ?', [reservation.assigned_table], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        });
+        if (tableInfo) {
+          tableDisplay = tableInfo.table_number;
+        }
+      } catch (err) {
+        console.warn('Could not look up table name for calendar event:', err.message);
+      }
+    }
+
+    // Format event details
+    const venueName = reservation.venue === 'MIRROR' ? 'Mirror' : 'XIX';
+    const eventTitle = `${reservation.name} - ${reservation.guests} guest${reservation.guests !== 1 ? 's' : ''} - ${venueName}`;
+
+    let eventDescription = `Reservation for ${reservation.name}\n`;
+    eventDescription += `Guests: ${reservation.guests}\n`;
+    eventDescription += `Table: ${tableDisplay}\n`;
+    eventDescription += `Phone: ${reservation.phone}\n`;
+    eventDescription += `Email: ${reservation.email}\n`;
+    if (reservation.occasion) {
+      eventDescription += `Occasion: ${reservation.occasion}\n`;
+    }
+    if (reservation.special_requests) {
+      eventDescription += `Special Requests: ${reservation.special_requests}\n`;
+    }
+    if (reservation.confirmation_status === 'pending') {
+      eventDescription += `\n⚠️ Status: Pending Confirmation`;
+    }
+
+    // Create the event
+    const event = {
+      summary: eventTitle,
+      description: eventDescription,
+      start: {
+        dateTime: startDateTime.toISOString(),
+        timeZone: 'Europe/London'
+      },
+      end: {
+        dateTime: endDateTime.toISOString(),
+        timeZone: 'Europe/London'
+      },
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: 'email', minutes: 24 * 60 }, // 1 day before
+          { method: 'popup', minutes: 60 } // 1 hour before
+        ]
+      }
+    };
+
+    const createdEvent = await calendar.events.insert({
+      calendarId: calendarId,
+      resource: event
+    });
+
+    console.log(`✅ Created Google Calendar event ${createdEvent.data.id} for reservation ${reservation.id}`);
+    return createdEvent.data.id; // Return the event ID
+
+  } catch (err) {
+    console.error(`❌ Error creating Google Calendar event for reservation ${reservation.id}:`, err.message);
+    return null;
+  }
+}
+
+// Google Calendar Sync - Syncs calendar events to database
+async function syncGoogleCalendar() {
+  if (!calendar || !process.env.GOOGLE_CALENDAR_ID) {
+    return; // Calendar not configured
+  }
+
+  try {
+    const now = new Date();
+    // Query events from 7 days ago to 30 days in the future
+    // This ensures we catch past events (for syncing existing reservations)
+    // and future events (for upcoming bookings)
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const thirtyDaysLater = new Date(now);
+    thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+
+    // Get events from Google Calendar for the extended time range
+    const calendarId = process.env.GOOGLE_CALENDAR_ID;
+
+    // Try to get calendar info first to verify access
+    try {
+      await calendar.calendars.get({ calendarId });
+      console.log(`✅ Successfully accessed calendar: ${calendarId}`);
+    } catch (calendarError) {
+      console.error('⚠️ Google Calendar access error:', calendarError.message);
+      console.error('   Calendar ID:', calendarId);
+      console.error('   Error details:', calendarError.response?.data || calendarError.message);
+
+      // Try to list all calendars to help find the correct ID
+      try {
+        console.log('📋 Attempting to list available calendars...');
+        const calendarList = await calendar.calendarList.list();
+        console.log('Available calendars:');
+        calendarList.data.items?.forEach(cal => {
+          console.log(`   - ${cal.summary || cal.id}: ID = ${cal.id}`);
+        });
+      } catch (listError) {
+        console.error('   Could not list calendars:', listError.message);
+      }
+
+      console.error('   Please verify:');
+      console.error('   1. The calendar is shared with: xix-calendar-sync@xix-restaurant-calendar.iam.gserviceaccount.com');
+      console.error('   2. The calendar ID in .env matches the calendar you want to use');
+      console.error('   3. For secondary calendars, use the calendar ID from the list above, not the email address');
+      return; // Don't proceed if we can't access the calendar
+    }
+
+    const response = await calendar.events.list({
+      calendarId: calendarId,
+      timeMin: sevenDaysAgo.toISOString(),
+      timeMax: thirtyDaysLater.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime'
+    });
+
+    const events = response.data.items || [];
+    console.log(`📅 Found ${events.length} events in Google Calendar (from ${sevenDaysAgo.toISOString().split('T')[0]} to ${thirtyDaysLater.toISOString().split('T')[0]})`);
+
+    // Log event details for debugging
+    if (events.length > 0) {
+      console.log('📋 Events found:');
+      events.forEach((event, index) => {
+        const eventStart = new Date(event.start.dateTime || event.start.date);
+        const eventDate = eventStart.toISOString().split('T')[0];
+        const eventTime = eventStart.toTimeString().split(' ')[0].substring(0, 5);
+        console.log(`   ${index + 1}. ${event.summary || 'Untitled'} - ${eventDate} at ${eventTime} (ID: ${event.id})`);
+      });
+    }
+
+    for (const event of events) {
+      // Check if reservation exists in DB by Google Calendar event ID
+      db.get('SELECT * FROM reservations WHERE google_calendar_event_id = ?', [event.id], (err, existingReservation) => {
+        if (err) {
+          console.error('Error checking existing reservation:', err);
+          return;
+        }
+
+        if (existingReservation) {
+          // Update existing reservation if event was modified
+          const eventStart = new Date(event.start.dateTime || event.start.date);
+          const eventEnd = new Date(event.end.dateTime || event.end.date);
+          const eventDate = eventStart.toISOString().split('T')[0];
+          const eventTime = `${eventStart.getHours().toString().padStart(2, '0')}:${eventStart.getMinutes().toString().padStart(2, '0')}`;
+
+          // Calculate end_time handling midnight crossover (use helper function)
+          const endTime = calculateEndTime(
+            eventDate,
+            eventTime,
+            (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60) // duration in hours
+          );
+
+          // Update end_time if changed
+          if (existingReservation.end_time !== endTime) {
+            db.run(
+              'UPDATE reservations SET end_time = ?, last_synced_at = CURRENT_TIMESTAMP WHERE id = ?',
+              [endTime, existingReservation.id],
+              (err) => {
+                if (err) {
+                  console.error('Error updating reservation from calendar:', err);
+                } else {
+                  console.log(`✅ Updated reservation ${existingReservation.id} end_time to ${endTime} from Google Calendar`);
+
+                  // Check for conflicts
+                  checkTableConflicts(existingReservation.assigned_table, eventDate, existingReservation.time, endTime, existingReservation.id);
+                }
+              }
+            );
+          }
+        }
+      });
+    }
+
+    // Check for reservations in DB that don't have Google Calendar events and create them
+    db.all('SELECT * FROM reservations WHERE google_calendar_event_id IS NULL AND confirmation_status != "cancelled" ORDER BY date, time', [], async (err, reservationsWithoutEvents) => {
+      if (!err && reservationsWithoutEvents && reservationsWithoutEvents.length > 0) {
+        console.log(`⚠️ Found ${reservationsWithoutEvents.length} reservations in database without Google Calendar events - creating them now...`);
+
+        for (const reservation of reservationsWithoutEvents) {
+          const calendarEventId = await createGoogleCalendarEvent(reservation);
+          if (calendarEventId) {
+            // Update reservation with calendar event ID
+            db.run('UPDATE reservations SET google_calendar_event_id = ? WHERE id = ?', [calendarEventId, reservation.id], (updateErr) => {
+              if (updateErr) {
+                console.error(`Error updating reservation ${reservation.id} with calendar event ID:`, updateErr);
+              } else {
+                console.log(`✅ Created and linked Google Calendar event for reservation #${reservation.id} - ${reservation.name} on ${reservation.date} at ${reservation.time}`);
+              }
+            });
+          }
+        }
+      }
+    });
+
+    // Check for reservations in DB that have Google Calendar event IDs but the events no longer exist in Calendar
+    // This detects when events are deleted from Google Calendar
+    db.all('SELECT id, name, date, time, google_calendar_event_id FROM reservations WHERE google_calendar_event_id IS NOT NULL AND confirmation_status != "cancelled"', [], (err, reservationsWithEventIds) => {
+      if (err) {
+        console.error('Error checking reservations with event IDs:', err);
+        return;
+      }
+
+      if (reservationsWithEventIds && reservationsWithEventIds.length > 0) {
+        // Create a Set of event IDs that exist in Google Calendar
+        const existingEventIds = new Set(events.map(e => e.id));
+
+        // Find reservations whose Google Calendar events no longer exist
+        const deletedEvents = reservationsWithEventIds.filter(res => !existingEventIds.has(res.google_calendar_event_id));
+
+        if (deletedEvents.length > 0) {
+          console.log(`🗑️ Found ${deletedEvents.length} reservations whose Google Calendar events were deleted:`);
+          deletedEvents.forEach((res, index) => {
+            console.log(`   ${index + 1}. Reservation #${res.id} - ${res.name} on ${res.date} at ${res.time} (Event ID: ${res.google_calendar_event_id})`);
+          });
+
+          // Delete these reservations from the database
+          deletedEvents.forEach((res) => {
+            db.run('DELETE FROM reservations WHERE id = ?', [res.id], (deleteErr) => {
+              if (deleteErr) {
+                console.error(`❌ Error deleting reservation ${res.id} (event deleted from calendar):`, deleteErr);
+              } else {
+                console.log(`✅ Deleted reservation #${res.id} (${res.name}) - Google Calendar event was removed`);
+              }
+            });
+          });
+        }
+      }
+    });
+
+    console.log(`✅ Google Calendar sync completed - checked ${events.length} events`);
+  } catch (err) {
+    console.error('Error syncing Google Calendar:', err);
+  }
+}
+
+// Check for table conflicts when end_time is extended
+function checkTableConflicts(tableNumber, date, startTime, newEndTime, currentReservationId) {
+  if (!tableNumber) return;
+
+  db.all(
+    `SELECT * FROM reservations 
+     WHERE assigned_table = ? 
+     AND date = ? 
+     AND id != ?
+     AND confirmation_status != 'cancelled'
+     AND (
+       (time >= ? AND time < ?) OR
+       (time < ? AND end_time > ?)
+     )`,
+    [tableNumber, date, currentReservationId, startTime, newEndTime, startTime, startTime],
+    (err, conflicts) => {
+      if (err) {
+        console.error('Error checking conflicts:', err);
+        return;
+      }
+
+      if (conflicts.length > 0) {
+        console.warn(`⚠️ CONFLICT DETECTED: Table ${tableNumber} on ${date} - ${conflicts.length} reservation(s) conflict with extended time`);
+        // TODO: Send notification to manager about conflict
+        // For now, just log it - manager can resolve manually
+      }
+    }
+  );
+}
+
+// API endpoint to assign tables to existing reservations without assigned tables
+app.post('/api/assign-tables-to-reservations', (req, res) => {
+  console.log('🔄 Starting bulk table assignment for reservations without assigned tables...');
+
+  // Get all reservations without assigned tables
+  db.all(
+    `SELECT id, guests, date, time, venue, assigned_table, end_time 
+     FROM reservations 
+     WHERE assigned_table IS NULL 
+     AND confirmation_status != 'cancelled'
+     ORDER BY date, time`,
+    [],
+    (err, reservations) => {
+      if (err) {
+        console.error('Error fetching reservations:', err);
+        return res.status(500).json({ error: 'Failed to fetch reservations' });
+      }
+
+      if (reservations.length === 0) {
+        return res.json({
+          message: 'No reservations need table assignment',
+          assigned: 0,
+          total: 0
+        });
+      }
+
+      console.log(`📋 Found ${reservations.length} reservations without assigned tables`);
+
+      let assignedCount = 0;
+      let failedCount = 0;
+      const results = [];
+
+      // Process each reservation
+      reservations.forEach((reservation, index) => {
+        assignTable(
+          reservation.guests,
+          reservation.date,
+          reservation.time,
+          reservation.venue || 'XIX',
+          (assignErr, assignedTable, endTime) => {
+            if (assignErr) {
+              console.error(`❌ Error assigning table to reservation ${reservation.id}:`, assignErr);
+              failedCount++;
+              results.push({
+                id: reservation.id,
+                status: 'failed',
+                error: assignErr.message
+              });
+            } else if (assignedTable) {
+              // Update reservation with assigned table (store as string for compatibility)
+              db.run(
+                'UPDATE reservations SET assigned_table = ?, end_time = ? WHERE id = ?',
+                [assignedTable.toString(), endTime, reservation.id],
+                (updateErr) => {
+                  if (updateErr) {
+                    console.error(`❌ Error updating reservation ${reservation.id}:`, updateErr);
+                    failedCount++;
+                    results.push({
+                      id: reservation.id,
+                      status: 'failed',
+                      error: updateErr.message
+                    });
+                  } else {
+                    console.log(`✅ Assigned table ${assignedTable} to reservation ${reservation.id}`);
+                    assignedCount++;
+                    results.push({
+                      id: reservation.id,
+                      status: 'assigned',
+                      table: assignedTable
+                    });
+                  }
+
+                  // If this is the last reservation, send response
+                  if (assignedCount + failedCount === reservations.length) {
+                    res.json({
+                      message: `Table assignment completed`,
+                      assigned: assignedCount,
+                      failed: failedCount,
+                      total: reservations.length,
+                      results: results
+                    });
+                  }
+                }
+              );
+            } else {
+              console.warn(`⚠️ No table available for reservation ${reservation.id}`);
+              failedCount++;
+              results.push({
+                id: reservation.id,
+                status: 'no_table_available',
+                message: 'No available table found'
+              });
+
+              // If this is the last reservation, send response
+              if (assignedCount + failedCount === reservations.length) {
+                res.json({
+                  message: `Table assignment completed`,
+                  assigned: assignedCount,
+                  failed: failedCount,
+                  total: reservations.length,
+                  results: results
+                });
+              }
+            }
+          }
+        );
+      });
+    }
+  );
+});
+
+// Google Calendar sync job - runs every 1 minute
+if (calendar) {
+  setInterval(() => {
+    syncGoogleCalendar();
+  }, 1 * 60 * 1000); // Every 1 minute
+
+  // Initial sync on startup
+  setTimeout(() => {
+    syncGoogleCalendar();
+  }, 30 * 1000); // Wait 30 seconds after startup
+}
 
 // Stripe Payment Gateway Integration - Two Options:
 // 1. Stripe Elements (embedded form) - current implementation

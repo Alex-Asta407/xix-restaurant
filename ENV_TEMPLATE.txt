@@ -21,6 +21,23 @@ STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
 STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
 
+# Base URL for confirmation links (use your production URL)
+BASE_URL=http://localhost:3001
+
+# Google Calendar Integration (Optional)
+# See GOOGLE_CALENDAR_SMS_SETUP.md for setup instructions
+GOOGLE_CALENDAR_ID=akonstantinov582@gmail.com
+GOOGLE_CALENDAR_CREDENTIALS_PATH=./google-calendar-credentials.json
+
+# Twilio SMS Integration (Optional - costs money)
+# See GOOGLE_CALENDAR_SMS_SETUP.md for setup instructions
+TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
+TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
+TWILIO_PHONE_NUMBER=+1234567890
+ENABLE_SMS_REMINDERS=false
+
 # Note: SMTP_PASS should be your Gmail App Password, not your regular password
 # Get your App Password from: https://myaccount.google.com/apppasswords
 # Get your Stripe keys from: https://dashboard.stripe.com/apikeys
+# Google Calendar setup: See GOOGLE_CALENDAR_SMS_SETUP.md
+# Twilio setup: See GOOGLE_CALENDAR_SMS_SETUP.md

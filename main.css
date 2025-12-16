@@ -82,10 +82,10 @@
 
 .hero-image {
     width: 95%;
-    height: 85vh;
-    max-width: 600px;
-    max-height: 900px;
-    min-height: 500px;
+    height: 105vh;
+    max-width: 700px;
+    max-height: 1300px;
+    min-height: 650px;
     border-radius: 15px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
     display: flex;
@@ -172,6 +172,8 @@
     left: 0;
     z-index: 1;
 }
+
+/* Full size image - shows entire image without cropping */
 
 .hero-img {
     width: 100%;
@@ -1245,6 +1247,12 @@
         object-position: center 30% !important;
     }
 
+    .slide img.full-size-image {
+        object-fit: contain !important;
+        object-position: center center !important;
+        background-color: var(--primary-green);
+    }
+
     .slider-btn {
         width: 40px;
         height: 40px;
@@ -1358,6 +1366,12 @@
         display: block !important;
     }
 
+    .slide img.full-size-image {
+        object-fit: contain !important;
+        object-position: center center !important;
+        background-color: var(--primary-green);
+    }
+
     .hero-image:hover,
     .hero-slider:hover {
         transform: scale(1);
@@ -1377,6 +1391,12 @@
         position: absolute;
         top: 0;
         left: 0;
+    }
+
+    .slide img.full-size-image {
+        object-fit: contain !important;
+        object-position: center center !important;
+        background-color: var(--primary-green);
     }
 
     /* Touch-friendly buttons for tablets */
@@ -1495,6 +1515,12 @@
         display: block !important;
     }
 
+    .slide img.full-size-image {
+        object-fit: contain !important;
+        object-position: center center !important;
+        background-color: var(--primary-green);
+    }
+
     /* .hero-img removed - slider uses .slide img instead */
 
     .slide img {
@@ -1508,6 +1534,12 @@
         position: absolute;
         top: 0;
         left: 0;
+    }
+
+    .slide img.full-size-image {
+        object-fit: contain !important;
+        object-position: center center !important;
+        background-color: var(--primary-green);
     }
 
     .hero-image:hover,
@@ -1638,6 +1670,12 @@
         top: 0 !important;
         left: 0 !important;
         display: block !important;
+    }
+
+    .slide img.full-size-image {
+        object-fit: contain !important;
+        object-position: center center !important;
+        background-color: var(--primary-green);
     }
 
     .slider-btn {

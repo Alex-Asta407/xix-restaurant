@@ -37,6 +37,7 @@
                 <li><a href="/menu">Menu</a></li>
                 <li><a href="/events">Events</a></li>
                 <li><a href="/reservations" class="active">Reservations</a></li>
+                <li><a href="/xix/catering">Catering</a></li>
                 <li><a href="/mirror">Mirror</a></li>
             </ul>
             <div class="hamburger">
@@ -82,6 +83,8 @@
                         <div class="form-group">
                             <label for="phone">Phone Number *</label>
                             <input type="tel" id="phone" name="phone" required>
+                            <small style="display: block; margin-top: 5px; color: #666;">Required even if all tables are
+                                booked - we'll contact you if availability opens up</small>
                         </div>
 
                         <div class="form-group">
@@ -97,8 +100,12 @@
                                 <option value="7">7 Guests</option>
                                 <option value="8">8 Guests</option>
                                 <option value="9">9 Guests</option>
-                                <option value="10">10+ Guests</option>
+                                <option value="10">10 Guests</option>
+                                <option value="11">11 Guests</option>
+                                <option value="12">12 Guests</option>
                             </select>
+                            <div id="tableAvailabilityInfo"
+                                style="margin-top: 10px; padding: 10px; border-radius: 5px; display: none;"></div>
                         </div>
 
                         <div class="form-group">
@@ -110,6 +117,22 @@
                             <label for="time">Preferred Time *</label>
                             <select id="time" name="time" required>
                                 <option value="">Select Time</option>
+                                <option value="09:00">9:00 AM</option>
+                                <option value="09:30">9:30 AM</option>
+                                <option value="10:00">10:00 AM</option>
+                                <option value="10:30">10:30 AM</option>
+                                <option value="11:00">11:00 AM</option>
+                                <option value="11:30">11:30 AM</option>
+                                <option value="12:00">12:00 PM</option>
+                                <option value="12:30">12:30 PM</option>
+                                <option value="13:00">1:00 PM</option>
+                                <option value="13:30">1:30 PM</option>
+                                <option value="14:00">2:00 PM</option>
+                                <option value="14:30">2:30 PM</option>
+                                <option value="15:00">3:00 PM</option>
+                                <option value="15:30">3:30 PM</option>
+                                <option value="16:00">4:00 PM</option>
+                                <option value="16:30">4:30 PM</option>
                                 <option value="17:00">5:00 PM</option>
                                 <option value="17:30">5:30 PM</option>
                                 <option value="18:00">6:00 PM</option>
@@ -122,6 +145,11 @@
                                 <option value="21:30">9:30 PM</option>
                                 <option value="22:00">10:00 PM</option>
                                 <option value="22:30">10:30 PM</option>
+                                <option value="23:00">11:00 PM</option>
+                                <option value="23:30">11:30 PM</option>
+                                <option value="00:00">12:00 AM</option>
+                                <option value="00:30">12:30 AM</option>
+                                <option value="01:00">1:00 AM</option>
                             </select>
                         </div>
 
@@ -164,9 +192,7 @@
                     </div>
                     <h3>Opening Hours</h3>
                     <div class="info-details">
-                        <p><strong>Monday - Thursday:</strong> 6:00 PM - 10:00 PM</p>
-                        <p><strong>Friday - Saturday:</strong> 6:00 PM - 11:00 PM</p>
-                        <p><strong>Sunday:</strong> 5:00 PM - 9:00 PM</p>
+                        <p><strong>Monday - Sunday:</strong> 9:00 AM - 1:00 AM</p>
                     </div>
                 </div>
 
@@ -335,9 +361,67 @@
         document.addEventListener('DOMContentLoaded', function () {
             // Set minimum date to today
             const dateInput = document.getElementById('date');
+            const timeSelect = document.getElementById('time');
+
             if (dateInput) {
-                const today = new Date().toISOString().split('T')[0];
+                // Get today's date in local timezone (YYYY-MM-DD format)
+                // Use toLocaleDateString('en-CA') which returns YYYY-MM-DD in local timezone
+                const today = new Date().toLocaleDateString('en-CA');
                 dateInput.min = today;
+
+                // Filter initial time options if today is selected
+                function filterTimeOptions() {
+                    if (!timeSelect) return;
+
+                    const selectedDate = dateInput.value;
+                    const isToday = selectedDate === today;
+
+                    if (isToday) {
+                        const now = new Date();
+                        const currentHour = now.getHours();
+                        const currentMinute = now.getMinutes();
+                        const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+                        // Filter out past times (at least 30 minutes in the future)
+                        Array.from(timeSelect.options).forEach(option => {
+                            if (option.value && option.value !== '') {
+                                const [h, m] = option.value.split(':');
+                                let timeHour = parseInt(h, 10);
+                                const timeMinute = parseInt(m, 10);
+
+                                // Handle midnight times (00:00, 00:30, 01:00) - these are next day
+                                // So if it's today and time is 00:00-01:00, it's actually tomorrow, so show it
+                                if (timeHour === 0 || timeHour === 1) {
+                                    // These times are for the next day, so always show them
+                                    option.disabled = false;
+                                    option.style.display = '';
+                                    return;
+                                }
+
+                                const timeInMinutes = timeHour * 60 + timeMinute;
+
+                                if (timeInMinutes < (currentTimeInMinutes + 30)) {
+                                    option.disabled = true;
+                                    option.style.display = 'none';
+                                } else {
+                                    option.disabled = false;
+                                    option.style.display = '';
+                                }
+                            }
+                        });
+                    } else {
+                        // Enable all options for future dates
+                        Array.from(timeSelect.options).forEach(option => {
+                            option.disabled = false;
+                            option.style.display = '';
+                        });
+                    }
+                }
+
+                // Filter times on page load if date is already set
+                if (dateInput.value) {
+                    filterTimeOptions();
+                }
 
                 // Debounce availability check to reduce API calls
                 let availabilityCheckTimeout;
@@ -347,9 +431,95 @@
                     availabilityCheckTimeout = setTimeout(() => {
                         if (this.value) {
                             checkAvailableTimes(this.value, 'xix');
+                            checkTableAvailability();
+                        } else {
+                            // If date is cleared, filter times based on today
+                            filterTimeOptions();
                         }
                     }, 500);
                 });
+            }
+
+            // Check table availability when guests, date, or time changes
+            const guestsSelect = document.getElementById('guests');
+            // timeSelect and dateInput already declared above in the form submission handler
+
+            let tableAvailabilityTimeout;
+            function checkTableAvailability() {
+                const guests = guestsSelect?.value;
+                const date = dateInput?.value;
+                const time = timeSelect?.value;
+
+                if (!guests || !date || !time) {
+                    const infoDiv = document.getElementById('tableAvailabilityInfo');
+                    if (infoDiv) {
+                        infoDiv.style.display = 'none';
+                    }
+                    return;
+                }
+
+                clearTimeout(tableAvailabilityTimeout);
+                tableAvailabilityTimeout = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/api/table-availability?date=${date}&time=${time}&guests=${guests}&venue=XIX`);
+                        if (!response.ok) {
+                            throw new Error('Failed to check table availability');
+                        }
+
+                        const data = await response.json();
+                        displayTableAvailability(data);
+                    } catch (error) {
+                        console.error('Error checking table availability:', error);
+                    }
+                }, 300);
+            }
+
+            function displayTableAvailability(data) {
+                const infoDiv = document.getElementById('tableAvailabilityInfo');
+                if (!infoDiv) return;
+
+                if (data.availabilityStatus === 'full') {
+                    infoDiv.style.display = 'block';
+                    infoDiv.style.backgroundColor = '#ffebee';
+                    infoDiv.style.border = '1px solid #ffcdd2';
+                    infoDiv.style.color = '#c62828';
+                    infoDiv.innerHTML = `
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        <strong>All tables are booked</strong><br>
+                        ${data.message}
+                    `;
+                } else if (data.availabilityStatus === 'limited') {
+                    infoDiv.style.display = 'block';
+                    infoDiv.style.backgroundColor = '#fff3cd';
+                    infoDiv.style.border = '1px solid #ffc107';
+                    infoDiv.style.color = '#856404';
+                    infoDiv.innerHTML = `
+                        <i class="fas fa-exclamation-circle"></i> 
+                        <strong>Limited availability</strong><br>
+                        ${data.message}
+                    `;
+                } else {
+                    infoDiv.style.display = 'block';
+                    infoDiv.style.backgroundColor = '#e8f5e9';
+                    infoDiv.style.border = '1px solid #81c784';
+                    infoDiv.style.color = '#2e7d32';
+                    infoDiv.innerHTML = `
+                        <i class="fas fa-check-circle"></i> 
+                        <strong>Tables available</strong><br>
+                        ${data.message}
+                    `;
+                }
+            }
+
+            // Add event listeners for table availability checking
+            if (guestsSelect) {
+                guestsSelect.addEventListener('change', checkTableAvailability);
+            }
+            if (timeSelect) {
+                timeSelect.addEventListener('change', checkTableAvailability);
+            }
+            if (dateInput) {
+                dateInput.addEventListener('change', checkTableAvailability);
             }
 
             const form = document.getElementById('reservationForm');
@@ -583,19 +753,21 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
         async function checkAvailableTimes(date, venue) {
             if (!date) return;
 
-            // Check cache first
+            // Clear cache to ensure fresh data (temporary fix for cache issues)
+            // TODO: Remove this after confirming the fix works
             const cacheKey = `${date}-${venue}`;
-            const cached = availabilityCache[cacheKey];
-            if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-                console.log('Using cached availability data');
-                updateTimeOptions(cached.data);
-                return;
-            }
+            delete availabilityCache[cacheKey];
 
             console.log('Checking available times for:', date, venue);
 
             try {
-                const response = await fetch(`/api/available-times?date=${date}&venue=${venue}`);
+                // Add timestamp to prevent browser caching
+                const response = await fetch(`/api/available-times?date=${date}&venue=${venue}&_=${Date.now()}`, {
+                    cache: 'no-cache',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
 
                 if (!response.ok) {
                     console.error('Availability check failed:', response.status);
@@ -611,6 +783,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 };
 
                 console.log('Available times response:', data);
+                console.log('Total times received:', data.availableTimes?.length);
 
                 updateTimeOptions(data);
             } catch (error) {
@@ -625,6 +798,20 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 console.error('Time select element not found');
                 return;
             }
+
+            // Get selected date
+            const dateInput = document.getElementById('date');
+            const selectedDate = dateInput?.value;
+            // Get today's date in local timezone (YYYY-MM-DD format)
+            // Use toLocaleDateString('en-CA') which returns YYYY-MM-DD in local timezone
+            const today = new Date().toLocaleDateString('en-CA');
+            const isToday = selectedDate === today;
+
+            // Get current time
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
             // Clear existing options
             timeSelect.innerHTML = '';
@@ -648,20 +835,52 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 defaultOption.textContent = 'Select Time';
                 timeSelect.appendChild(defaultOption);
 
-                data.availableTimes.forEach(time => {
-                    const option = document.createElement('option');
-                    option.value = time;
-                    // Format time nicely (e.g., "17:00" -> "5:00 PM")
+                // Filter out past times if today is selected
+                const filteredTimes = data.availableTimes.filter(time => {
+                    if (!isToday) {
+                        // For future dates, show all available times
+                        return true;
+                    }
+                    // For today, filter out past times
                     const [h, m] = time.split(':');
-                    const hour = parseInt(h, 10);
-                    const ampm = hour >= 12 ? 'PM' : 'AM';
-                    const displayHour = hour % 12 || 12;
-                    option.textContent = `${displayHour}:${m} ${ampm}`;
-                    timeSelect.appendChild(option);
+                    let timeHour = parseInt(h, 10);
+                    const timeMinute = parseInt(m, 10);
+
+                    // Handle midnight times (00:00, 00:30, 01:00) - these are next day
+                    // So if it's today and time is 00:00-01:00, it's actually tomorrow, so show it
+                    if (timeHour === 0 || timeHour === 1) {
+                        // These times are for the next day, so always show them
+                        return true;
+                    }
+
+                    const timeInMinutes = timeHour * 60 + timeMinute;
+                    // Only show times that are at least 30 minutes in the future
+                    return timeInMinutes >= (currentTimeInMinutes + 30);
                 });
 
-                // Hide no availability message if it exists
-                hideNoAvailabilityMessage();
+                if (filteredTimes.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No available times for today';
+                    option.disabled = true;
+                    timeSelect.appendChild(option);
+                    showNoAvailabilityMessage();
+                } else {
+                    filteredTimes.forEach(time => {
+                        const option = document.createElement('option');
+                        option.value = time;
+                        // Format time nicely (e.g., "17:00" -> "5:00 PM")
+                        const [h, m] = time.split(':');
+                        const hour = parseInt(h, 10);
+                        const ampm = hour >= 12 ? 'PM' : 'AM';
+                        const displayHour = hour % 12 || 12;
+                        option.textContent = `${displayHour}:${m} ${ampm}`;
+                        timeSelect.appendChild(option);
+                    });
+
+                    // Hide no availability message if it exists
+                    hideNoAvailabilityMessage();
+                }
             }
         }
 

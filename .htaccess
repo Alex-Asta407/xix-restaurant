@@ -3,6 +3,11 @@
 # Enable URL rewriting
 RewriteEngine On
 
+# Exclude API routes and payment-success from HTML rewriting
+# These routes are handled by Node.js, not static files
+RewriteCond %{REQUEST_URI} ^/(api|payment-success) [NC]
+RewriteRule ^ - [L]
+
 # Remove .html extension from URLs
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f

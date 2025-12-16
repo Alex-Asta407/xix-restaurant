@@ -31,7 +31,8 @@
         }
 
         .db-container {
-            max-width: 1400px;
+            max-width: 95%;
+            width: 100%;
             margin: 0 auto;
             padding: 2rem;
         }
@@ -95,7 +96,8 @@
         .db-table {
             background: var(--white);
             border-radius: 10px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: visible;
             box-shadow: 0 2px 10px rgba(2, 7, 2, 0.1);
             margin-bottom: 2rem;
         }
@@ -103,14 +105,31 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            table-layout: auto;
         }
 
         th,
         td {
-            padding: 0.8rem;
+            padding: 0.9rem 1rem;
             text-align: left;
             border-bottom: 1px solid var(--light-gray);
+        }
+        
+        /* Keep most columns compact with no wrap */
+        th:not(:nth-child(12)):not(:nth-child(13)),
+        td:not(:nth-child(12)):not(:nth-child(13)) {
+            white-space: nowrap;
+        }
+        
+        /* Allow Special Requests and Occasion columns to wrap */
+        th:nth-child(12),
+        td:nth-child(12),
+        th:nth-child(13),
+        td:nth-child(13) {
+            white-space: normal;
+            max-width: 250px;
+            word-wrap: break-word;
         }
 
         th {
@@ -149,6 +168,49 @@
 
         .export-btn:hover {
             background: #8B6914;
+        }
+
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-confirmed {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .status-pending {
+            background-color: #ffc107;
+            color: #856404;
+        }
+
+        .status-cancelled {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+
+        .delete-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -198,17 +260,20 @@
                         <th>Phone</th>
                         <th>Date</th>
                         <th>Time</th>
+                        <th>End Time</th>
                         <th>Guests</th>
                         <th>Venue</th>
                         <th>Table</th>
+                        <th>Status</th>
                         <th>Occasion</th>
                         <th>Special Requests</th>
                         <th>Created</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="dbTableBody">
                     <tr>
-                        <td colspan="12" style="text-align: center; padding: 2rem;">
+                        <td colspan="15" style="text-align: center; padding: 2rem;">
                             <i class="fas fa-spinner fa-spin"></i> Loading database...
                         </td>
                     </tr>
@@ -332,17 +397,20 @@
                     <th>Phone</th>
                     <th>Date</th>
                     <th>Time</th>
+                    <th>End Time</th>
                     <th>Guests</th>
                     <th>Venue</th>
                     <th>Table</th>
+                    <th>Status</th>
                     <th>Occasion</th>
                     <th>Special Requests</th>
                     <th>Created</th>
+                    <th>Actions</th>
                 </tr>
             `;
 
             if (reservations.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 2rem;">No reservations found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 2rem;">No reservations found</td></tr>';
                 return;
             }
 
@@ -353,6 +421,22 @@
                     ? new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])).toLocaleDateString()
                     : 'N/A';
                 const time = formatTime(reservation.time);
+                const endTime = formatEndTime(reservation.end_time);
+                
+                // Format confirmation status
+                const status = reservation.confirmation_status || 'pending';
+                let statusClass = 'status-pending';
+                let statusText = 'Pending';
+                if (status === 'confirmed') {
+                    statusClass = 'status-confirmed';
+                    statusText = 'Confirmed';
+                } else if (status === 'cancelled') {
+                    statusClass = 'status-cancelled';
+                    statusText = 'Cancelled';
+                }
+                
+                // Use table_name (from JOIN) if available, otherwise assigned_table (ID), otherwise table_preference
+                const tableDisplay = reservation.table_name || reservation.assigned_table_display || reservation.assigned_table || reservation.table_preference || '-';
 
                 return `
                     <tr>
@@ -362,12 +446,19 @@
                         <td>${reservation.phone || '-'}</td>
                         <td>${reservationDate}</td>
                         <td>${time}</td>
+                        <td>${endTime}</td>
                         <td>${reservation.guests || '-'}</td>
                         <td>${reservation.venue || '-'}</td>
-                        <td>${reservation.table_preference || '-'}</td>
+                        <td>${tableDisplay}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                         <td>${reservation.occasion || '-'}</td>
                         <td>${(reservation.special_requests || '').substring(0, 50)}${reservation.special_requests && reservation.special_requests.length > 50 ? '...' : ''}</td>
                         <td>${createdDate}</td>
+                        <td>
+                            <button class="delete-btn" onclick="deleteReservation(${reservation.id}, '${reservation.name || 'this reservation'}')" title="Delete reservation">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -434,11 +525,31 @@
         }
 
         function formatTime(time24) {
+            if (!time24) return '-';
             const [hours, minutes] = time24.split(':');
             const hour = parseInt(hours);
             const ampm = hour >= 12 ? 'PM' : 'AM';
             const displayHour = hour % 12 || 12;
             return `${displayHour}:${minutes} ${ampm}`;
+        }
+
+        function formatEndTime(endTime) {
+            if (!endTime) return '-';
+            // Handle midnight crossover: "25:00" = 1:00 AM next day, "26:00" = 2:00 AM next day, etc.
+            const [hours, minutes] = endTime.split(':');
+            let hour = parseInt(hours);
+            let isNextDay = false;
+            
+            if (hour >= 25) {
+                hour = hour - 24;
+                isNextDay = true;
+            }
+            
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour % 12 || 12;
+            const formatted = `${displayHour}:${minutes} ${ampm}`;
+            
+            return isNextDay ? `${formatted} (next day)` : formatted;
         }
 
         function exportToCSV() {
@@ -452,7 +563,7 @@
                 const filename = currentTable === 'reservations' ? 'reservations.csv' : 'payments.csv';
 
                 if (currentTable === 'reservations') {
-                    headers = ['ID', 'Name', 'Email', 'Phone', 'Date', 'Time', 'Guests', 'Venue', 'Table', 'Occasion', 'Special Requests', 'Created'];
+                    headers = ['ID', 'Name', 'Email', 'Phone', 'Date', 'Time', 'End Time', 'Guests', 'Venue', 'Table', 'Status', 'Occasion', 'Special Requests', 'Created'];
                     csvContent = [
                         headers.join(','),
                         ...allData.map(r => [
@@ -462,9 +573,11 @@
                             `"${r.phone || ''}"`,
                             r.date || '',
                             r.time || '',
+                            r.end_time || '',
                             r.guests || '',
                             r.venue || '',
-                            `"${r.table_preference || ''}"`,
+                            `"${r.table_name || r.assigned_table_display || r.assigned_table || r.table_preference || ''}"`,
+                            r.confirmation_status || 'pending',
                             `"${r.occasion || ''}"`,
                             `"${(r.special_requests || '').replace(/"/g, '""')}"`,
                             `"${r.created_at || ''}"`
@@ -524,6 +637,38 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+        async function deleteReservation(id, name) {
+            if (!confirm(`Are you sure you want to delete reservation #${id} for ${name}? This action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/reservations/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Reservation deleted:', result);
+                
+                // Show success message
+                alert(`Reservation #${id} deleted successfully.`);
+                
+                // Reload the current table to refresh the view
+                loadCurrentTable();
+            } catch (error) {
+                console.error('Error deleting reservation:', error);
+                alert('Error deleting reservation: ' + error.message);
+            }
         }
 
         async function clearDatabase() {

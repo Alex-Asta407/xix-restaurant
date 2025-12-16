@@ -123,3 +123,4 @@ STRIPE_SETUP_GUIDE.md
 SECURITY.md
 security-test-plan.md 
 test-email.js
+google-calendar-credentials.json
