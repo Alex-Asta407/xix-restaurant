@@ -5,14 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catering Menu - XIX</title>
-    <link rel="icon" type="image/x-icon" href="photos/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="photos/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="photos/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="photos/apple-icon-180x180.png">
-    <link rel="stylesheet" href="base.css">
-    <link rel="stylesheet" href="navigation.css">
-    <link rel="stylesheet" href="catering.css">
-    <link rel="stylesheet" href="footer.css">
+    <link rel="icon" type="image/x-icon" href="/photos/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/photos/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/photos/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/photos/apple-icon-180x180.png">
+    <link rel="stylesheet" href="/base.css">
+    <link rel="stylesheet" href="/navigation.css">
+    <link rel="stylesheet" href="/catering.css">
+    <link rel="stylesheet" href="/footer.css">
     <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -243,10 +243,10 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="/script.js"></script>
     <script>
         // Catering Slider Functionality
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const slides = document.querySelectorAll('.catering-slide');
             const prevBtn = document.querySelector('.catering-slider-prev');
             const nextBtn = document.querySelector('.catering-slider-next');
@@ -285,7 +285,7 @@
             let touchEndX = 0;
 
             const sliderContainer = document.querySelector('.catering-slider-container');
-            
+
             sliderContainer.addEventListener('touchstart', (e) => {
                 touchStartX = e.changedTouches[0].screenX;
             }, { passive: true });
@@ -312,4 +312,3 @@
 </body>
 
 </html>
-
