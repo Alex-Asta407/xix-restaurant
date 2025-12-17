@@ -957,29 +957,6 @@ app.get('/health', (req, res) => {
 
 // Debug endpoint to check environment variables and base URL (for troubleshooting)
 app.get('/api/debug/env', (req, res) => {
-  const path = require('path');
-  const fs = require('fs');
-  const envPath = path.resolve(__dirname, '.env');
-  const envExists = fs.existsSync(envPath);
-
-  res.json({
-    baseUrl: getBaseUrl(),
-    baseUrlFromEnv: process.env.BASE_URL || 'NOT SET',
-    nodeEnv: process.env.NODE_ENV || 'NOT SET',
-    envFileExists: envExists,
-    envFilePath: envPath,
-    currentDir: __dirname,
-    workingDir: process.cwd(),
-    relevantEnvVars: {
-      BASE_URL: process.env.BASE_URL || 'NOT SET',
-      NODE_ENV: process.env.NODE_ENV || 'NOT SET',
-      PORT: process.env.PORT || 'NOT SET'
-    }
-  });
-});
-
-// Debug endpoint to check environment variables and base URL
-app.get('/api/debug/env', (req, res) => {
   const envPath = path.resolve(__dirname, '.env');
   const envExists = fs.existsSync(envPath);
 
