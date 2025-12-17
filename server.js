@@ -1610,45 +1610,66 @@ app.post('/api/send-reservation-email', async (req, res) => {
             return res.status(500).json({ error: 'Failed to save reservation' });
           }
 
-          console.log(`Reservation saved with ID: ${this.lastID}, Table: ${assignedTable || 'Not assigned'}`);
+          console.log(`✅ Reservation saved with ID: ${this.lastID}, Table: ${assignedTable || 'Not assigned'}`);
           reservationId = this.lastID; // Store for updating email status
 
           // Create Google Calendar event for this reservation
+          console.log(`📅 Checking Google Calendar setup: calendar=${!!calendar}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
+
           if (calendar && process.env.GOOGLE_CALENDAR_ID) {
             console.log(`📅 Attempting to create Google Calendar event for reservation ${reservationId}`);
             // Get full reservation data for calendar event
             db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, fullReservation) => {
               if (err) {
                 console.error(`❌ Error fetching reservation ${reservationId} for calendar event:`, err);
+                logger.error('Error fetching reservation for calendar event', { reservationId, error: err.message });
                 return;
               }
 
               if (!fullReservation) {
                 console.error(`❌ Reservation ${reservationId} not found for calendar event creation`);
+                logger.error('Reservation not found for calendar event', { reservationId });
                 return;
               }
+
+              console.log(`📅 Found reservation ${reservationId}: ${fullReservation.name} on ${fullReservation.date} at ${fullReservation.time}`);
 
               try {
                 const calendarEventId = await createGoogleCalendarEvent(fullReservation);
                 if (calendarEventId) {
+                  console.log(`✅ Calendar event created with ID: ${calendarEventId}, updating reservation ${reservationId}...`);
                   // Update reservation with calendar event ID
                   db.run('UPDATE reservations SET google_calendar_event_id = ? WHERE id = ?', [calendarEventId, reservationId], (updateErr) => {
                     if (updateErr) {
                       console.error(`❌ Error updating reservation ${reservationId} with calendar event ID:`, updateErr);
+                      logger.error('Error updating reservation with calendar event ID', { reservationId, calendarEventId, error: updateErr.message });
                     } else {
                       console.log(`✅ Successfully linked reservation ${reservationId} to Google Calendar event ${calendarEventId}`);
+                      logger.info('Reservation linked to Google Calendar', { reservationId, calendarEventId });
                     }
                   });
                 } else {
                   console.warn(`⚠️ Failed to create Google Calendar event for reservation ${reservationId} - createGoogleCalendarEvent returned null`);
+                  logger.warn('Google Calendar event creation returned null', { reservationId });
                 }
               } catch (calendarErr) {
                 console.error(`❌ Exception creating Google Calendar event for reservation ${reservationId}:`, calendarErr);
+                console.error('Error details:', calendarErr.message);
+                if (calendarErr.stack) {
+                  console.error('Stack trace:', calendarErr.stack);
+                }
+                logger.error('Exception creating Google Calendar event', {
+                  reservationId,
+                  error: calendarErr.message,
+                  stack: calendarErr.stack
+                });
               }
             });
           } else {
             if (!calendar) {
               console.warn(`⚠️ Google Calendar not initialized - check GOOGLE_CALENDAR_CREDENTIALS_PATH and GOOGLE_CALENDAR_ID`);
+              console.warn(`   GOOGLE_CALENDAR_CREDENTIALS_PATH: ${process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH || 'NOT SET'}`);
+              console.warn(`   GOOGLE_CALENDAR_ID: ${process.env.GOOGLE_CALENDAR_ID || 'NOT SET'}`);
             } else if (!process.env.GOOGLE_CALENDAR_ID) {
               console.warn(`⚠️ GOOGLE_CALENDAR_ID not set - calendar events will not be created`);
             }
