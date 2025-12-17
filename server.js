@@ -952,7 +952,7 @@ db.serialize(() => {
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', database: 'connected' });
+  res.json({ status: 'ok', database: 'connected', 'version': 'debug-env-route-959' });
 });
 
 // Debug endpoint to check environment variables and base URL (for troubleshooting)
