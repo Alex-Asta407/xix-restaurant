@@ -31,19 +31,35 @@ if (process.env.STRIPE_SECRET_KEY) {
 let calendar;
 if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_ID) {
   try {
-    const { google } = require('googleapis');
-    const auth = new google.auth.GoogleAuth({
-      keyFile: process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH,
-      scopes: ['https://www.googleapis.com/auth/calendar']
-    });
-    calendar = google.calendar({ version: 'v3', auth });
-    console.log('✅ Google Calendar API initialized');
+    const fs = require('fs');
+    const credentialsPath = process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH;
+
+    // Check if credentials file exists
+    if (!fs.existsSync(credentialsPath)) {
+      console.error(`❌ Google Calendar credentials file not found: ${credentialsPath}`);
+      calendar = null;
+    } else {
+      const { google } = require('googleapis');
+      const auth = new google.auth.GoogleAuth({
+        keyFile: credentialsPath,
+        scopes: ['https://www.googleapis.com/auth/calendar']
+      });
+      calendar = google.calendar({ version: 'v3', auth });
+      console.log(`✅ Google Calendar API initialized with calendar ID: ${process.env.GOOGLE_CALENDAR_ID}`);
+      console.log(`   Credentials file: ${credentialsPath}`);
+    }
   } catch (err) {
+    console.error('❌ Error initializing Google Calendar API:', err.message);
+    if (err.stack) {
+      console.error('Stack trace:', err.stack);
+    }
     console.warn('⚠️  Google Calendar API not configured. Calendar sync will be disabled.');
     calendar = null;
   }
 } else {
   console.warn('⚠️  GOOGLE_CALENDAR_CREDENTIALS_PATH or GOOGLE_CALENDAR_ID not set. Calendar sync disabled.');
+  console.warn(`   GOOGLE_CALENDAR_CREDENTIALS_PATH: ${process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH || 'NOT SET'}`);
+  console.warn(`   GOOGLE_CALENDAR_ID: ${process.env.GOOGLE_CALENDAR_ID || 'NOT SET'}`);
   calendar = null;
 }
 
@@ -1589,22 +1605,43 @@ app.post('/api/send-reservation-email', async (req, res) => {
 
           // Create Google Calendar event for this reservation
           if (calendar && process.env.GOOGLE_CALENDAR_ID) {
+            console.log(`📅 Attempting to create Google Calendar event for reservation ${reservationId}`);
             // Get full reservation data for calendar event
             db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, fullReservation) => {
-              if (!err && fullReservation) {
+              if (err) {
+                console.error(`❌ Error fetching reservation ${reservationId} for calendar event:`, err);
+                return;
+              }
+
+              if (!fullReservation) {
+                console.error(`❌ Reservation ${reservationId} not found for calendar event creation`);
+                return;
+              }
+
+              try {
                 const calendarEventId = await createGoogleCalendarEvent(fullReservation);
                 if (calendarEventId) {
                   // Update reservation with calendar event ID
                   db.run('UPDATE reservations SET google_calendar_event_id = ? WHERE id = ?', [calendarEventId, reservationId], (updateErr) => {
                     if (updateErr) {
-                      console.error('Error updating reservation with calendar event ID:', updateErr);
+                      console.error(`❌ Error updating reservation ${reservationId} with calendar event ID:`, updateErr);
                     } else {
-                      console.log(`✅ Linked reservation ${reservationId} to Google Calendar event ${calendarEventId}`);
+                      console.log(`✅ Successfully linked reservation ${reservationId} to Google Calendar event ${calendarEventId}`);
                     }
                   });
+                } else {
+                  console.warn(`⚠️ Failed to create Google Calendar event for reservation ${reservationId} - createGoogleCalendarEvent returned null`);
                 }
+              } catch (calendarErr) {
+                console.error(`❌ Exception creating Google Calendar event for reservation ${reservationId}:`, calendarErr);
               }
             });
+          } else {
+            if (!calendar) {
+              console.warn(`⚠️ Google Calendar not initialized - check GOOGLE_CALENDAR_CREDENTIALS_PATH and GOOGLE_CALENDAR_ID`);
+            } else if (!process.env.GOOGLE_CALENDAR_ID) {
+              console.warn(`⚠️ GOOGLE_CALENDAR_ID not set - calendar events will not be created`);
+            }
           }
 
           // Send response immediately (don't wait for email)
@@ -3488,11 +3525,13 @@ function sendConfirmationReminder(reservation) {
 // Helper function to create a Google Calendar event for a reservation
 async function createGoogleCalendarEvent(reservation) {
   if (!calendar || !process.env.GOOGLE_CALENDAR_ID) {
+    console.warn(`⚠️ Cannot create calendar event: calendar=${!!calendar}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
     return null; // Calendar not configured
   }
 
   try {
     const calendarId = process.env.GOOGLE_CALENDAR_ID;
+    console.log(`📅 Creating Google Calendar event for reservation ${reservation.id} in calendar ${calendarId}`);
 
     // Parse date and time
     const [year, month, day] = reservation.date.split('-');
@@ -3587,6 +3626,12 @@ async function createGoogleCalendarEvent(reservation) {
 
   } catch (err) {
     console.error(`❌ Error creating Google Calendar event for reservation ${reservation.id}:`, err.message);
+    if (err.stack) {
+      console.error('Stack trace:', err.stack);
+    }
+    if (err.response) {
+      console.error('API Response:', JSON.stringify(err.response.data, null, 2));
+    }
     return null;
   }
 }
