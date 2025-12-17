@@ -5380,4 +5380,7 @@ app.listen(port, () => {
   console.log(`Health check: http://localhost:${port}/health`);
   console.log(`View reservations: http://localhost:${port}/api/reservations`);
   console.log(`Admin dashboard: http://localhost:${port}/admin?key=xix-admin-2024`);
+  console.log(`\n📧 Email confirmation links will use: ${getBaseUrl()}`);
+  console.log(`   BASE_URL env var: ${process.env.BASE_URL || 'NOT SET (using default)'}`);
+  console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'NOT SET'}`);
 });
