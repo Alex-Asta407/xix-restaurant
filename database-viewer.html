@@ -232,8 +232,7 @@
             <button class="db-btn secondary" id="btnRefresh">
                 <i class="fas fa-sync-alt"></i> Refresh
             </button>
-            <button class="db-btn secondary" id="btnClearAll" style="background: #dc3545; color: white;"
-                onclick="clearDatabase()">
+            <button class="db-btn secondary" id="btnClearAll" style="background: #dc3545; color: white;">
                 <i class="fas fa-trash-alt"></i> Clear All Reservations
             </button>
         </div>
@@ -459,7 +458,7 @@
                         <td>${(reservation.special_requests || '').substring(0, 50)}${reservation.special_requests && reservation.special_requests.length > 50 ? '...' : ''}</td>
                         <td>${createdDate}</td>
                         <td>
-                            <button class="delete-btn" onclick="deleteReservation(${reservation.id}, '${reservation.name || 'this reservation'}')" title="Delete reservation">
+                            <button class="delete-btn" data-reservation-id="${reservation.id}" data-reservation-name="${(reservation.name || 'this reservation').replace(/'/g, "\\'").replace(/"/g, '&quot;')}" title="Delete reservation">
                                 <i class="fas fa-trash"></i> Delete
                             </button>
                         </td>
@@ -733,8 +732,32 @@
             const btnReservations = document.getElementById('btnReservations');
             const btnPayments = document.getElementById('btnPayments');
             const btnRefresh = document.getElementById('btnRefresh');
+            const btnClearAll = document.getElementById('btnClearAll');
             const btnExportCSV = document.getElementById('btnExportCSV');
             const btnExportJSON = document.getElementById('btnExportJSON');
+
+            // Add event listener for Clear All button
+            if (btnClearAll) {
+                btnClearAll.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearDatabase();
+                });
+            }
+
+            // Use event delegation for delete buttons (since they're dynamically created)
+            document.addEventListener('click', function (e) {
+                if (e.target.closest('.delete-btn')) {
+                    const btn = e.target.closest('.delete-btn');
+                    const id = btn.getAttribute('data-reservation-id');
+                    const name = btn.getAttribute('data-reservation-name') || 'this reservation';
+                    if (id) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteReservation(parseInt(id), name);
+                    }
+                }
+            });
 
             if (btnReservations) {
                 btnReservations.addEventListener('click', function () {
