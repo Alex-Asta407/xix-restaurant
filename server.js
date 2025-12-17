@@ -12,7 +12,46 @@ const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
 
 // Load environment variables FIRST before using them
-dotenv.config();
+// Try multiple paths to ensure .env is found
+const path = require('path');
+const fs = require('fs');
+
+const envPath = path.resolve(__dirname, '.env');
+console.log('🔍 Looking for .env file at:', envPath);
+
+// Check if .env file exists
+if (fs.existsSync(envPath)) {
+  console.log('✅ .env file found at:', envPath);
+  const envResult = dotenv.config({ path: envPath });
+
+  if (envResult.error) {
+    console.error('❌ Error loading .env file:', envResult.error);
+  } else {
+    console.log('✅ Successfully loaded .env file');
+    // Log first few lines to verify it's being read (without sensitive data)
+    try {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      const lines = envContent.split('\n').filter(line => line.trim() && !line.includes('PASS') && !line.includes('KEY'));
+      console.log('   Sample .env content (non-sensitive):', lines.slice(0, 5).join(', '));
+    } catch (e) {
+      console.warn('   Could not read .env file content for verification');
+    }
+  }
+} else {
+  console.warn('⚠️ .env file NOT FOUND at:', envPath);
+  console.warn('   Trying default location...');
+  const defaultResult = dotenv.config(); // Try default location
+  if (defaultResult.error) {
+    console.error('❌ Could not load .env from default location either');
+  }
+}
+
+// Debug: Log BASE_URL immediately after loading
+console.log('\n🔍 Environment check after dotenv.config():');
+console.log('   BASE_URL:', process.env.BASE_URL || 'NOT SET');
+console.log('   NODE_ENV:', process.env.NODE_ENV || 'NOT SET');
+console.log('   Current working directory:', __dirname);
+console.log('   __dirname:', __dirname);
 
 // Additional Security Imports
 const winston = require('winston');
@@ -499,27 +538,33 @@ const validateMobileUserAgent = (userAgent) => {
 
 // Helper function to get base URL for confirmation links
 function getBaseUrl() {
+  // Debug: Log what we're checking
+  const baseUrlEnv = process.env.BASE_URL;
+  const nodeEnv = process.env.NODE_ENV;
+
+  console.log(`🔍 getBaseUrl() called - BASE_URL: ${baseUrlEnv || 'NOT SET'}, NODE_ENV: ${nodeEnv || 'NOT SET'}`);
+
   // Use BASE_URL from environment if set (highest priority)
-  if (process.env.BASE_URL) {
-    const baseUrl = process.env.BASE_URL;
+  if (baseUrlEnv) {
     // Warn if BASE_URL is set to localhost in what appears to be production
-    if (baseUrl.includes('localhost') && process.env.NODE_ENV !== 'development') {
-      console.warn(`⚠️ WARNING: BASE_URL is set to ${baseUrl} but NODE_ENV is not 'development'. This may cause issues in production!`);
+    if (baseUrlEnv.includes('localhost') && nodeEnv !== 'development') {
+      console.warn(`⚠️ WARNING: BASE_URL is set to ${baseUrlEnv} but NODE_ENV is not 'development'. This may cause issues in production!`);
     }
-    return baseUrl;
+    console.log(`✅ Using BASE_URL from environment: ${baseUrlEnv}`);
+    return baseUrlEnv;
   }
 
   // Default to production URL unless explicitly in development
   // This ensures cPanel/production servers use production URL even if NODE_ENV is not set
   // Only use localhost if NODE_ENV is explicitly set to 'development' or 'dev'
-  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev') {
+  if (nodeEnv === 'development' || nodeEnv === 'dev') {
     console.log('🔧 Using development base URL: http://localhost:3001');
     return 'http://localhost:3001';
   }
 
   // Default to production URL (for cPanel and other production environments)
   const productionUrl = 'https://xixlondon.co.uk';
-  console.log(`🌐 Using production base URL: ${productionUrl} (NODE_ENV: ${process.env.NODE_ENV || 'not set'})`);
+  console.log(`🌐 Using production base URL: ${productionUrl} (NODE_ENV: ${nodeEnv || 'not set'})`);
   return productionUrl;
 }
 
