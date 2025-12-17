@@ -481,6 +481,22 @@ const validateMobileUserAgent = (userAgent) => {
   return legitimateMobilePatterns.some(pattern => pattern.test(userAgent));
 };
 
+// Helper function to get base URL for confirmation links
+function getBaseUrl() {
+  // Use BASE_URL from environment if set
+  if (process.env.BASE_URL) {
+    return process.env.BASE_URL;
+  }
+
+  // In production, default to the production domain
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://xixlondon.co.uk';
+  }
+
+  // In development, use localhost
+  return 'http://localhost:3001';
+}
+
 // Initialize SQLite database
 const db = new sqlite3.Database('./reservations.db', (err) => {
   if (err) {
@@ -2018,7 +2034,7 @@ Reservation made through ${venueName} website.`;
           return;
         }
 
-        const confirmationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/confirm-reservation/${token}`;
+        const confirmationUrl = `${getBaseUrl()}/api/confirm-reservation/${token}`;
 
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
@@ -2056,7 +2072,7 @@ Reservation made through ${venueName} website.`;
         const time12 = `${(hh % 12) || 12}:${m} ${hh >= 12 ? 'PM' : 'AM'}`;
 
         // Confirmation button email (only button, minimal info)
-        const cancellationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/cancel-reservation/${token}`;
+        const cancellationUrl = `${getBaseUrl()}/api/cancel-reservation/${token}`;
         const customerSubject = `Please Confirm Your Reservation - ${venueName}`;
         const customerHtml = `
       <div style="font-family:Arial,Helvetica,sans-serif;color:#020702; text-align: center; padding: 40px 20px;">
@@ -2215,8 +2231,8 @@ Reservation made through ${venueName} website.`;
 
     const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatDateForGoogle(eventDate)}/${formatDateForGoogle(endDate)}&details=${encodeURIComponent(eventDetails)}&location=${encodeURIComponent(location)}`;
 
-    const confirmationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/confirm-reservation/${confirmationToken}`;
-    const cancellationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/cancel-reservation/${confirmationToken}`;
+    const confirmationUrl = `${getBaseUrl()}/api/confirm-reservation/${confirmationToken}`;
+    const cancellationUrl = `${getBaseUrl()}/api/cancel-reservation/${confirmationToken}`;
 
     // Waitlist assignment email - table is now available!
     const customerSubject = `🎉 Table Available! - ${venueName} Reservation Confirmed`;
@@ -3393,7 +3409,7 @@ setInterval(() => {
 
 // Function to send confirmation reminder email and SMS
 function sendConfirmationReminder(reservation) {
-  const confirmationUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/api/confirm-reservation/${reservation.confirmation_token}`;
+  const confirmationUrl = `${getBaseUrl()}/api/confirm-reservation/${reservation.confirmation_token}`;
 
   // Send email reminder
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
