@@ -499,18 +499,28 @@ const validateMobileUserAgent = (userAgent) => {
 
 // Helper function to get base URL for confirmation links
 function getBaseUrl() {
-  // Use BASE_URL from environment if set
+  // Use BASE_URL from environment if set (highest priority)
   if (process.env.BASE_URL) {
-    return process.env.BASE_URL;
+    const baseUrl = process.env.BASE_URL;
+    // Warn if BASE_URL is set to localhost in what appears to be production
+    if (baseUrl.includes('localhost') && process.env.NODE_ENV !== 'development') {
+      console.warn(`⚠️ WARNING: BASE_URL is set to ${baseUrl} but NODE_ENV is not 'development'. This may cause issues in production!`);
+    }
+    return baseUrl;
   }
 
-  // In production, default to the production domain
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://xixlondon.co.uk';
+  // Default to production URL unless explicitly in development
+  // This ensures cPanel/production servers use production URL even if NODE_ENV is not set
+  // Only use localhost if NODE_ENV is explicitly set to 'development' or 'dev'
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev') {
+    console.log('🔧 Using development base URL: http://localhost:3001');
+    return 'http://localhost:3001';
   }
 
-  // In development, use localhost
-  return 'http://localhost:3001';
+  // Default to production URL (for cPanel and other production environments)
+  const productionUrl = 'https://xixlondon.co.uk';
+  console.log(`🌐 Using production base URL: ${productionUrl} (NODE_ENV: ${process.env.NODE_ENV || 'not set'})`);
+  return productionUrl;
 }
 
 // Initialize SQLite database
