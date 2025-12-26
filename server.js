@@ -3096,15 +3096,56 @@ function assignTable(guests, date, time, venue, callback) {
   );
 }
 
-// Generate unique confirmation token
+// Generate unique confirmation token (shorter base64url format)
 function generateConfirmationToken() {
-  return require('crypto').randomBytes(32).toString('hex');
+  // Generate 24 random bytes and convert to base64url (URL-safe base64)
+  const token = require('crypto').randomBytes(24).toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, ''); // Remove padding
+  return token; // Results in ~32 characters instead of 64 hex characters
+}
+
+// Helper function to parse time in various formats (HH:MM, H:MM AM/PM, etc.)
+function parseTime(timeString) {
+  if (!timeString) return { hours: 0, minutes: 0 };
+
+  // Handle 12-hour format (e.g., "1:00 PM", "11:30 AM")
+  const pmMatch = timeString.match(/(\d+):(\d+)\s*(PM|pm)/i);
+  if (pmMatch) {
+    let hours = parseInt(pmMatch[1]);
+    const minutes = parseInt(pmMatch[2]);
+    if (hours !== 12) hours += 12; // Convert PM to 24-hour (except 12 PM)
+    return { hours, minutes };
+  }
+
+  const amMatch = timeString.match(/(\d+):(\d+)\s*(AM|am)/i);
+  if (amMatch) {
+    let hours = parseInt(amMatch[1]);
+    const minutes = parseInt(amMatch[2]);
+    if (hours === 12) hours = 0; // 12 AM = 0:00
+    return { hours, minutes };
+  }
+
+  // Handle 24-hour format (e.g., "13:00", "09:30")
+  const parts = timeString.split(':');
+  if (parts.length >= 2) {
+    return {
+      hours: parseInt(parts[0]) || 0,
+      minutes: parseInt(parts[1]) || 0
+    };
+  }
+
+  // Default fallback
+  return { hours: 0, minutes: 0 };
 }
 
 // Calculate confirmation deadline (3 hours before reservation, but minimum 30 minutes from now)
 function calculateConfirmationDeadline(date, time) {
-  const [hours, minutes] = time.split(':');
-  const reservationDateTime = new Date(`${date}T${time}`);
+  const timeParsed = parseTime(time);
+  // Create reservation datetime - convert to ISO format for Date constructor
+  const reservationDateTime = new Date(date);
+  reservationDateTime.setHours(timeParsed.hours, timeParsed.minutes, 0, 0);
   const now = new Date();
 
   // Calculate 3 hours before reservation
@@ -3630,26 +3671,29 @@ async function createGoogleCalendarEvent(reservation) {
     const calendarId = process.env.GOOGLE_CALENDAR_ID;
     console.log(`📅 Creating Google Calendar event for reservation ${reservation.id} in calendar ${calendarId}`);
 
-    // Parse date and time
+    // Parse date and time (handle both 24-hour and 12-hour formats)
     const [year, month, day] = reservation.date.split('-');
-    const [hours, minutes] = reservation.time.split(':');
-    const startDateTime = new Date(year, month - 1, day, parseInt(hours), parseInt(minutes));
+    const timeParsed = parseTime(reservation.time);
+    const startDateTime = new Date(year, month - 1, day, timeParsed.hours, timeParsed.minutes);
 
     // Calculate end time (default 2 hours, or use end_time if available)
     let endDateTime;
     if (reservation.end_time) {
-      // Parse end_time (handles midnight crossover like "25:00")
-      const [endHours, endMinutes] = reservation.end_time.split(':');
-      let endHour = parseInt(endHours);
+      // Parse end_time (handles midnight crossover like "25:00" and 12-hour format)
+      const endTimeParsed = parseTime(reservation.end_time);
+      let endHour = endTimeParsed.hours;
       let endDay = parseInt(day);
 
-      // Handle midnight crossover (hours >= 25 means next day)
+      // Handle midnight crossover (hours >= 25 means next day, or if parsed hour is less than start hour)
       if (endHour >= 25) {
         endHour = endHour - 24;
         endDay = endDay + 1;
+      } else if (endHour < timeParsed.hours) {
+        // If end time is earlier than start time, it's next day
+        endDay = endDay + 1;
       }
 
-      endDateTime = new Date(year, month - 1, endDay, endHour, parseInt(endMinutes));
+      endDateTime = new Date(year, month - 1, endDay, endHour, endTimeParsed.minutes);
     } else {
       endDateTime = new Date(startDateTime);
       endDateTime.setHours(endDateTime.getHours() + 2); // Default 2 hours
