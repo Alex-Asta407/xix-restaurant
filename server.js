@@ -86,26 +86,62 @@ async function initializeGoogleCalendar() {
 
     // Resolve credentials path (handle both absolute and relative paths)
     let credentialsPath = process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH;
-    if (!path.isAbsolute(credentialsPath)) {
-      credentialsPath = path.resolve(__dirname, credentialsPath);
-    }
+    const originalPath = credentialsPath;
 
     console.log(`📅 Initializing Google Calendar API...`);
-    console.log(`   Credentials path (resolved): ${credentialsPath}`);
-    console.log(`   Calendar ID: ${process.env.GOOGLE_CALENDAR_ID}`);
+    console.log(`   Original path from env: ${originalPath}`);
     console.log(`   Current working directory: ${process.cwd()}`);
     console.log(`   __dirname: ${__dirname}`);
+    console.log(`   HOME: ${process.env.HOME || 'NOT SET'}`);
 
-    // Check if credentials file exists
-    if (!fs.existsSync(credentialsPath)) {
-      console.error(`❌ Google Calendar credentials file not found: ${credentialsPath}`);
-      console.error(`   Attempted paths:`);
-      console.error(`   - Original: ${process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH}`);
-      console.error(`   - Resolved: ${credentialsPath}`);
+    // Try multiple path resolution strategies
+    const pathAttempts = [];
+
+    if (path.isAbsolute(credentialsPath)) {
+      // If absolute path, use it directly
+      pathAttempts.push(credentialsPath);
+    } else {
+      // Try relative to __dirname (where server.js is)
+      pathAttempts.push(path.resolve(__dirname, credentialsPath));
+
+      // Try relative to current working directory
+      pathAttempts.push(path.resolve(process.cwd(), credentialsPath));
+
+      // Try relative to home directory (common in production)
+      if (process.env.HOME) {
+        pathAttempts.push(path.resolve(process.env.HOME, credentialsPath.replace(/^\.\//, '')));
+      }
+
+      // Try relative to parent of __dirname (in case server.js is in a subdirectory)
+      pathAttempts.push(path.resolve(__dirname, '..', credentialsPath.replace(/^\.\//, '')));
+
+      // Try relative to parent of current working directory
+      pathAttempts.push(path.resolve(process.cwd(), '..', credentialsPath.replace(/^\.\//, '')));
+    }
+
+    // Find the first path that exists
+    let foundPath = null;
+    for (const attemptPath of pathAttempts) {
+      console.log(`   Trying path: ${attemptPath}`);
+      if (fs.existsSync(attemptPath)) {
+        foundPath = attemptPath;
+        console.log(`   ✅ Found credentials file at: ${foundPath}`);
+        break;
+      }
+    }
+
+    if (!foundPath) {
+      console.error(`❌ Google Calendar credentials file not found in any of the attempted locations:`);
+      pathAttempts.forEach((attempt, index) => {
+        console.error(`   ${index + 1}. ${attempt}`);
+      });
       calendar = null;
       calendarInitialized = false;
       return false;
     }
+
+    credentialsPath = foundPath;
+    console.log(`   Using credentials path: ${credentialsPath}`);
 
     // Verify file is readable
     try {
