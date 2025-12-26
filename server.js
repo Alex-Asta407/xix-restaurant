@@ -68,24 +68,85 @@ if (process.env.STRIPE_SECRET_KEY) {
 
 // Initialize Google Calendar API (optional)
 let calendar;
-if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_ID) {
+let calendarInitialized = false;
+
+async function initializeGoogleCalendar() {
+  if (!process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH || !process.env.GOOGLE_CALENDAR_ID) {
+    console.warn('⚠️  GOOGLE_CALENDAR_CREDENTIALS_PATH or GOOGLE_CALENDAR_ID not set. Calendar sync disabled.');
+    console.warn(`   GOOGLE_CALENDAR_CREDENTIALS_PATH: ${process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH || 'NOT SET'}`);
+    console.warn(`   GOOGLE_CALENDAR_ID: ${process.env.GOOGLE_CALENDAR_ID || 'NOT SET'}`);
+    calendar = null;
+    calendarInitialized = false;
+    return false;
+  }
+
   try {
     const fs = require('fs');
-    const credentialsPath = process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH;
+    const path = require('path');
+
+    // Resolve credentials path (handle both absolute and relative paths)
+    let credentialsPath = process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH;
+    if (!path.isAbsolute(credentialsPath)) {
+      credentialsPath = path.resolve(__dirname, credentialsPath);
+    }
+
+    console.log(`📅 Initializing Google Calendar API...`);
+    console.log(`   Credentials path (resolved): ${credentialsPath}`);
+    console.log(`   Calendar ID: ${process.env.GOOGLE_CALENDAR_ID}`);
+    console.log(`   Current working directory: ${process.cwd()}`);
+    console.log(`   __dirname: ${__dirname}`);
 
     // Check if credentials file exists
     if (!fs.existsSync(credentialsPath)) {
       console.error(`❌ Google Calendar credentials file not found: ${credentialsPath}`);
+      console.error(`   Attempted paths:`);
+      console.error(`   - Original: ${process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH}`);
+      console.error(`   - Resolved: ${credentialsPath}`);
       calendar = null;
-    } else {
-      const { google } = require('googleapis');
-      const auth = new google.auth.GoogleAuth({
-        keyFile: credentialsPath,
-        scopes: ['https://www.googleapis.com/auth/calendar']
-      });
-      calendar = google.calendar({ version: 'v3', auth });
-      console.log(`✅ Google Calendar API initialized with calendar ID: ${process.env.GOOGLE_CALENDAR_ID}`);
+      calendarInitialized = false;
+      return false;
+    }
+
+    // Verify file is readable
+    try {
+      fs.accessSync(credentialsPath, fs.constants.R_OK);
+      console.log(`✅ Credentials file is readable`);
+    } catch (accessErr) {
+      console.error(`❌ Credentials file exists but is not readable: ${accessErr.message}`);
+      calendar = null;
+      calendarInitialized = false;
+      return false;
+    }
+
+    const { google } = require('googleapis');
+    const auth = new google.auth.GoogleAuth({
+      keyFile: credentialsPath,
+      scopes: ['https://www.googleapis.com/auth/calendar']
+    });
+
+    calendar = google.calendar({ version: 'v3', auth });
+
+    // Test calendar connectivity
+    try {
+      const calendarId = process.env.GOOGLE_CALENDAR_ID;
+      await calendar.calendars.get({ calendarId });
+      console.log(`✅ Google Calendar API initialized successfully`);
+      console.log(`   Calendar ID: ${calendarId}`);
       console.log(`   Credentials file: ${credentialsPath}`);
+      calendarInitialized = true;
+      return true;
+    } catch (testErr) {
+      console.error(`❌ Google Calendar API initialized but cannot access calendar: ${testErr.message}`);
+      if (testErr.response) {
+        console.error(`   API Error: ${JSON.stringify(testErr.response.data, null, 2)}`);
+      }
+      console.error(`   This might indicate:`);
+      console.error(`   - Calendar ID is incorrect`);
+      console.error(`   - Service account doesn't have access to the calendar`);
+      console.error(`   - Calendar doesn't exist`);
+      calendar = null;
+      calendarInitialized = false;
+      return false;
     }
   } catch (err) {
     console.error('❌ Error initializing Google Calendar API:', err.message);
@@ -94,12 +155,27 @@ if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_
     }
     console.warn('⚠️  Google Calendar API not configured. Calendar sync will be disabled.');
     calendar = null;
+    calendarInitialized = false;
+    return false;
   }
+}
+
+// Initialize calendar synchronously (will be verified async)
+if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_ID) {
+  initializeGoogleCalendar().then(initialized => {
+    if (initialized) {
+      console.log(`✅ Calendar initialization completed successfully`);
+    } else {
+      console.error(`❌ Calendar initialization failed - calendar operations will be disabled`);
+    }
+  }).catch(err => {
+    console.error(`❌ Unexpected error during calendar initialization:`, err);
+    calendar = null;
+    calendarInitialized = false;
+  });
 } else {
-  console.warn('⚠️  GOOGLE_CALENDAR_CREDENTIALS_PATH or GOOGLE_CALENDAR_ID not set. Calendar sync disabled.');
-  console.warn(`   GOOGLE_CALENDAR_CREDENTIALS_PATH: ${process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH || 'NOT SET'}`);
-  console.warn(`   GOOGLE_CALENDAR_ID: ${process.env.GOOGLE_CALENDAR_ID || 'NOT SET'}`);
   calendar = null;
+  calendarInitialized = false;
 }
 
 // Initialize Twilio SMS (optional)
@@ -1675,9 +1751,9 @@ app.post('/api/send-reservation-email', async (req, res) => {
           reservationId = this.lastID; // Store for updating email status
 
           // Create Google Calendar event for this reservation
-          console.log(`📅 Checking Google Calendar setup: calendar=${!!calendar}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
+          console.log(`📅 Checking Google Calendar setup: calendar=${!!calendar}, calendarInitialized=${calendarInitialized}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
 
-          if (calendar && process.env.GOOGLE_CALENDAR_ID) {
+          if (calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
             console.log(`📅 Attempting to create Google Calendar event for reservation ${reservationId}`);
             // Get full reservation data for calendar event
             db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, fullReservation) => {
@@ -1727,10 +1803,12 @@ app.post('/api/send-reservation-email', async (req, res) => {
               }
             });
           } else {
-            if (!calendar) {
+            if (!calendar || !calendarInitialized) {
               console.warn(`⚠️ Google Calendar not initialized - check GOOGLE_CALENDAR_CREDENTIALS_PATH and GOOGLE_CALENDAR_ID`);
+              console.warn(`   calendar=${!!calendar}, calendarInitialized=${calendarInitialized}`);
               console.warn(`   GOOGLE_CALENDAR_CREDENTIALS_PATH: ${process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH || 'NOT SET'}`);
               console.warn(`   GOOGLE_CALENDAR_ID: ${process.env.GOOGLE_CALENDAR_ID || 'NOT SET'}`);
+              console.warn(`   Reservation ${reservationId} will be saved but calendar event will not be created`);
             } else if (!process.env.GOOGLE_CALENDAR_ID) {
               console.warn(`⚠️ GOOGLE_CALENDAR_ID not set - calendar events will not be created`);
             }
@@ -3216,7 +3294,7 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
             console.error('Error cancelling reservation:', err);
           } else {
             // Delete Google Calendar event if it exists
-            if (reservation.google_calendar_event_id && calendar && process.env.GOOGLE_CALENDAR_ID) {
+            if (reservation.google_calendar_event_id && calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
               await deleteGoogleCalendarEvent(reservation.google_calendar_event_id);
             }
 
@@ -3258,7 +3336,7 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
         }
 
         // Update Google Calendar event to remove pending status
-        if (reservation.google_calendar_event_id && calendar && process.env.GOOGLE_CALENDAR_ID) {
+        if (reservation.google_calendar_event_id && calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
           // Get updated reservation data
           db.get('SELECT * FROM reservations WHERE id = ?', [reservation.id], async (err, updatedReservation) => {
             if (!err && updatedReservation) {
@@ -3655,8 +3733,28 @@ function sendConfirmationReminder(reservation) {
 
 // Helper function to update a Google Calendar event (e.g., when reservation is confirmed)
 async function updateGoogleCalendarEvent(reservation) {
-  if (!calendar || !process.env.GOOGLE_CALENDAR_ID || !reservation.google_calendar_event_id) {
-    return null; // Calendar not configured or no event ID
+  if (!reservation.google_calendar_event_id) {
+    console.warn(`⚠️ Cannot update calendar event: no event ID for reservation ${reservation.id}`);
+    return null;
+  }
+
+  // Check if calendar is properly initialized
+  if (!calendar || !calendarInitialized || !process.env.GOOGLE_CALENDAR_ID) {
+    const reason = !calendar ? 'calendar object is null' :
+      !calendarInitialized ? 'calendar not initialized' :
+        'GOOGLE_CALENDAR_ID not set';
+    console.warn(`⚠️ Cannot update calendar event for reservation ${reservation.id}: ${reason}`);
+
+    // Try to reinitialize if credentials are set
+    if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_ID && !calendarInitialized) {
+      console.log(`🔄 Attempting to reinitialize Google Calendar...`);
+      const reinitialized = await initializeGoogleCalendar();
+      if (!reinitialized) {
+        return null;
+      }
+    } else {
+      return null;
+    }
   }
 
   try {
@@ -3771,34 +3869,94 @@ async function updateGoogleCalendarEvent(reservation) {
 
 // Helper function to delete a Google Calendar event
 async function deleteGoogleCalendarEvent(calendarEventId) {
-  if (!calendar || !process.env.GOOGLE_CALENDAR_ID || !calendarEventId) {
-    return false; // Calendar not configured or no event ID
+  if (!calendarEventId) {
+    console.warn(`⚠️ Cannot delete calendar event: no event ID provided`);
+    return false;
+  }
+
+  // Check if calendar is properly initialized
+  if (!calendar || !calendarInitialized || !process.env.GOOGLE_CALENDAR_ID) {
+    const reason = !calendar ? 'calendar object is null' :
+      !calendarInitialized ? 'calendar not initialized' :
+        'GOOGLE_CALENDAR_ID not set';
+    console.warn(`⚠️ Cannot delete calendar event ${calendarEventId}: ${reason}`);
+    console.warn(`   calendar=${!!calendar}, calendarInitialized=${calendarInitialized}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
+
+    // Try to reinitialize if credentials are set
+    if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_ID && !calendarInitialized) {
+      console.log(`🔄 Attempting to reinitialize Google Calendar...`);
+      const reinitialized = await initializeGoogleCalendar();
+      if (!reinitialized) {
+        return false;
+      }
+    } else {
+      return false;
+    }
   }
 
   try {
     const calendarId = process.env.GOOGLE_CALENDAR_ID;
+    console.log(`🗑️ Deleting Google Calendar event ${calendarEventId} from calendar ${calendarId}`);
+
     await calendar.events.delete({
       calendarId: calendarId,
       eventId: calendarEventId
     });
-    console.log(`✅ Deleted Google Calendar event ${calendarEventId}`);
+
+    console.log(`✅ Successfully deleted Google Calendar event ${calendarEventId}`);
     return true;
   } catch (err) {
     console.error(`❌ Error deleting Google Calendar event ${calendarEventId}:`, err.message);
+    if (err.response) {
+      console.error(`   API Status: ${err.response.status}`);
+      console.error(`   API Data: ${JSON.stringify(err.response.data, null, 2)}`);
+
+      // If event not found (404), consider it successful (already deleted)
+      if (err.response.status === 404) {
+        console.log(`ℹ️ Event ${calendarEventId} not found in calendar (may have been already deleted)`);
+        return true;
+      }
+    }
+    if (err.code) {
+      console.error(`   Error Code: ${err.code}`);
+    }
+
+    // If authentication error, mark calendar as not initialized
+    if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.response && err.response.status === 401)) {
+      console.error(`⚠️ Authentication or access error detected - marking calendar as uninitialized`);
+      calendarInitialized = false;
+    }
+
     return false;
   }
 }
 
 // Helper function to create a Google Calendar event for a reservation
 async function createGoogleCalendarEvent(reservation) {
-  if (!calendar || !process.env.GOOGLE_CALENDAR_ID) {
-    console.warn(`⚠️ Cannot create calendar event: calendar=${!!calendar}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
-    return null; // Calendar not configured
+  // Check if calendar is properly initialized
+  if (!calendar || !calendarInitialized || !process.env.GOOGLE_CALENDAR_ID) {
+    const reason = !calendar ? 'calendar object is null' :
+      !calendarInitialized ? 'calendar not initialized' :
+        'GOOGLE_CALENDAR_ID not set';
+    console.warn(`⚠️ Cannot create calendar event for reservation ${reservation.id}: ${reason}`);
+    console.warn(`   calendar=${!!calendar}, calendarInitialized=${calendarInitialized}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
+
+    // Try to reinitialize if credentials are set
+    if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_ID && !calendarInitialized) {
+      console.log(`🔄 Attempting to reinitialize Google Calendar...`);
+      const reinitialized = await initializeGoogleCalendar();
+      if (!reinitialized) {
+        return null;
+      }
+    } else {
+      return null;
+    }
   }
 
   try {
     const calendarId = process.env.GOOGLE_CALENDAR_ID;
     console.log(`📅 Creating Google Calendar event for reservation ${reservation.id} in calendar ${calendarId}`);
+    console.log(`   Reservation: ${reservation.name} on ${reservation.date} at ${reservation.time}`);
 
     // Parse date and time (handle both 24-hour and 12-hour formats)
     const [year, month, day] = reservation.date.split('-');
@@ -3896,19 +4054,32 @@ async function createGoogleCalendarEvent(reservation) {
 
   } catch (err) {
     console.error(`❌ Error creating Google Calendar event for reservation ${reservation.id}:`, err.message);
+    console.error(`   Reservation details: ${reservation.name}, ${reservation.date}, ${reservation.time}`);
     if (err.stack) {
       console.error('Stack trace:', err.stack);
     }
     if (err.response) {
-      console.error('API Response:', JSON.stringify(err.response.data, null, 2));
+      console.error('API Response Status:', err.response.status);
+      console.error('API Response Data:', JSON.stringify(err.response.data, null, 2));
     }
+    if (err.code) {
+      console.error('Error Code:', err.code);
+    }
+
+    // If authentication error, mark calendar as not initialized
+    if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.response && err.response.status === 401)) {
+      console.error(`⚠️ Authentication or access error detected - marking calendar as uninitialized`);
+      calendarInitialized = false;
+    }
+
     return null;
   }
 }
 
 // Google Calendar Sync - Syncs calendar events to database
 async function syncGoogleCalendar() {
-  if (!calendar || !process.env.GOOGLE_CALENDAR_ID) {
+  if (!calendar || !calendarInitialized || !process.env.GOOGLE_CALENDAR_ID) {
+    console.warn(`⚠️ Calendar sync skipped: calendar=${!!calendar}, calendarInitialized=${calendarInitialized}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
     return; // Calendar not configured
   }
 
@@ -4221,16 +4392,18 @@ app.post('/api/assign-tables-to-reservations', (req, res) => {
   );
 });
 
-// Google Calendar sync job - runs every 1 minute
-if (calendar) {
+// Google Calendar sync job - runs every 5 minutes
+if (calendar && calendarInitialized) {
   setInterval(() => {
     syncGoogleCalendar();
-  }, 1 * 60 * 1000); // Every 1 minute
+  }, 5 * 60 * 1000); // Every 5 minutes
 
   // Initial sync on startup
   setTimeout(() => {
     syncGoogleCalendar();
   }, 30 * 1000); // Wait 30 seconds after startup
+} else {
+  console.warn(`⚠️ Google Calendar sync disabled: calendar=${!!calendar}, calendarInitialized=${calendarInitialized}`);
 }
 
 // Stripe Payment Gateway Integration - Two Options:
@@ -5602,7 +5775,7 @@ app.delete('/api/reservations/clear-all', (req, res) => {
       console.log(`✅ Deleted ${deletedCount} reservations from database`);
 
       // Delete Google Calendar events if calendar is configured
-      if (calendarEventIds.length > 0 && calendar && process.env.GOOGLE_CALENDAR_ID) {
+      if (calendarEventIds.length > 0 && calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
         const calendarId = process.env.GOOGLE_CALENDAR_ID;
         const deletePromises = calendarEventIds.map(eventId => {
           return calendar.events.delete({
