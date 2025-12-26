@@ -2241,6 +2241,12 @@ Reservation made through ${venueName} website.`;
           return;
         }
 
+        // Check if reservation is cancelled or deleted
+        if (reservation.confirmation_status === 'cancelled') {
+          console.log('ℹ️ Reservation is cancelled, skipping confirmation button email');
+          return;
+        }
+
         const confirmationUrl = `${getBaseUrl()}/api/confirm-reservation/${token}`;
 
         const transporter = nodemailer.createTransport({
@@ -3655,6 +3661,12 @@ setInterval(() => {
 
 // Function to send confirmation reminder email and SMS
 function sendConfirmationReminder(reservation) {
+  // Double-check reservation status before sending reminder
+  if (reservation.confirmation_status === 'cancelled' || reservation.confirmation_status === 'confirmed') {
+    console.log(`ℹ️ Skipping reminder for reservation ${reservation.id} - status: ${reservation.confirmation_status}`);
+    return;
+  }
+
   const confirmationUrl = `${getBaseUrl()}/api/confirm-reservation/${reservation.confirmation_token}`;
 
   // Send email reminder
