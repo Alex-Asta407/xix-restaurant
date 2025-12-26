@@ -1135,11 +1135,23 @@ app.get('/api/reservations', (req, res) => {
 
 // Delete reservation endpoint
 app.delete('/api/reservations/:id', (req, res) => {
-  const reservationId = parseInt(req.params.id);
+  const idParam = req.params.id;
 
-  if (!reservationId || isNaN(reservationId)) {
-    return res.status(400).json({ error: 'Invalid reservation ID' });
+  // Check if ID parameter exists and is valid
+  if (!idParam || idParam.trim() === '') {
+    console.error('❌ Delete request received with empty or missing ID parameter');
+    return res.status(400).json({ error: 'Invalid reservation ID: ID parameter is required' });
   }
+
+  const reservationId = parseInt(idParam, 10);
+
+  // Validate parsed ID
+  if (isNaN(reservationId) || reservationId <= 0) {
+    console.error(`❌ Delete request received with invalid ID: "${idParam}" (parsed as: ${reservationId})`);
+    return res.status(400).json({ error: `Invalid reservation ID: "${idParam}" is not a valid number` });
+  }
+
+  console.log(`🗑️ Delete request received for reservation ID: ${reservationId}`);
 
   // First, get the reservation to check for Google Calendar event ID
   db.get('SELECT google_calendar_event_id FROM reservations WHERE id = ?', [reservationId], async (err, reservation) => {
@@ -1747,8 +1759,10 @@ app.post('/api/send-reservation-email', async (req, res) => {
             return res.status(500).json({ error: 'Failed to save reservation' });
           }
 
-          console.log(`✅ Reservation saved with ID: ${this.lastID}, Table: ${assignedTable || 'Not assigned'}`);
-          reservationId = this.lastID; // Store for updating email status
+          const actualReservationId = this.lastID;
+          console.log(`✅ Reservation saved with ID: ${actualReservationId}, Table: ${assignedTable || 'Not assigned'}`);
+          reservationId = actualReservationId; // Store for updating email status
+          console.log(`📝 Reservation ID ${actualReservationId} assigned to variable reservationId for email scheduling`);
 
           // Create Google Calendar event for this reservation
           console.log(`📅 Checking Google Calendar setup: calendar=${!!calendar}, calendarInitialized=${calendarInitialized}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
@@ -1908,17 +1922,53 @@ app.post('/api/send-reservation-email', async (req, res) => {
 
             if (timeUntilReservation <= fiveMinutes) {
               // If reservation is less than 5 minutes away, send confirmation button email immediately
-              console.log(`⏰ Reservation is less than 5 minutes away, sending confirmation button email immediately`);
-              sendConfirmationButtonEmail(reservationId, confirmationToken).catch(err => {
-                console.error('❌ Error sending immediate confirmation button email:', err);
+              // Capture the actual ID and token values to avoid closure issues
+              const capturedReservationId = reservationId;
+              const capturedToken = confirmationToken;
+              console.log(`⏰ Reservation is less than 5 minutes away, sending confirmation button email immediately for reservation ID: ${capturedReservationId}`);
+              // Verify reservation still exists before sending
+              db.get('SELECT id, confirmation_status FROM reservations WHERE id = ?', [capturedReservationId], (err, reservation) => {
+                if (err) {
+                  console.error(`❌ Error checking reservation ${capturedReservationId} before sending email:`, err);
+                  return;
+                }
+                if (!reservation) {
+                  console.log(`ℹ️ Reservation ${capturedReservationId} no longer exists, skipping confirmation email`);
+                  return;
+                }
+                if (reservation.confirmation_status === 'cancelled' || reservation.confirmation_status === 'confirmed') {
+                  console.log(`ℹ️ Reservation ${capturedReservationId} status is ${reservation.confirmation_status}, skipping confirmation email`);
+                  return;
+                }
+                sendConfirmationButtonEmail(capturedReservationId, capturedToken).catch(err => {
+                  console.error('❌ Error sending immediate confirmation button email:', err);
+                });
               });
             } else {
               // Otherwise, send confirmation button email 5 minutes after reservation creation
-              console.log(`⏰ Scheduling confirmation button email to be sent in 5 minutes for reservation ID: ${reservationId}`);
+              // Capture the actual ID and token values to avoid closure issues
+              const capturedReservationId = reservationId;
+              const capturedToken = confirmationToken;
+              console.log(`⏰ Scheduling confirmation button email to be sent in 5 minutes for reservation ID: ${capturedReservationId}`);
               setTimeout(() => {
-                console.log(`⏰ Timeout triggered - sending confirmation button email for reservation ID: ${reservationId}`);
-                sendConfirmationButtonEmail(reservationId, confirmationToken).catch(err => {
-                  console.error('❌ Error sending scheduled confirmation button email:', err);
+                console.log(`⏰ Timeout triggered - sending confirmation button email for reservation ID: ${capturedReservationId}`);
+                // Verify reservation still exists before sending
+                db.get('SELECT id, confirmation_status FROM reservations WHERE id = ?', [capturedReservationId], (err, reservation) => {
+                  if (err) {
+                    console.error(`❌ Error checking reservation ${capturedReservationId} before sending email:`, err);
+                    return;
+                  }
+                  if (!reservation) {
+                    console.log(`ℹ️ Reservation ${capturedReservationId} no longer exists, skipping confirmation email`);
+                    return;
+                  }
+                  if (reservation.confirmation_status === 'cancelled' || reservation.confirmation_status === 'confirmed') {
+                    console.log(`ℹ️ Reservation ${capturedReservationId} status is ${reservation.confirmation_status}, skipping confirmation email`);
+                    return;
+                  }
+                  sendConfirmationButtonEmail(capturedReservationId, capturedToken).catch(err => {
+                    console.error('❌ Error sending scheduled confirmation button email:', err);
+                  });
                 });
               }, fiveMinutes);
             }
