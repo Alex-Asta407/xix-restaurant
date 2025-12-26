@@ -1066,7 +1066,7 @@ app.delete('/api/reservations/:id', (req, res) => {
   }
 
   // First, get the reservation to check for Google Calendar event ID
-  db.get('SELECT google_calendar_event_id FROM reservations WHERE id = ?', [reservationId], (err, reservation) => {
+  db.get('SELECT google_calendar_event_id FROM reservations WHERE id = ?', [reservationId], async (err, reservation) => {
     if (err) {
       console.error('Error fetching reservation:', err);
       return res.status(500).json({ error: 'Failed to fetch reservation: ' + err.message });
@@ -1079,7 +1079,7 @@ app.delete('/api/reservations/:id', (req, res) => {
     const calendarEventId = reservation.google_calendar_event_id;
 
     // Delete from database
-    db.run('DELETE FROM reservations WHERE id = ?', [reservationId], function (deleteErr) {
+    db.run('DELETE FROM reservations WHERE id = ?', [reservationId], async function (deleteErr) {
       if (deleteErr) {
         console.error('Error deleting reservation:', deleteErr);
         return res.status(500).json({ error: 'Failed to delete reservation: ' + deleteErr.message });
@@ -1092,26 +1092,21 @@ app.delete('/api/reservations/:id', (req, res) => {
       console.log(`✅ Reservation ${reservationId} deleted from database`);
 
       // If there's a Google Calendar event ID, delete it from Google Calendar too
-      if (calendarEventId && calendar && process.env.GOOGLE_CALENDAR_ID) {
-        const calendarId = process.env.GOOGLE_CALENDAR_ID;
-        calendar.events.delete({
-          calendarId: calendarId,
-          eventId: calendarEventId
-        }).then(() => {
-          console.log(`✅ Google Calendar event ${calendarEventId} deleted successfully`);
+      if (calendarEventId) {
+        const deleted = await deleteGoogleCalendarEvent(calendarEventId);
+        if (deleted) {
           res.json({
             success: true,
             message: `Reservation ${reservationId} and Google Calendar event deleted successfully`
           });
-        }).catch((calendarErr) => {
-          console.error('⚠️ Error deleting Google Calendar event:', calendarErr.message);
+        } else {
           // Still return success since DB deletion succeeded
           res.json({
             success: true,
-            message: `Reservation ${reservationId} deleted from database, but Google Calendar deletion failed: ${calendarErr.message}`,
+            message: `Reservation ${reservationId} deleted from database, but Google Calendar deletion failed`,
             warning: 'Google Calendar event may still exist'
           });
-        });
+        }
       } else {
         // No calendar event to delete, or calendar not configured
         res.json({ success: true, message: `Reservation ${reservationId} deleted successfully` });
@@ -3216,10 +3211,15 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
         const cancelledGuests = reservation.guests;
         const cancelledVenue = reservation.venue || 'XIX';
 
-        db.run('UPDATE reservations SET confirmation_status = ? WHERE id = ?', ['cancelled', reservation.id], (err) => {
+        db.run('UPDATE reservations SET confirmation_status = ? WHERE id = ?', ['cancelled', reservation.id], async (err) => {
           if (err) {
             console.error('Error cancelling reservation:', err);
           } else {
+            // Delete Google Calendar event if it exists
+            if (reservation.google_calendar_event_id && calendar && process.env.GOOGLE_CALENDAR_ID) {
+              await deleteGoogleCalendarEvent(reservation.google_calendar_event_id);
+            }
+
             // Try to reassign table to waitlist reservations
             if (cancelledTableId) {
               reassignTableToWaitlist(cancelledTableId, cancelledDate, cancelledTime, cancelledGuests, cancelledVenue);
@@ -3243,7 +3243,7 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
     db.run(
       'UPDATE reservations SET confirmation_status = ?, confirmed_at = CURRENT_TIMESTAMP WHERE id = ?',
       ['confirmed', reservation.id],
-      (err) => {
+      async (err) => {
         if (err) {
           console.error('Error confirming reservation:', err);
           return res.status(500).send(`
@@ -3255,6 +3255,16 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
               </body>
             </html>
           `);
+        }
+
+        // Update Google Calendar event to remove pending status
+        if (reservation.google_calendar_event_id && calendar && process.env.GOOGLE_CALENDAR_ID) {
+          // Get updated reservation data
+          db.get('SELECT * FROM reservations WHERE id = ?', [reservation.id], async (err, updatedReservation) => {
+            if (!err && updatedReservation) {
+              await updateGoogleCalendarEvent(updatedReservation);
+            }
+          });
         }
 
         res.send(`
@@ -3345,7 +3355,7 @@ app.get('/api/cancel-reservation/:token', (req, res) => {
     db.run(
       'UPDATE reservations SET confirmation_status = ? WHERE id = ?',
       ['cancelled', reservation.id],
-      (err) => {
+      async (err) => {
         if (err) {
           console.error('Error cancelling reservation:', err);
           return res.status(500).send(`
@@ -3362,17 +3372,8 @@ app.get('/api/cancel-reservation/:token', (req, res) => {
         console.log(`✅ Reservation ${reservation.id} cancelled by customer`);
 
         // Delete from Google Calendar if event exists
-        if (calendarEventId && calendar && process.env.GOOGLE_CALENDAR_ID) {
-          const calendarId = process.env.GOOGLE_CALENDAR_ID;
-          calendar.events.delete({
-            calendarId: calendarId,
-            eventId: calendarEventId
-          }).then(() => {
-            console.log(`✅ Google Calendar event ${calendarEventId} deleted after cancellation`);
-          }).catch((calendarErr) => {
-            console.error('⚠️ Error deleting Google Calendar event after cancellation:', calendarErr.message);
-            // Don't fail the cancellation if calendar deletion fails
-          });
+        if (calendarEventId) {
+          await deleteGoogleCalendarEvent(calendarEventId);
         }
 
         // Try to reassign table to waitlist reservations
@@ -3515,10 +3516,10 @@ setInterval(() => {
         // Update status to cancelled
         db.run(
           `UPDATE reservations 
-           SET confirmation_status = 'cancelled' 
-           WHERE id = ?`,
+               SET confirmation_status = 'cancelled' 
+               WHERE id = ?`,
           [reservation.id],
-          (updateErr) => {
+          async (updateErr) => {
             if (updateErr) {
               console.error(`Error cancelling reservation ${reservation.id}:`, updateErr);
               return;
@@ -3527,16 +3528,8 @@ setInterval(() => {
             console.log(`⚠️ Auto-cancelled reservation ${reservation.id}`);
 
             // Delete from Google Calendar if event exists
-            if (calendarEventId && calendar && process.env.GOOGLE_CALENDAR_ID) {
-              const calendarId = process.env.GOOGLE_CALENDAR_ID;
-              calendar.events.delete({
-                calendarId: calendarId,
-                eventId: calendarEventId
-              }).then(() => {
-                console.log(`✅ Google Calendar event ${calendarEventId} deleted after auto-cancellation`);
-              }).catch((calendarErr) => {
-                console.error(`⚠️ Error deleting Google Calendar event ${calendarEventId} after auto-cancellation:`, calendarErr.message);
-              });
+            if (calendarEventId) {
+              await deleteGoogleCalendarEvent(calendarEventId);
             }
 
             // Try to reassign table to waitlist reservations
@@ -3658,6 +3651,142 @@ function sendConfirmationReminder(reservation) {
 
   // Mark as reminder sent
   db.run('UPDATE reservations SET email_sent_to_customer = 1 WHERE id = ?', [reservation.id]);
+}
+
+// Helper function to update a Google Calendar event (e.g., when reservation is confirmed)
+async function updateGoogleCalendarEvent(reservation) {
+  if (!calendar || !process.env.GOOGLE_CALENDAR_ID || !reservation.google_calendar_event_id) {
+    return null; // Calendar not configured or no event ID
+  }
+
+  try {
+    const calendarId = process.env.GOOGLE_CALENDAR_ID;
+    console.log(`📅 Updating Google Calendar event ${reservation.google_calendar_event_id} for reservation ${reservation.id}`);
+
+    // Get the existing event first
+    const existingEvent = await calendar.events.get({
+      calendarId: calendarId,
+      eventId: reservation.google_calendar_event_id
+    });
+
+    // Parse date and time
+    const [year, month, day] = reservation.date.split('-');
+    const timeParsed = parseTime(reservation.time);
+    const startDateTime = new Date(year, month - 1, day, timeParsed.hours, timeParsed.minutes);
+
+    // Calculate end time
+    let endDateTime;
+    if (reservation.end_time) {
+      const endTimeParsed = parseTime(reservation.end_time);
+      let endHour = endTimeParsed.hours;
+      let endDay = parseInt(day);
+      if (endHour >= 25) {
+        endHour = endHour - 24;
+        endDay = endDay + 1;
+      } else if (endHour < timeParsed.hours) {
+        endDay = endDay + 1;
+      }
+      endDateTime = new Date(year, month - 1, endDay, endHour, endTimeParsed.minutes);
+    } else {
+      endDateTime = new Date(startDateTime);
+      endDateTime.setHours(endDateTime.getHours() + 2);
+    }
+
+    // Get table number for display
+    let tableDisplay = 'Not assigned';
+    if (reservation.assigned_table) {
+      try {
+        const tableInfo = await new Promise((resolve, reject) => {
+          db.get('SELECT table_number FROM tables WHERE id = ?', [reservation.assigned_table], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        });
+        if (tableInfo) {
+          tableDisplay = tableInfo.table_number;
+        }
+      } catch (err) {
+        console.warn('Could not look up table name for calendar event update:', err.message);
+      }
+    }
+
+    // Format event details
+    const venueName = reservation.venue === 'MIRROR' ? 'Mirror' : 'XIX';
+    const eventTitle = `${reservation.name} - ${reservation.guests} guest${reservation.guests !== 1 ? 's' : ''} - ${venueName}`;
+
+    let eventDescription = `Reservation for ${reservation.name}\n`;
+    eventDescription += `Guests: ${reservation.guests}\n`;
+    eventDescription += `Table: ${tableDisplay}\n`;
+    eventDescription += `Phone: ${reservation.phone}\n`;
+    eventDescription += `Email: ${reservation.email}\n`;
+    if (reservation.occasion) {
+      eventDescription += `Occasion: ${reservation.occasion}\n`;
+    }
+    if (reservation.special_requests) {
+      eventDescription += `Special Requests: ${reservation.special_requests}\n`;
+    }
+    // Remove pending status if confirmed
+    if (reservation.confirmation_status === 'confirmed') {
+      eventDescription += `\n✅ Status: Confirmed`;
+    }
+
+    // Update the event
+    const updatedEvent = {
+      summary: eventTitle,
+      description: eventDescription,
+      start: {
+        dateTime: startDateTime.toISOString(),
+        timeZone: 'Europe/London'
+      },
+      end: {
+        dateTime: endDateTime.toISOString(),
+        timeZone: 'Europe/London'
+      },
+      reminders: existingEvent.data.reminders || {
+        useDefault: false,
+        overrides: [
+          { method: 'email', minutes: 24 * 60 },
+          { method: 'popup', minutes: 60 }
+        ]
+      }
+    };
+
+    const result = await calendar.events.update({
+      calendarId: calendarId,
+      eventId: reservation.google_calendar_event_id,
+      resource: updatedEvent
+    });
+
+    console.log(`✅ Updated Google Calendar event ${result.data.id} for reservation ${reservation.id}`);
+    return result.data.id;
+
+  } catch (err) {
+    console.error(`❌ Error updating Google Calendar event for reservation ${reservation.id}:`, err.message);
+    if (err.stack) {
+      console.error('Stack trace:', err.stack);
+    }
+    return null;
+  }
+}
+
+// Helper function to delete a Google Calendar event
+async function deleteGoogleCalendarEvent(calendarEventId) {
+  if (!calendar || !process.env.GOOGLE_CALENDAR_ID || !calendarEventId) {
+    return false; // Calendar not configured or no event ID
+  }
+
+  try {
+    const calendarId = process.env.GOOGLE_CALENDAR_ID;
+    await calendar.events.delete({
+      calendarId: calendarId,
+      eventId: calendarEventId
+    });
+    console.log(`✅ Deleted Google Calendar event ${calendarEventId}`);
+    return true;
+  } catch (err) {
+    console.error(`❌ Error deleting Google Calendar event ${calendarEventId}:`, err.message);
+    return false;
+  }
 }
 
 // Helper function to create a Google Calendar event for a reservation
