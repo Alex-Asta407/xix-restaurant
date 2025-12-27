@@ -4461,32 +4461,109 @@ async function syncGoogleCalendar() {
         }
 
         if (existingReservation) {
-          // Update existing reservation if event was modified
-          const eventStart = new Date(event.start.dateTime || event.start.date);
-          const eventEnd = new Date(event.end.dateTime || event.end.date);
-          const eventDate = eventStart.toISOString().split('T')[0];
-          const eventTime = `${eventStart.getHours().toString().padStart(2, '0')}:${eventStart.getMinutes().toString().padStart(2, '0')}`;
+          // Update existing reservation if event was modified in Google Calendar
+          // Parse dateTime from Google Calendar (RFC3339 format with timezone)
+          // Extract date and time as they appear in the event's timezone (Europe/London)
+          let eventDate, eventTime, endTime;
 
-          // Calculate end_time handling midnight crossover (use helper function)
-          const endTime = calculateEndTime(
-            eventDate,
-            eventTime,
-            (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60) // duration in hours
-          );
+          if (event.start.dateTime) {
+            // Parse RFC3339 dateTime string (e.g., "2025-12-28T13:00:00+00:00")
+            // Extract date and time components directly from the string to avoid timezone conversion
+            const startDateTimeStr = event.start.dateTime;
+            const startMatch = startDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+            if (startMatch) {
+              eventDate = `${startMatch[1]}-${startMatch[2]}-${startMatch[3]}`;
+              eventTime = `${startMatch[4]}:${startMatch[5]}`;
+            } else {
+              // Fallback to Date parsing if format is unexpected
+              const eventStart = new Date(event.start.dateTime);
+              eventDate = eventStart.toISOString().split('T')[0];
+              eventTime = `${eventStart.getHours().toString().padStart(2, '0')}:${eventStart.getMinutes().toString().padStart(2, '0')}`;
+            }
+          } else if (event.start.date) {
+            // All-day event
+            eventDate = event.start.date;
+            eventTime = '00:00';
+          } else {
+            console.warn(`⚠️ Event ${event.id} has no start date/time`);
+            return;
+          }
 
-          // Update end_time if changed
+          // Parse end time
+          if (event.end.dateTime) {
+            const endDateTimeStr = event.end.dateTime;
+            const endMatch = endDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+            if (endMatch) {
+              const endDate = `${endMatch[1]}-${endMatch[2]}-${endMatch[3]}`;
+              const endTimeStr = `${endMatch[4]}:${endMatch[5]}`;
+
+              // Calculate end_time handling midnight crossover
+              endTime = calculateEndTime(eventDate, eventTime,
+                (new Date(event.end.dateTime).getTime() - new Date(event.start.dateTime).getTime()) / (1000 * 60 * 60)
+              );
+            } else {
+              // Fallback
+              const eventEnd = new Date(event.end.dateTime);
+              const durationHours = (eventEnd.getTime() - new Date(event.start.dateTime).getTime()) / (1000 * 60 * 60);
+              endTime = calculateEndTime(eventDate, eventTime, durationHours);
+            }
+          } else {
+            // All-day event or no end time - use default 2 hours
+            const timeParsed = parseTime(eventTime);
+            let endHour = timeParsed.hours + 2;
+            if (endHour >= 24) {
+              endHour = endHour - 24;
+            }
+            endTime = `${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}`;
+          }
+
+          // Check what needs to be updated
+          const updates = [];
+          const values = [];
+
+          if (existingReservation.date !== eventDate) {
+            updates.push('date = ?');
+            values.push(eventDate);
+            console.log(`📅 Date changed: ${existingReservation.date} → ${eventDate}`);
+          }
+
+          if (existingReservation.time !== eventTime) {
+            updates.push('time = ?');
+            values.push(eventTime);
+            console.log(`🕐 Time changed: ${existingReservation.time} → ${eventTime}`);
+          }
+
           if (existingReservation.end_time !== endTime) {
+            updates.push('end_time = ?');
+            values.push(endTime);
+            console.log(`🕐 End time changed: ${existingReservation.end_time} → ${endTime}`);
+          }
+
+          // Update database if any changes detected
+          if (updates.length > 0) {
+            updates.push('last_synced_at = CURRENT_TIMESTAMP');
+            values.push(existingReservation.id);
+
             db.run(
-              'UPDATE reservations SET end_time = ?, last_synced_at = CURRENT_TIMESTAMP WHERE id = ?',
-              [endTime, existingReservation.id],
+              `UPDATE reservations SET ${updates.join(', ')} WHERE id = ?`,
+              values,
               (err) => {
                 if (err) {
-                  console.error('Error updating reservation from calendar:', err);
+                  console.error(`❌ Error updating reservation ${existingReservation.id} from calendar:`, err);
                 } else {
-                  console.log(`✅ Updated reservation ${existingReservation.id} end_time to ${endTime} from Google Calendar`);
+                  console.log(`✅ Updated reservation ${existingReservation.id} from Google Calendar:`);
+                  if (existingReservation.date !== eventDate) {
+                    console.log(`   Date: ${existingReservation.date} → ${eventDate}`);
+                  }
+                  if (existingReservation.time !== eventTime) {
+                    console.log(`   Time: ${existingReservation.time} → ${eventTime}`);
+                  }
+                  if (existingReservation.end_time !== endTime) {
+                    console.log(`   End time: ${existingReservation.end_time} → ${endTime}`);
+                  }
 
-                  // Check for conflicts
-                  checkTableConflicts(existingReservation.assigned_table, eventDate, existingReservation.time, endTime, existingReservation.id);
+                  // Check for conflicts with updated time
+                  checkTableConflicts(existingReservation.assigned_table, eventDate, eventTime, endTime, existingReservation.id);
                 }
               }
             );
