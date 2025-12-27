@@ -3914,27 +3914,49 @@ async function updateGoogleCalendarEvent(reservation) {
       eventId: reservation.google_calendar_event_id
     });
 
-    // Parse date and time
+    // Parse date and time - use same logic as createGoogleCalendarEvent
     const [year, month, day] = reservation.date.split('-');
     const timeParsed = parseTime(reservation.time);
-    const startDateTime = new Date(year, month - 1, day, timeParsed.hours, timeParsed.minutes);
+
+    const startDateTimeISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timeParsed.hours.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
 
     // Calculate end time
-    let endDateTime;
+    let endDateTimeISO;
     if (reservation.end_time) {
       const endTimeParsed = parseTime(reservation.end_time);
       let endHour = endTimeParsed.hours;
       let endDay = parseInt(day);
+      let endMonth = parseInt(month);
+      let endYear = parseInt(year);
+
       if (endHour >= 25) {
         endHour = endHour - 24;
         endDay = endDay + 1;
       } else if (endHour < timeParsed.hours) {
         endDay = endDay + 1;
       }
-      endDateTime = new Date(year, month - 1, endDay, endHour, endTimeParsed.minutes);
+
+      // Handle month/year overflow
+      const daysInMonth = new Date(endYear, endMonth, 0).getDate();
+      if (endDay > daysInMonth) {
+        endDay = 1;
+        endMonth = endMonth + 1;
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear = endYear + 1;
+        }
+      }
+
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${endTimeParsed.minutes.toString().padStart(2, '0')}:00`;
     } else {
-      endDateTime = new Date(startDateTime);
-      endDateTime.setHours(endDateTime.getHours() + 2);
+      const startDate = new Date(`${startDateTimeISO}+00:00`);
+      startDate.setUTCHours(startDate.getUTCHours() + 2);
+      const endYear = startDate.getUTCFullYear();
+      const endMonth = (startDate.getUTCMonth() + 1).toString().padStart(2, '0');
+      const endDayStr = startDate.getUTCDate().toString().padStart(2, '0');
+      const endHourStr = startDate.getUTCHours().toString().padStart(2, '0');
+      const endMinStr = startDate.getUTCMinutes().toString().padStart(2, '0');
+      endDateTimeISO = `${endYear}-${endMonth}-${endDayStr}T${endHourStr}:${endMinStr}:00`;
     }
 
     // Get table number for display
@@ -3980,11 +4002,11 @@ async function updateGoogleCalendarEvent(reservation) {
       summary: eventTitle,
       description: eventDescription,
       start: {
-        dateTime: startDateTime.toISOString(),
+        dateTime: startDateTimeISO,
         timeZone: 'Europe/London'
       },
       end: {
-        dateTime: endDateTime.toISOString(),
+        dateTime: endDateTimeISO,
         timeZone: 'Europe/London'
       },
       reminders: existingEvent.data.reminders || {
@@ -4106,17 +4128,24 @@ async function createGoogleCalendarEvent(reservation) {
     console.log(`   Reservation: ${reservation.name} on ${reservation.date} at ${reservation.time}`);
 
     // Parse date and time (handle both 24-hour and 12-hour formats)
+    // Google Calendar API expects dateTime in ISO 8601 format
+    // When timeZone is specified, the dateTime represents local time in that timezone
     const [year, month, day] = reservation.date.split('-');
     const timeParsed = parseTime(reservation.time);
-    const startDateTime = new Date(year, month - 1, day, timeParsed.hours, timeParsed.minutes);
+
+    // Create date string directly in ISO format (local time in Europe/London)
+    // Format: YYYY-MM-DDTHH:MM:SS
+    const startDateTimeISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timeParsed.hours.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
 
     // Calculate end time (default 2 hours, or use end_time if available)
-    let endDateTime;
+    let endDateTimeISO;
     if (reservation.end_time) {
       // Parse end_time (handles midnight crossover like "25:00" and 12-hour format)
       const endTimeParsed = parseTime(reservation.end_time);
       let endHour = endTimeParsed.hours;
       let endDay = parseInt(day);
+      let endMonth = parseInt(month);
+      let endYear = parseInt(year);
 
       // Handle midnight crossover (hours >= 25 means next day, or if parsed hour is less than start hour)
       if (endHour >= 25) {
@@ -4127,11 +4156,32 @@ async function createGoogleCalendarEvent(reservation) {
         endDay = endDay + 1;
       }
 
-      endDateTime = new Date(year, month - 1, endDay, endHour, endTimeParsed.minutes);
+      // Handle month/year overflow
+      const daysInMonth = new Date(endYear, endMonth, 0).getDate();
+      if (endDay > daysInMonth) {
+        endDay = 1;
+        endMonth = endMonth + 1;
+        if (endMonth > 12) {
+          endMonth = 1;
+          endYear = endYear + 1;
+        }
+      }
+
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${endTimeParsed.minutes.toString().padStart(2, '0')}:00`;
     } else {
-      endDateTime = new Date(startDateTime);
-      endDateTime.setHours(endDateTime.getHours() + 2); // Default 2 hours
+      // Default 2 hours - add 2 hours to start time
+      const startDate = new Date(`${startDateTimeISO}+00:00`); // Parse as UTC to avoid timezone issues
+      startDate.setUTCHours(startDate.getUTCHours() + 2);
+      const endYear = startDate.getUTCFullYear();
+      const endMonth = (startDate.getUTCMonth() + 1).toString().padStart(2, '0');
+      const endDayStr = startDate.getUTCDate().toString().padStart(2, '0');
+      const endHourStr = startDate.getUTCHours().toString().padStart(2, '0');
+      const endMinStr = startDate.getUTCMinutes().toString().padStart(2, '0');
+      endDateTimeISO = `${endYear}-${endMonth}-${endDayStr}T${endHourStr}:${endMinStr}:00`;
     }
+
+    console.log(`   Start: ${startDateTimeISO} (Europe/London)`);
+    console.log(`   End: ${endDateTimeISO} (Europe/London)`);
 
     // Get table number for display
     let tableDisplay = 'Not assigned';
@@ -4170,16 +4220,16 @@ async function createGoogleCalendarEvent(reservation) {
       eventDescription += `\n⚠️ Status: Pending Confirmation`;
     }
 
-    // Create the event
+    // Create the event with proper timezone handling
     const event = {
       summary: eventTitle,
       description: eventDescription,
       start: {
-        dateTime: startDateTime.toISOString(),
+        dateTime: startDateTimeISO,
         timeZone: 'Europe/London'
       },
       end: {
-        dateTime: endDateTime.toISOString(),
+        dateTime: endDateTimeISO,
         timeZone: 'Europe/London'
       },
       reminders: {

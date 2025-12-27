@@ -552,7 +552,7 @@
             const displayHour = hour % 12 || 12;
             const formatted = `${displayHour}:${minutes} ${ampm}`;
 
-            return isNextDay ? `${formatted} (next day)` : formatted;
+            return formatted; // Removed "(next day)" text as it's obvious from the date
         }
 
         function exportToCSV() {
