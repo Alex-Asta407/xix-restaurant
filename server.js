@@ -4406,6 +4406,8 @@ async function createGoogleCalendarEvent(reservation) {
 
 // Google Calendar Sync - Syncs calendar events to database
 async function syncGoogleCalendar() {
+  console.log(`🔄 Starting Google Calendar sync... (calendar=${!!calendar}, initialized=${calendarInitialized})`);
+
   if (!calendar || !calendarInitialized || !process.env.GOOGLE_CALENDAR_ID) {
     console.warn(`⚠️ Calendar sync skipped: calendar=${!!calendar}, calendarInitialized=${calendarInitialized}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
     return; // Calendar not configured
@@ -4478,11 +4480,13 @@ async function syncGoogleCalendar() {
       // Check if reservation exists in DB by Google Calendar event ID
       db.get('SELECT * FROM reservations WHERE google_calendar_event_id = ?', [event.id], (err, existingReservation) => {
         if (err) {
-          console.error('Error checking existing reservation:', err);
+          console.error(`❌ Error checking existing reservation for event ${event.id}:`, err);
           return;
         }
 
         if (existingReservation) {
+          console.log(`🔍 Checking event ${event.id} (reservation #${existingReservation.id}): ${event.summary || 'Untitled'}`);
+
           // Update existing reservation if event was modified in Google Calendar
           // Parse dateTime from Google Calendar (RFC3339 format with timezone)
           // Extract date and time as they appear in the event's timezone (Europe/London)
@@ -4543,26 +4547,30 @@ async function syncGoogleCalendar() {
           const updates = [];
           const values = [];
 
+          console.log(`   Current DB: date=${existingReservation.date}, time=${existingReservation.time}, end_time=${existingReservation.end_time || 'null'}`);
+          console.log(`   Calendar:   date=${eventDate}, time=${eventTime}, end_time=${endTime}`);
+
           if (existingReservation.date !== eventDate) {
             updates.push('date = ?');
             values.push(eventDate);
-            console.log(`📅 Date changed: ${existingReservation.date} → ${eventDate}`);
+            console.log(`   📅 Date changed: ${existingReservation.date} → ${eventDate}`);
           }
 
           if (existingReservation.time !== eventTime) {
             updates.push('time = ?');
             values.push(eventTime);
-            console.log(`🕐 Time changed: ${existingReservation.time} → ${eventTime}`);
+            console.log(`   🕐 Time changed: ${existingReservation.time} → ${eventTime}`);
           }
 
           if (existingReservation.end_time !== endTime) {
             updates.push('end_time = ?');
             values.push(endTime);
-            console.log(`🕐 End time changed: ${existingReservation.end_time} → ${endTime}`);
+            console.log(`   🕐 End time changed: ${existingReservation.end_time || 'null'} → ${endTime}`);
           }
 
           // Update database if any changes detected
           if (updates.length > 0) {
+            console.log(`   ✏️ Updating reservation #${existingReservation.id} with ${updates.length} change(s)`);
             updates.push('last_synced_at = CURRENT_TIMESTAMP');
             values.push(existingReservation.id);
 
@@ -4589,7 +4597,11 @@ async function syncGoogleCalendar() {
                 }
               }
             );
+          } else {
+            console.log(`   ✓ Reservation #${existingReservation.id} is up to date (no changes detected)`);
           }
+        } else {
+          console.log(`   ℹ️ Event ${event.id} exists in calendar but has no matching reservation in DB`);
         }
       });
     }
@@ -4649,7 +4661,7 @@ async function syncGoogleCalendar() {
             });
           });
         } else {
-          console.log(`✅ All ${reservationsWithEventIds.length} reservations with calendar events are synchronized`);
+          console.log(`✅ All ${reservationsWithEventIds.length} reservations with calendar events are synchronized (no deletions detected)`);
         }
       } else {
         console.log(`ℹ️ No reservations with calendar events found in database`);
