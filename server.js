@@ -1219,7 +1219,13 @@ app.get('/api/reservations', (req, res) => {
 });
 
 // Delete All Reservations Endpoint (Clear all reservations) - MUST come before /:id route
-app.delete('/api/reservations/clear-all', (req, res) => {
+// Using a more specific route pattern to ensure it's matched first
+app.delete('/api/reservations/clear-all', (req, res, next) => {
+  console.log('✅ Clear-all route matched correctly');
+  console.log('   Request URL:', req.url);
+  console.log('   Request path:', req.path);
+  console.log('   Request originalUrl:', req.originalUrl);
+
   const secretKey = req.query.key;
   const expectedKey = process.env.ADMIN_SECRET_KEY;
 
@@ -1284,13 +1290,22 @@ app.delete('/api/reservations/clear-all', (req, res) => {
 });
 
 // Delete reservation endpoint (single reservation by ID)
+// IMPORTANT: This route MUST come AFTER /api/reservations/clear-all to ensure proper matching
 app.delete('/api/reservations/:id', (req, res) => {
   const idParam = req.params.id;
 
-  // Explicitly reject "clear-all" to prevent route matching issues
-  if (idParam === 'clear-all') {
-    console.error('❌ Delete request for "clear-all" incorrectly matched by :id route - this should not happen');
-    return res.status(400).json({ error: 'Invalid route - use /api/reservations/clear-all endpoint' });
+  // CRITICAL: Explicitly reject "clear-all" FIRST - this should never happen if routes are ordered correctly
+  // But we check anyway as a safety measure
+  if (idParam === 'clear-all' || idParam === 'clear-all' || req.path === '/api/reservations/clear-all') {
+    console.error('❌ CRITICAL: Delete request for "clear-all" incorrectly matched by :id route!');
+    console.error('   Request path:', req.path);
+    console.error('   Request URL:', req.url);
+    console.error('   idParam:', idParam);
+    console.error('   This indicates a route ordering issue - /clear-all should be matched first!');
+    return res.status(400).json({
+      error: 'Route matching error - clear-all endpoint should be used instead',
+      hint: 'Use DELETE /api/reservations/clear-all?key=YOUR_KEY'
+    });
   }
 
   // Check if ID parameter exists and is valid
@@ -1299,10 +1314,17 @@ app.delete('/api/reservations/:id', (req, res) => {
     return res.status(400).json({ error: 'Invalid reservation ID: ID parameter is required' });
   }
 
+  // Early validation: if it's not a number, reject immediately
   const reservationId = parseInt(idParam, 10);
-
-  // Validate parsed ID
   if (isNaN(reservationId) || reservationId <= 0) {
+    // Double-check it's not "clear-all" (should be caught above, but extra safety)
+    if (idParam.toLowerCase().includes('clear') || idParam.toLowerCase().includes('all')) {
+      console.error(`❌ Delete request received with invalid ID that looks like "clear-all": "${idParam}"`);
+      return res.status(400).json({
+        error: 'Invalid route - did you mean to use /api/reservations/clear-all?',
+        received: idParam
+      });
+    }
     console.error(`❌ Delete request received with invalid ID: "${idParam}" (parsed as: ${reservationId})`);
     return res.status(400).json({ error: `Invalid reservation ID: "${idParam}" is not a valid number` });
   }
