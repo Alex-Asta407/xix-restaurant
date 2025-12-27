@@ -1287,6 +1287,12 @@ app.delete('/api/reservations/clear-all', (req, res) => {
 app.delete('/api/reservations/:id', (req, res) => {
   const idParam = req.params.id;
 
+  // Explicitly reject "clear-all" to prevent route matching issues
+  if (idParam === 'clear-all') {
+    console.error('❌ Delete request for "clear-all" incorrectly matched by :id route - this should not happen');
+    return res.status(400).json({ error: 'Invalid route - use /api/reservations/clear-all endpoint' });
+  }
+
   // Check if ID parameter exists and is valid
   if (!idParam || idParam.trim() === '') {
     console.error('❌ Delete request received with empty or missing ID parameter');
@@ -4161,9 +4167,10 @@ async function deleteGoogleCalendarEvent(calendarEventId) {
       console.error(`   API Status: ${err.response.status}`);
       console.error(`   API Data: ${JSON.stringify(err.response.data, null, 2)}`);
 
-      // If event not found (404), consider it successful (already deleted)
-      if (err.response.status === 404) {
-        console.log(`ℹ️ Event ${calendarEventId} not found in calendar (may have been already deleted)`);
+      // If event not found (404) or already deleted (410), consider it successful
+      if (err.response.status === 404 || err.response.status === 410) {
+        const statusMsg = err.response.status === 410 ? 'already deleted' : 'not found';
+        console.log(`ℹ️ Event ${calendarEventId} ${statusMsg} in calendar (may have been already deleted)`);
         return true;
       }
     }
@@ -4697,11 +4704,11 @@ app.post('/api/assign-tables-to-reservations', (req, res) => {
   );
 });
 
-// Google Calendar sync job - runs every 5 minutes
+// Google Calendar sync job - runs every minute
 if (calendar && calendarInitialized) {
   setInterval(() => {
     syncGoogleCalendar();
-  }, 5 * 60 * 1000); // Every 5 minutes
+  }, 1 * 60 * 1000); // Every 1 minute
 
   // Initial sync on startup
   setTimeout(() => {
