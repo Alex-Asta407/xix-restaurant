@@ -240,6 +240,18 @@ if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_
   initializeGoogleCalendar().then(initialized => {
     if (initialized) {
       console.log(`✅ Calendar initialization completed successfully - calendar operations are enabled`);
+
+      // Start sync job after successful initialization
+      console.log(`🔄 Starting Google Calendar sync job (runs every minute)...`);
+      setInterval(() => {
+        syncGoogleCalendar();
+      }, 1 * 60 * 1000); // Every 1 minute
+
+      // Initial sync on startup (wait a bit for everything to be ready)
+      setTimeout(() => {
+        console.log(`🔄 Running initial calendar sync...`);
+        syncGoogleCalendar();
+      }, 5 * 1000); // Wait 5 seconds after initialization
     } else {
       console.error(`❌ Calendar initialization failed - calendar operations will be disabled`);
       console.error(`   Check the error messages above to diagnose the issue.`);
@@ -4476,135 +4488,144 @@ async function syncGoogleCalendar() {
       });
     }
 
-    for (const event of events) {
-      // Check if reservation exists in DB by Google Calendar event ID
-      db.get('SELECT * FROM reservations WHERE google_calendar_event_id = ?', [event.id], (err, existingReservation) => {
-        if (err) {
-          console.error(`❌ Error checking existing reservation for event ${event.id}:`, err);
-          return;
-        }
-
-        if (existingReservation) {
-          console.log(`🔍 Checking event ${event.id} (reservation #${existingReservation.id}): ${event.summary || 'Untitled'}`);
-
-          // Update existing reservation if event was modified in Google Calendar
-          // Parse dateTime from Google Calendar (RFC3339 format with timezone)
-          // Extract date and time as they appear in the event's timezone (Europe/London)
-          let eventDate, eventTime, endTime;
-
-          if (event.start.dateTime) {
-            // Parse RFC3339 dateTime string (e.g., "2025-12-28T13:00:00+00:00")
-            // Extract date and time components directly from the string to avoid timezone conversion
-            const startDateTimeStr = event.start.dateTime;
-            const startMatch = startDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
-            if (startMatch) {
-              eventDate = `${startMatch[1]}-${startMatch[2]}-${startMatch[3]}`;
-              eventTime = `${startMatch[4]}:${startMatch[5]}`;
-            } else {
-              // Fallback to Date parsing if format is unexpected
-              const eventStart = new Date(event.start.dateTime);
-              eventDate = eventStart.toISOString().split('T')[0];
-              eventTime = `${eventStart.getHours().toString().padStart(2, '0')}:${eventStart.getMinutes().toString().padStart(2, '0')}`;
-            }
-          } else if (event.start.date) {
-            // All-day event
-            eventDate = event.start.date;
-            eventTime = '00:00';
-          } else {
-            console.warn(`⚠️ Event ${event.id} has no start date/time`);
-            return;
+    // Process all events and check for updates (using Promise.all to avoid race conditions)
+    const updatePromises = events.map(event => {
+      return new Promise((resolve) => {
+        // Check if reservation exists in DB by Google Calendar event ID
+        db.get('SELECT * FROM reservations WHERE google_calendar_event_id = ?', [event.id], (err, existingReservation) => {
+          if (err) {
+            console.error(`❌ Error checking existing reservation for event ${event.id}:`, err);
+            return resolve();
           }
 
-          // Parse end time
-          if (event.end.dateTime) {
-            const endDateTimeStr = event.end.dateTime;
-            const endMatch = endDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
-            if (endMatch) {
-              const endDate = `${endMatch[1]}-${endMatch[2]}-${endMatch[3]}`;
-              const endTimeStr = `${endMatch[4]}:${endMatch[5]}`;
+          if (existingReservation) {
+            console.log(`🔍 Checking event ${event.id} (reservation #${existingReservation.id}): ${event.summary || 'Untitled'}`);
 
-              // Calculate end_time handling midnight crossover
-              endTime = calculateEndTime(eventDate, eventTime,
-                (new Date(event.end.dateTime).getTime() - new Date(event.start.dateTime).getTime()) / (1000 * 60 * 60)
+            // Update existing reservation if event was modified in Google Calendar
+            // Parse dateTime from Google Calendar (RFC3339 format with timezone)
+            // Extract date and time as they appear in the event's timezone (Europe/London)
+            let eventDate, eventTime, endTime;
+
+            if (event.start.dateTime) {
+              // Parse RFC3339 dateTime string (e.g., "2025-12-28T13:00:00+00:00")
+              // Extract date and time components directly from the string to avoid timezone conversion
+              const startDateTimeStr = event.start.dateTime;
+              const startMatch = startDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+              if (startMatch) {
+                eventDate = `${startMatch[1]}-${startMatch[2]}-${startMatch[3]}`;
+                eventTime = `${startMatch[4]}:${startMatch[5]}`;
+              } else {
+                // Fallback to Date parsing if format is unexpected
+                const eventStart = new Date(event.start.dateTime);
+                eventDate = eventStart.toISOString().split('T')[0];
+                eventTime = `${eventStart.getHours().toString().padStart(2, '0')}:${eventStart.getMinutes().toString().padStart(2, '0')}`;
+              }
+            } else if (event.start.date) {
+              // All-day event
+              eventDate = event.start.date;
+              eventTime = '00:00';
+            } else {
+              console.warn(`⚠️ Event ${event.id} has no start date/time`);
+              return resolve();
+            }
+
+            // Parse end time
+            if (event.end.dateTime) {
+              const endDateTimeStr = event.end.dateTime;
+              const endMatch = endDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+              if (endMatch) {
+                const endDate = `${endMatch[1]}-${endMatch[2]}-${endMatch[3]}`;
+                const endTimeStr = `${endMatch[4]}:${endMatch[5]}`;
+
+                // Calculate end_time handling midnight crossover
+                endTime = calculateEndTime(eventDate, eventTime,
+                  (new Date(event.end.dateTime).getTime() - new Date(event.start.dateTime).getTime()) / (1000 * 60 * 60)
+                );
+              } else {
+                // Fallback
+                const eventEnd = new Date(event.end.dateTime);
+                const durationHours = (eventEnd.getTime() - new Date(event.start.dateTime).getTime()) / (1000 * 60 * 60);
+                endTime = calculateEndTime(eventDate, eventTime, durationHours);
+              }
+            } else {
+              // All-day event or no end time - use default 2 hours
+              const timeParsed = parseTime(eventTime);
+              let endHour = timeParsed.hours + 2;
+              if (endHour >= 24) {
+                endHour = endHour - 24;
+              }
+              endTime = `${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}`;
+            }
+
+            // Check what needs to be updated
+            const updates = [];
+            const values = [];
+
+            console.log(`   Current DB: date=${existingReservation.date}, time=${existingReservation.time}, end_time=${existingReservation.end_time || 'null'}`);
+            console.log(`   Calendar:   date=${eventDate}, time=${eventTime}, end_time=${endTime}`);
+
+            if (existingReservation.date !== eventDate) {
+              updates.push('date = ?');
+              values.push(eventDate);
+              console.log(`   📅 Date changed: ${existingReservation.date} → ${eventDate}`);
+            }
+
+            if (existingReservation.time !== eventTime) {
+              updates.push('time = ?');
+              values.push(eventTime);
+              console.log(`   🕐 Time changed: ${existingReservation.time} → ${eventTime}`);
+            }
+
+            if (existingReservation.end_time !== endTime) {
+              updates.push('end_time = ?');
+              values.push(endTime);
+              console.log(`   🕐 End time changed: ${existingReservation.end_time || 'null'} → ${endTime}`);
+            }
+
+            // Update database if any changes detected
+            if (updates.length > 0) {
+              console.log(`   ✏️ Updating reservation #${existingReservation.id} with ${updates.length} change(s)`);
+              updates.push('last_synced_at = CURRENT_TIMESTAMP');
+              values.push(existingReservation.id);
+
+              db.run(
+                `UPDATE reservations SET ${updates.join(', ')} WHERE id = ?`,
+                values,
+                (err) => {
+                  if (err) {
+                    console.error(`❌ Error updating reservation ${existingReservation.id} from calendar:`, err);
+                  } else {
+                    console.log(`✅ Updated reservation ${existingReservation.id} from Google Calendar:`);
+                    if (existingReservation.date !== eventDate) {
+                      console.log(`   Date: ${existingReservation.date} → ${eventDate}`);
+                    }
+                    if (existingReservation.time !== eventTime) {
+                      console.log(`   Time: ${existingReservation.time} → ${eventTime}`);
+                    }
+                    if (existingReservation.end_time !== endTime) {
+                      console.log(`   End time: ${existingReservation.end_time} → ${endTime}`);
+                    }
+
+                    // Check for conflicts with updated time
+                    checkTableConflicts(existingReservation.assigned_table, eventDate, eventTime, endTime, existingReservation.id);
+                  }
+                  resolve();
+                }
               );
             } else {
-              // Fallback
-              const eventEnd = new Date(event.end.dateTime);
-              const durationHours = (eventEnd.getTime() - new Date(event.start.dateTime).getTime()) / (1000 * 60 * 60);
-              endTime = calculateEndTime(eventDate, eventTime, durationHours);
+              console.log(`   ✓ Reservation #${existingReservation.id} is up to date (no changes detected)`);
+              resolve();
             }
           } else {
-            // All-day event or no end time - use default 2 hours
-            const timeParsed = parseTime(eventTime);
-            let endHour = timeParsed.hours + 2;
-            if (endHour >= 24) {
-              endHour = endHour - 24;
-            }
-            endTime = `${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}`;
+            console.log(`   ℹ️ Event ${event.id} exists in calendar but has no matching reservation in DB`);
+            resolve();
           }
-
-          // Check what needs to be updated
-          const updates = [];
-          const values = [];
-
-          console.log(`   Current DB: date=${existingReservation.date}, time=${existingReservation.time}, end_time=${existingReservation.end_time || 'null'}`);
-          console.log(`   Calendar:   date=${eventDate}, time=${eventTime}, end_time=${endTime}`);
-
-          if (existingReservation.date !== eventDate) {
-            updates.push('date = ?');
-            values.push(eventDate);
-            console.log(`   📅 Date changed: ${existingReservation.date} → ${eventDate}`);
-          }
-
-          if (existingReservation.time !== eventTime) {
-            updates.push('time = ?');
-            values.push(eventTime);
-            console.log(`   🕐 Time changed: ${existingReservation.time} → ${eventTime}`);
-          }
-
-          if (existingReservation.end_time !== endTime) {
-            updates.push('end_time = ?');
-            values.push(endTime);
-            console.log(`   🕐 End time changed: ${existingReservation.end_time || 'null'} → ${endTime}`);
-          }
-
-          // Update database if any changes detected
-          if (updates.length > 0) {
-            console.log(`   ✏️ Updating reservation #${existingReservation.id} with ${updates.length} change(s)`);
-            updates.push('last_synced_at = CURRENT_TIMESTAMP');
-            values.push(existingReservation.id);
-
-            db.run(
-              `UPDATE reservations SET ${updates.join(', ')} WHERE id = ?`,
-              values,
-              (err) => {
-                if (err) {
-                  console.error(`❌ Error updating reservation ${existingReservation.id} from calendar:`, err);
-                } else {
-                  console.log(`✅ Updated reservation ${existingReservation.id} from Google Calendar:`);
-                  if (existingReservation.date !== eventDate) {
-                    console.log(`   Date: ${existingReservation.date} → ${eventDate}`);
-                  }
-                  if (existingReservation.time !== eventTime) {
-                    console.log(`   Time: ${existingReservation.time} → ${eventTime}`);
-                  }
-                  if (existingReservation.end_time !== endTime) {
-                    console.log(`   End time: ${existingReservation.end_time} → ${endTime}`);
-                  }
-
-                  // Check for conflicts with updated time
-                  checkTableConflicts(existingReservation.assigned_table, eventDate, eventTime, endTime, existingReservation.id);
-                }
-              }
-            );
-          } else {
-            console.log(`   ✓ Reservation #${existingReservation.id} is up to date (no changes detected)`);
-          }
-        } else {
-          console.log(`   ℹ️ Event ${event.id} exists in calendar but has no matching reservation in DB`);
-        }
+        });
       });
-    }
+    });
+
+    // Wait for all event checks to complete before checking for deletions
+    await Promise.all(updatePromises);
 
     // Check for reservations in DB that don't have Google Calendar events and create them
     db.all('SELECT * FROM reservations WHERE google_calendar_event_id IS NULL AND confirmation_status != "cancelled" ORDER BY date, time', [], async (err, reservationsWithoutEvents) => {
@@ -4630,42 +4651,51 @@ async function syncGoogleCalendar() {
     // Check for reservations in DB that have Google Calendar event IDs but the events no longer exist in Calendar
     // This detects when events are manually deleted from Google Calendar UI
     // Check ALL reservations with event IDs (including cancelled ones) to catch manual deletions
-    db.all('SELECT id, name, date, time, google_calendar_event_id, confirmation_status FROM reservations WHERE google_calendar_event_id IS NOT NULL', [], (err, reservationsWithEventIds) => {
-      if (err) {
-        console.error('Error checking reservations with event IDs:', err);
-        return;
-      }
-
-      if (reservationsWithEventIds && reservationsWithEventIds.length > 0) {
-        // Create a Set of event IDs that exist in Google Calendar
-        const existingEventIds = new Set(events.map(e => e.id));
-        console.log(`📋 Sync check: ${reservationsWithEventIds.length} reservations with calendar events, ${existingEventIds.size} events found in calendar`);
-
-        // Find reservations whose Google Calendar events no longer exist
-        const deletedEvents = reservationsWithEventIds.filter(res => !existingEventIds.has(res.google_calendar_event_id));
-
-        if (deletedEvents.length > 0) {
-          console.log(`🗑️ Found ${deletedEvents.length} reservations whose Google Calendar events were manually deleted from calendar:`);
-          deletedEvents.forEach((res, index) => {
-            console.log(`   ${index + 1}. Reservation #${res.id} - ${res.name} on ${res.date} at ${res.time} (Event ID: ${res.google_calendar_event_id}, Status: ${res.confirmation_status})`);
-          });
-
-          // Delete these reservations from the database (they were manually deleted from calendar)
-          deletedEvents.forEach((res) => {
-            db.run('DELETE FROM reservations WHERE id = ?', [res.id], (deleteErr) => {
-              if (deleteErr) {
-                console.error(`❌ Error deleting reservation ${res.id} (event deleted from calendar):`, deleteErr);
-              } else {
-                console.log(`✅ Deleted reservation #${res.id} (${res.name}) - Google Calendar event was manually removed from calendar`);
-              }
-            });
-          });
-        } else {
-          console.log(`✅ All ${reservationsWithEventIds.length} reservations with calendar events are synchronized (no deletions detected)`);
+    await new Promise((resolve) => {
+      db.all('SELECT id, name, date, time, google_calendar_event_id, confirmation_status FROM reservations WHERE google_calendar_event_id IS NOT NULL', [], (err, reservationsWithEventIds) => {
+        if (err) {
+          console.error('❌ Error checking reservations with event IDs:', err);
+          return resolve();
         }
-      } else {
-        console.log(`ℹ️ No reservations with calendar events found in database`);
-      }
+
+        if (reservationsWithEventIds && reservationsWithEventIds.length > 0) {
+          // Create a Set of event IDs that exist in Google Calendar
+          const existingEventIds = new Set(events.map(e => e.id));
+          console.log(`📋 Sync check: ${reservationsWithEventIds.length} reservations with calendar events, ${existingEventIds.size} events found in calendar`);
+
+          // Find reservations whose Google Calendar events no longer exist
+          const deletedEvents = reservationsWithEventIds.filter(res => !existingEventIds.has(res.google_calendar_event_id));
+
+          if (deletedEvents.length > 0) {
+            console.log(`🗑️ Found ${deletedEvents.length} reservations whose Google Calendar events were manually deleted from calendar:`);
+            deletedEvents.forEach((res, index) => {
+              console.log(`   ${index + 1}. Reservation #${res.id} - ${res.name} on ${res.date} at ${res.time} (Event ID: ${res.google_calendar_event_id}, Status: ${res.confirmation_status})`);
+            });
+
+            // Delete these reservations from the database (they were manually deleted from calendar)
+            const deletePromises = deletedEvents.map((res) => {
+              return new Promise((deleteResolve) => {
+                db.run('DELETE FROM reservations WHERE id = ?', [res.id], (deleteErr) => {
+                  if (deleteErr) {
+                    console.error(`❌ Error deleting reservation ${res.id} (event deleted from calendar):`, deleteErr);
+                  } else {
+                    console.log(`✅ Deleted reservation #${res.id} (${res.name}) - Google Calendar event was manually removed from calendar`);
+                  }
+                  deleteResolve();
+                });
+              });
+            });
+
+            Promise.all(deletePromises).then(() => resolve());
+          } else {
+            console.log(`✅ All ${reservationsWithEventIds.length} reservations with calendar events are synchronized (no deletions detected)`);
+            resolve();
+          }
+        } else {
+          console.log(`ℹ️ No reservations with calendar events found in database`);
+          resolve();
+        }
+      });
     });
 
     console.log(`✅ Google Calendar sync completed - checked ${events.length} events`);
@@ -4815,19 +4845,8 @@ app.post('/api/assign-tables-to-reservations', (req, res) => {
   );
 });
 
-// Google Calendar sync job - runs every minute
-if (calendar && calendarInitialized) {
-  setInterval(() => {
-    syncGoogleCalendar();
-  }, 1 * 60 * 1000); // Every 1 minute
-
-  // Initial sync on startup
-  setTimeout(() => {
-    syncGoogleCalendar();
-  }, 30 * 1000); // Wait 30 seconds after startup
-} else {
-  console.warn(`⚠️ Google Calendar sync disabled: calendar=${!!calendar}, calendarInitialized=${calendarInitialized}`);
-}
+// Note: Sync job is now started after calendar initialization completes (see initializeGoogleCalendar().then() above)
+// This ensures the sync only starts if initialization was successful
 
 // Stripe Payment Gateway Integration - Two Options:
 // 1. Stripe Elements (embedded form) - current implementation
