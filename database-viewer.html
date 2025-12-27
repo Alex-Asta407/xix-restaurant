@@ -232,9 +232,6 @@
             <button class="db-btn secondary" id="btnRefresh">
                 <i class="fas fa-sync-alt"></i> Refresh
             </button>
-            <button class="db-btn secondary" id="btnClearAll" style="background: #dc3545; color: white;">
-                <i class="fas fa-trash-alt"></i> Clear All Reservations
-            </button>
         </div>
 
         <div class="db-info">
@@ -687,44 +684,6 @@
             }
         }
 
-        async function clearDatabase() {
-            if (!confirm('Are you sure you want to clear ALL reservations? This cannot be undone!')) {
-                return;
-            }
-
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const secretKey = urlParams.get('key');
-
-                if (!secretKey) {
-                    alert('Admin key required to clear database');
-                    return;
-                }
-
-                const response = await fetch(`/api/reservations/clear-all?key=${encodeURIComponent(secretKey)}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                console.log('Database cleared:', result);
-
-                alert(result.message || 'All reservations cleared successfully.');
-
-                // Reload the current table to refresh the view
-                loadCurrentTable();
-            } catch (error) {
-                console.error('Error clearing database:', error);
-                alert('Error clearing database: ' + error.message);
-            }
-        }
 
         // Load data on page load
         document.addEventListener('DOMContentLoaded', function () {
@@ -732,18 +691,8 @@
             const btnReservations = document.getElementById('btnReservations');
             const btnPayments = document.getElementById('btnPayments');
             const btnRefresh = document.getElementById('btnRefresh');
-            const btnClearAll = document.getElementById('btnClearAll');
             const btnExportCSV = document.getElementById('btnExportCSV');
             const btnExportJSON = document.getElementById('btnExportJSON');
-
-            // Add event listener for Clear All button
-            if (btnClearAll) {
-                btnClearAll.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    clearDatabase();
-                });
-            }
 
             // Use event delegation for delete buttons (since they're dynamically created)
             document.addEventListener('click', function (e) {
