@@ -165,22 +165,60 @@ async function initializeGoogleCalendar() {
     // Test calendar connectivity
     try {
       const calendarId = process.env.GOOGLE_CALENDAR_ID;
-      await calendar.calendars.get({ calendarId });
-      console.log(`✅ Google Calendar API initialized successfully`);
+      console.log(`🔍 Testing calendar connectivity with ID: ${calendarId}`);
+
+      // First, try to get calendar info
+      const calendarInfo = await calendar.calendars.get({ calendarId });
+      console.log(`✅ Successfully accessed calendar: ${calendarInfo.data.summary || calendarId}`);
       console.log(`   Calendar ID: ${calendarId}`);
       console.log(`   Credentials file: ${credentialsPath}`);
       calendarInitialized = true;
       return true;
     } catch (testErr) {
-      console.error(`❌ Google Calendar API initialized but cannot access calendar: ${testErr.message}`);
+      console.error(`❌ Google Calendar API initialized but cannot access calendar`);
+      console.error(`   Error message: ${testErr.message}`);
+      console.error(`   Error code: ${testErr.code || 'N/A'}`);
+
       if (testErr.response) {
-        console.error(`   API Error: ${JSON.stringify(testErr.response.data, null, 2)}`);
+        console.error(`   HTTP Status: ${testErr.response.status}`);
+        console.error(`   API Error Response: ${JSON.stringify(testErr.response.data, null, 2)}`);
+
+        if (testErr.response.status === 404) {
+          console.error(`   ❌ Calendar not found! The calendar ID "${process.env.GOOGLE_CALENDAR_ID}" does not exist.`);
+        } else if (testErr.response.status === 403) {
+          console.error(`   ❌ Access denied! The service account doesn't have permission to access this calendar.`);
+          console.error(`   📋 To fix this:`);
+          console.error(`      1. Open your Google Calendar`);
+          console.error(`      2. Go to Settings > Share with specific people`);
+          console.error(`      3. Add the service account email (from credentials.json) with "Make changes to events" permission`);
+        } else if (testErr.response.status === 401) {
+          console.error(`   ❌ Authentication failed! Check your credentials file.`);
+        }
       }
+
+      // Try to list available calendars to help debug
+      try {
+        console.log(`📋 Attempting to list calendars the service account can access...`);
+        const calendarList = await calendar.calendarList.list();
+        if (calendarList.data.items && calendarList.data.items.length > 0) {
+          console.log(`   Available calendars:`);
+          calendarList.data.items.forEach(cal => {
+            console.log(`     - "${cal.summary || 'Untitled'}": ${cal.id}`);
+          });
+        } else {
+          console.log(`   ⚠️ No calendars found. Service account may not have access to any calendars.`);
+        }
+      } catch (listErr) {
+        console.error(`   Could not list calendars: ${listErr.message}`);
+      }
+
       console.error(`   This might indicate:`);
-      console.error(`   - Calendar ID is incorrect`);
+      console.error(`   - Calendar ID is incorrect (check the list above for correct ID)`);
       console.error(`   - Service account doesn't have access to the calendar`);
-      console.error(`   - Calendar doesn't exist`);
-      calendar = null;
+      console.error(`   - Calendar doesn't exist or was deleted`);
+      console.error(`   - Credentials file is invalid or expired`);
+
+      // Don't set calendar to null - keep it so we can retry later
       calendarInitialized = false;
       return false;
     }
@@ -198,18 +236,29 @@ async function initializeGoogleCalendar() {
 
 // Initialize calendar synchronously (will be verified async)
 if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_ID) {
+  console.log(`🔄 Starting Google Calendar initialization...`);
   initializeGoogleCalendar().then(initialized => {
     if (initialized) {
-      console.log(`✅ Calendar initialization completed successfully`);
+      console.log(`✅ Calendar initialization completed successfully - calendar operations are enabled`);
     } else {
       console.error(`❌ Calendar initialization failed - calendar operations will be disabled`);
+      console.error(`   Check the error messages above to diagnose the issue.`);
+      console.error(`   Common fixes:`);
+      console.error(`   1. Verify the calendar ID is correct (check the list of available calendars above)`);
+      console.error(`   2. Share the calendar with the service account email (found in credentials.json)`);
+      console.error(`   3. Check that the credentials file is valid and not expired`);
+      console.error(`   4. Ensure the service account has "Make changes to events" permission`);
     }
   }).catch(err => {
-    console.error(`❌ Unexpected error during calendar initialization:`, err);
+    console.error(`❌ Unexpected error during calendar initialization:`, err.message);
+    if (err.stack) {
+      console.error('Stack trace:', err.stack);
+    }
     calendar = null;
     calendarInitialized = false;
   });
 } else {
+  console.log(`ℹ️ Google Calendar not configured - GOOGLE_CALENDAR_CREDENTIALS_PATH or GOOGLE_CALENDAR_ID not set`);
   calendar = null;
   calendarInitialized = false;
 }
