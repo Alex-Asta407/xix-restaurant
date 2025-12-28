@@ -3601,10 +3601,66 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
       console.error('Database error:', err);
       return res.status(500).send(`
         <html>
-          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-            <h1 style="color: #d32f2f;">Error</h1>
-            <p>An error occurred. Please contact the restaurant.</p>
-            <a href="/">Return to Home</a>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px; 
+                background: #f5f5f5;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1.6;
+              }
+              .container {
+                background: white;
+                padding: 40px 30px;
+                border-radius: 12px;
+                max-width: 600px;
+                margin: 40px auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 { 
+                color: #d32f2f; 
+                margin-bottom: 20px;
+                font-size: 28px;
+                font-weight: 600;
+              }
+              p {
+                font-size: 18px;
+                color: #333;
+                margin: 15px 0;
+              }
+              a { 
+                display: inline-block; 
+                margin-top: 30px; 
+                padding: 16px 32px; 
+                background: #A8871A; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: 500;
+                transition: background 0.3s;
+              }
+              a:hover { background: #8b6f15; }
+              @media (max-width: 600px) {
+                body { padding: 10px; font-size: 18px; }
+                .container { padding: 30px 20px; margin: 20px auto; }
+                h1 { font-size: 32px; }
+                p { font-size: 20px; }
+                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>⚠️ Error</h1>
+              <p>An error occurred. Please contact the restaurant.</p>
+              <a href="/">Return to Home</a>
+            </div>
           </body>
         </html>
       `);
@@ -3613,10 +3669,66 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
     if (!reservation) {
       return res.status(404).send(`
         <html>
-          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-            <h1 style="color: #d32f2f;">Invalid Confirmation Link</h1>
-            <p>This confirmation link is invalid or has expired.</p>
-            <a href="/">Return to Home</a>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px; 
+                background: #f5f5f5;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1.6;
+              }
+              .container {
+                background: white;
+                padding: 40px 30px;
+                border-radius: 12px;
+                max-width: 600px;
+                margin: 40px auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 { 
+                color: #d32f2f; 
+                margin-bottom: 20px;
+                font-size: 28px;
+                font-weight: 600;
+              }
+              p {
+                font-size: 18px;
+                color: #333;
+                margin: 15px 0;
+              }
+              a { 
+                display: inline-block; 
+                margin-top: 30px; 
+                padding: 16px 32px; 
+                background: #A8871A; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: 500;
+                transition: background 0.3s;
+              }
+              a:hover { background: #8b6f15; }
+              @media (max-width: 600px) {
+                body { padding: 10px; font-size: 18px; }
+                .container { padding: 30px 20px; margin: 20px auto; }
+                h1 { font-size: 32px; }
+                p { font-size: 20px; }
+                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>⚠️ Invalid Confirmation Link</h1>
+              <p>This confirmation link is invalid or has expired.</p>
+              <a href="/">Return to Home</a>
+            </div>
           </body>
         </html>
       `);
@@ -3626,10 +3738,66 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
     if (reservation.confirmation_status === 'confirmed') {
       return res.send(`
         <html>
-          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-            <h1 style="color: #28a745;">Already Confirmed</h1>
-            <p>Your reservation for ${reservation.date} at ${reservation.time} has already been confirmed.</p>
-            <a href="/">Return to Home</a>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px; 
+                background: #f5f5f5;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1.6;
+              }
+              .container {
+                background: white;
+                padding: 40px 30px;
+                border-radius: 12px;
+                max-width: 600px;
+                margin: 40px auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 { 
+                color: #28a745; 
+                margin-bottom: 20px;
+                font-size: 28px;
+                font-weight: 600;
+              }
+              p {
+                font-size: 18px;
+                color: #333;
+                margin: 15px 0;
+              }
+              a { 
+                display: inline-block; 
+                margin-top: 30px; 
+                padding: 16px 32px; 
+                background: #A8871A; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: 500;
+                transition: background 0.3s;
+              }
+              a:hover { background: #8b6f15; }
+              @media (max-width: 600px) {
+                body { padding: 10px; font-size: 18px; }
+                .container { padding: 30px 20px; margin: 20px auto; }
+                h1 { font-size: 32px; }
+                p { font-size: 20px; }
+                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>✅ Already Confirmed</h1>
+              <p>Your reservation for <strong>${reservation.date}</strong> at <strong>${reservation.time}</strong> has already been confirmed.</p>
+              <a href="/">Return to Home</a>
+            </div>
           </body>
         </html>
       `);
@@ -3663,11 +3831,67 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
         });
         return res.send(`
           <html>
-            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-              <h1 style="color: #d32f2f;">Confirmation Deadline Passed</h1>
-              <p>Your reservation has been cancelled because it was not confirmed within 3 hours of the booking time.</p>
-              <p>Please make a new reservation.</p>
-              <a href="/reservations">Make New Reservation</a>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                * { box-sizing: border-box; }
+                body { 
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                  text-align: center; 
+                  padding: 20px; 
+                  background: #f5f5f5;
+                  margin: 0;
+                  font-size: 16px;
+                  line-height: 1.6;
+                }
+                .container {
+                  background: white;
+                  padding: 40px 30px;
+                  border-radius: 12px;
+                  max-width: 600px;
+                  margin: 40px auto;
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                }
+                h1 { 
+                  color: #d32f2f; 
+                  margin-bottom: 20px;
+                  font-size: 28px;
+                  font-weight: 600;
+                }
+                p {
+                  font-size: 18px;
+                  color: #333;
+                  margin: 15px 0;
+                }
+                a { 
+                  display: inline-block; 
+                  margin-top: 30px; 
+                  padding: 16px 32px; 
+                  background: #A8871A; 
+                  color: white; 
+                  text-decoration: none; 
+                  border-radius: 8px;
+                  font-size: 18px;
+                  font-weight: 500;
+                  transition: background 0.3s;
+                }
+                a:hover { background: #8b6f15; }
+                @media (max-width: 600px) {
+                  body { padding: 10px; font-size: 18px; }
+                  .container { padding: 30px 20px; margin: 20px auto; }
+                  h1 { font-size: 32px; }
+                  p { font-size: 20px; }
+                  a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h1>⏰ Confirmation Deadline Passed</h1>
+                <p>Your reservation has been cancelled because it was not confirmed within 3 hours of the booking time.</p>
+                <p>Please make a new reservation.</p>
+                <a href="/reservations">Make New Reservation</a>
+              </div>
             </body>
           </html>
         `);
@@ -3683,10 +3907,66 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
           console.error('Error confirming reservation:', err);
           return res.status(500).send(`
             <html>
-              <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-                <h1 style="color: #d32f2f;">Error</h1>
-                <p>An error occurred while confirming your reservation.</p>
-                <a href="/">Return to Home</a>
+              <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                  * { box-sizing: border-box; }
+                  body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 20px; 
+                    background: #f5f5f5;
+                    margin: 0;
+                    font-size: 16px;
+                    line-height: 1.6;
+                  }
+                  .container {
+                    background: white;
+                    padding: 40px 30px;
+                    border-radius: 12px;
+                    max-width: 600px;
+                    margin: 40px auto;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                  }
+                  h1 { 
+                    color: #d32f2f; 
+                    margin-bottom: 20px;
+                    font-size: 28px;
+                    font-weight: 600;
+                  }
+                  p {
+                    font-size: 18px;
+                    color: #333;
+                    margin: 15px 0;
+                  }
+                  a { 
+                    display: inline-block; 
+                    margin-top: 30px; 
+                    padding: 16px 32px; 
+                    background: #A8871A; 
+                    color: white; 
+                    text-decoration: none; 
+                    border-radius: 8px;
+                    font-size: 18px;
+                    font-weight: 500;
+                    transition: background 0.3s;
+                  }
+                  a:hover { background: #8b6f15; }
+                  @media (max-width: 600px) {
+                    body { padding: 10px; font-size: 18px; }
+                    .container { padding: 30px 20px; margin: 20px auto; }
+                    h1 { font-size: 32px; }
+                    p { font-size: 20px; }
+                    a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <h1>⚠️ Error</h1>
+                  <p>An error occurred while confirming your reservation.</p>
+                  <a href="/">Return to Home</a>
+                </div>
               </body>
             </html>
           `);
@@ -3705,13 +3985,84 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
         res.send(`
           <html>
             <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <style>
-                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
-                .success-box { background: white; padding: 40px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                h1 { color: #28a745; margin-bottom: 20px; }
-                .details { text-align: left; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 5px; }
-                .details p { margin: 10px 0; }
-                a { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #A8871A; color: white; text-decoration: none; border-radius: 5px; }
+                * { box-sizing: border-box; }
+                body { 
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                  text-align: center; 
+                  padding: 20px; 
+                  background: #f5f5f5;
+                  margin: 0;
+                  font-size: 16px;
+                  line-height: 1.6;
+                }
+                .success-box { 
+                  background: white; 
+                  padding: 40px 30px; 
+                  border-radius: 12px; 
+                  max-width: 600px; 
+                  margin: 40px auto; 
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                }
+                h1 { 
+                  color: #28a745; 
+                  margin-bottom: 20px;
+                  font-size: 32px;
+                  font-weight: 600;
+                }
+                p {
+                  font-size: 18px;
+                  color: #333;
+                  margin: 15px 0;
+                }
+                .details { 
+                  text-align: left; 
+                  margin: 30px 0; 
+                  padding: 25px; 
+                  background: #f8f9fa; 
+                  border-radius: 8px;
+                  border-left: 4px solid #28a745;
+                }
+                .details p { 
+                  margin: 12px 0;
+                  font-size: 18px;
+                }
+                .details strong {
+                  color: #020702;
+                  font-weight: 600;
+                  display: inline-block;
+                  min-width: 80px;
+                }
+                a { 
+                  display: inline-block; 
+                  margin-top: 30px; 
+                  padding: 16px 32px; 
+                  background: #A8871A; 
+                  color: white; 
+                  text-decoration: none; 
+                  border-radius: 8px;
+                  font-size: 18px;
+                  font-weight: 500;
+                  transition: background 0.3s;
+                }
+                a:hover { background: #8b6f15; }
+                .message {
+                  color: #666;
+                  font-size: 16px;
+                  margin-top: 20px;
+                }
+                @media (max-width: 600px) {
+                  body { padding: 10px; font-size: 18px; }
+                  .success-box { padding: 30px 20px; margin: 20px auto; }
+                  h1 { font-size: 36px; }
+                  p { font-size: 20px; }
+                  .details { padding: 20px; }
+                  .details p { font-size: 20px; }
+                  .details strong { display: block; margin-bottom: 5px; }
+                  a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+                  .message { font-size: 18px; }
+                }
               </style>
             </head>
             <body>
@@ -3725,7 +4076,7 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
                   <p><strong>Guests:</strong> ${reservation.guests}</p>
                   ${reservation.assigned_table ? `<p><strong>Table:</strong> ${reservation.assigned_table}</p>` : ''}
                 </div>
-                <p style="color: #666; font-size: 0.9em;">We look forward to seeing you!</p>
+                <p class="message">We look forward to seeing you!</p>
                 <a href="/">Return to Home</a>
               </div>
             </body>
@@ -3745,10 +4096,66 @@ app.get('/api/cancel-reservation/:token', (req, res) => {
       console.error('Database error:', err);
       return res.status(500).send(`
         <html>
-          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-            <h1 style="color: #d32f2f;">Error</h1>
-            <p>An error occurred. Please contact the restaurant.</p>
-            <a href="/">Return to Home</a>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px; 
+                background: #f5f5f5;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1.6;
+              }
+              .container {
+                background: white;
+                padding: 40px 30px;
+                border-radius: 12px;
+                max-width: 600px;
+                margin: 40px auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 { 
+                color: #d32f2f; 
+                margin-bottom: 20px;
+                font-size: 28px;
+                font-weight: 600;
+              }
+              p {
+                font-size: 18px;
+                color: #333;
+                margin: 15px 0;
+              }
+              a { 
+                display: inline-block; 
+                margin-top: 30px; 
+                padding: 16px 32px; 
+                background: #A8871A; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: 500;
+                transition: background 0.3s;
+              }
+              a:hover { background: #8b6f15; }
+              @media (max-width: 600px) {
+                body { padding: 10px; font-size: 18px; }
+                .container { padding: 30px 20px; margin: 20px auto; }
+                h1 { font-size: 32px; }
+                p { font-size: 20px; }
+                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>⚠️ Error</h1>
+              <p>An error occurred. Please contact the restaurant.</p>
+              <a href="/">Return to Home</a>
+            </div>
           </body>
         </html>
       `);
@@ -3757,10 +4164,66 @@ app.get('/api/cancel-reservation/:token', (req, res) => {
     if (!reservation) {
       return res.status(404).send(`
         <html>
-          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-            <h1 style="color: #d32f2f;">Invalid Cancellation Link</h1>
-            <p>This cancellation link is invalid or has expired.</p>
-            <a href="/">Return to Home</a>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px; 
+                background: #f5f5f5;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1.6;
+              }
+              .container {
+                background: white;
+                padding: 40px 30px;
+                border-radius: 12px;
+                max-width: 600px;
+                margin: 40px auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 { 
+                color: #d32f2f; 
+                margin-bottom: 20px;
+                font-size: 28px;
+                font-weight: 600;
+              }
+              p {
+                font-size: 18px;
+                color: #333;
+                margin: 15px 0;
+              }
+              a { 
+                display: inline-block; 
+                margin-top: 30px; 
+                padding: 16px 32px; 
+                background: #A8871A; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: 500;
+                transition: background 0.3s;
+              }
+              a:hover { background: #8b6f15; }
+              @media (max-width: 600px) {
+                body { padding: 10px; font-size: 18px; }
+                .container { padding: 30px 20px; margin: 20px auto; }
+                h1 { font-size: 32px; }
+                p { font-size: 20px; }
+                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>⚠️ Invalid Cancellation Link</h1>
+              <p>This cancellation link is invalid or has expired.</p>
+              <a href="/">Return to Home</a>
+            </div>
           </body>
         </html>
       `);
@@ -3770,10 +4233,66 @@ app.get('/api/cancel-reservation/:token', (req, res) => {
     if (reservation.confirmation_status === 'cancelled') {
       return res.send(`
         <html>
-          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-            <h1 style="color: #ff9800;">Already Cancelled</h1>
-            <p>Your reservation for ${reservation.date} at ${reservation.time} has already been cancelled.</p>
-            <a href="/">Return to Home</a>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px; 
+                background: #f5f5f5;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1.6;
+              }
+              .container {
+                background: white;
+                padding: 40px 30px;
+                border-radius: 12px;
+                max-width: 600px;
+                margin: 40px auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 { 
+                color: #ff9800; 
+                margin-bottom: 20px;
+                font-size: 28px;
+                font-weight: 600;
+              }
+              p {
+                font-size: 18px;
+                color: #333;
+                margin: 15px 0;
+              }
+              a { 
+                display: inline-block; 
+                margin-top: 30px; 
+                padding: 16px 32px; 
+                background: #A8871A; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: 500;
+                transition: background 0.3s;
+              }
+              a:hover { background: #8b6f15; }
+              @media (max-width: 600px) {
+                body { padding: 10px; font-size: 18px; }
+                .container { padding: 30px 20px; margin: 20px auto; }
+                h1 { font-size: 32px; }
+                p { font-size: 20px; }
+                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>⚠️ Already Cancelled</h1>
+              <p>Your reservation for <strong>${reservation.date}</strong> at <strong>${reservation.time}</strong> has already been cancelled.</p>
+              <a href="/">Return to Home</a>
+            </div>
           </body>
         </html>
       `);
@@ -3795,10 +4314,66 @@ app.get('/api/cancel-reservation/:token', (req, res) => {
           console.error('Error cancelling reservation:', err);
           return res.status(500).send(`
             <html>
-              <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-                <h1 style="color: #d32f2f;">Error</h1>
-                <p>An error occurred while cancelling your reservation.</p>
-                <a href="/">Return to Home</a>
+              <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                  * { box-sizing: border-box; }
+                  body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 20px; 
+                    background: #f5f5f5;
+                    margin: 0;
+                    font-size: 16px;
+                    line-height: 1.6;
+                  }
+                  .container {
+                    background: white;
+                    padding: 40px 30px;
+                    border-radius: 12px;
+                    max-width: 600px;
+                    margin: 40px auto;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                  }
+                  h1 { 
+                    color: #d32f2f; 
+                    margin-bottom: 20px;
+                    font-size: 28px;
+                    font-weight: 600;
+                  }
+                  p {
+                    font-size: 18px;
+                    color: #333;
+                    margin: 15px 0;
+                  }
+                  a { 
+                    display: inline-block; 
+                    margin-top: 30px; 
+                    padding: 16px 32px; 
+                    background: #A8871A; 
+                    color: white; 
+                    text-decoration: none; 
+                    border-radius: 8px;
+                    font-size: 18px;
+                    font-weight: 500;
+                    transition: background 0.3s;
+                  }
+                  a:hover { background: #8b6f15; }
+                  @media (max-width: 600px) {
+                    body { padding: 10px; font-size: 18px; }
+                    .container { padding: 30px 20px; margin: 20px auto; }
+                    h1 { font-size: 32px; }
+                    p { font-size: 20px; }
+                    a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <h1>⚠️ Error</h1>
+                  <p>An error occurred while cancelling your reservation.</p>
+                  <a href="/">Return to Home</a>
+                </div>
               </body>
             </html>
           `);
@@ -3819,13 +4394,84 @@ app.get('/api/cancel-reservation/:token', (req, res) => {
         res.send(`
           <html>
             <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <style>
-                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
-                .success-box { background: white; padding: 40px; border-radius: 10px; max-width: 500px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                h1 { color: #dc3545; margin-bottom: 20px; }
-                .details { text-align: left; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 5px; }
-                .details p { margin: 10px 0; }
-                a { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #A8871A; color: white; text-decoration: none; border-radius: 5px; }
+                * { box-sizing: border-box; }
+                body { 
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                  text-align: center; 
+                  padding: 20px; 
+                  background: #f5f5f5;
+                  margin: 0;
+                  font-size: 16px;
+                  line-height: 1.6;
+                }
+                .success-box { 
+                  background: white; 
+                  padding: 40px 30px; 
+                  border-radius: 12px; 
+                  max-width: 600px; 
+                  margin: 40px auto; 
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                }
+                h1 { 
+                  color: #dc3545; 
+                  margin-bottom: 20px;
+                  font-size: 32px;
+                  font-weight: 600;
+                }
+                p {
+                  font-size: 18px;
+                  color: #333;
+                  margin: 15px 0;
+                }
+                .details { 
+                  text-align: left; 
+                  margin: 30px 0; 
+                  padding: 25px; 
+                  background: #f8f9fa; 
+                  border-radius: 8px;
+                  border-left: 4px solid #dc3545;
+                }
+                .details p { 
+                  margin: 12px 0;
+                  font-size: 18px;
+                }
+                .details strong {
+                  color: #020702;
+                  font-weight: 600;
+                  display: inline-block;
+                  min-width: 80px;
+                }
+                a { 
+                  display: inline-block; 
+                  margin-top: 30px; 
+                  padding: 16px 32px; 
+                  background: #A8871A; 
+                  color: white; 
+                  text-decoration: none; 
+                  border-radius: 8px;
+                  font-size: 18px;
+                  font-weight: 500;
+                  transition: background 0.3s;
+                }
+                a:hover { background: #8b6f15; }
+                .message {
+                  color: #666;
+                  font-size: 16px;
+                  margin-top: 20px;
+                }
+                @media (max-width: 600px) {
+                  body { padding: 10px; font-size: 18px; }
+                  .success-box { padding: 30px 20px; margin: 20px auto; }
+                  h1 { font-size: 36px; }
+                  p { font-size: 20px; }
+                  .details { padding: 20px; }
+                  .details p { font-size: 20px; }
+                  .details strong { display: block; margin-bottom: 5px; }
+                  a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+                  .message { font-size: 18px; }
+                }
               </style>
             </head>
             <body>
@@ -3838,7 +4484,7 @@ app.get('/api/cancel-reservation/:token', (req, res) => {
                   <p><strong>Time:</strong> ${reservation.time}</p>
                   <p><strong>Guests:</strong> ${reservation.guests}</p>
                 </div>
-                <p style="color: #666; font-size: 0.9em;">We're sorry to see you go. We hope to serve you another time!</p>
+                <p class="message">We're sorry to see you go. We hope to serve you another time!</p>
                 <a href="/reservations">Make New Reservation</a>
               </div>
             </body>
