@@ -1131,6 +1131,32 @@ app.get('/health', (req, res) => {
 });
 
 // Debug endpoint to check environment variables and base URL (for troubleshooting)
+app.get('/api/debug/database', (req, res) => {
+  const actualDbPath = path.resolve(dbPath);
+  const dbExists = fs.existsSync(actualDbPath);
+
+  // Get count directly
+  db.get('SELECT COUNT(*) as count FROM reservations', [], (err, row) => {
+    const reservationCount = err ? 'ERROR' : (row ? row.count : 0);
+
+    // Get all reservation IDs
+    db.all('SELECT id, name, date, time FROM reservations ORDER BY id DESC LIMIT 10', [], (err2, rows) => {
+      const sampleReservations = err2 ? [] : (rows || []);
+
+      res.json({
+        databasePath: actualDbPath,
+        databasePathFromEnv: dbPath,
+        databaseExists: dbExists,
+        reservationCount: reservationCount,
+        sampleReservations: sampleReservations,
+        nodeEnv: process.env.NODE_ENV || 'NOT SET',
+        currentDir: __dirname,
+        workingDir: process.cwd()
+      });
+    });
+  });
+});
+
 app.get('/api/debug/env', (req, res) => {
   const envPath = path.resolve(__dirname, '.env');
   const envExists = fs.existsSync(envPath);
@@ -1210,6 +1236,9 @@ app.get('/admin/all', (req, res) => {
 // Get all reservations (for admin)
 // Join with tables table to get table_number when assigned_table is a table ID
 app.get('/api/reservations', (req, res) => {
+  const actualDbPath = path.resolve(dbPath);
+  console.log(`📋 /api/reservations called - Reading from database: ${actualDbPath}`);
+
   db.all(`
     SELECT r.*, 
            t.table_number as table_name,
@@ -1219,9 +1248,16 @@ app.get('/api/reservations', (req, res) => {
     ORDER BY r.created_at DESC
   `, (err, rows) => {
     if (err) {
+      console.error(`❌ Database error reading reservations:`, err);
       res.status(500).json({ error: err.message });
       return;
     }
+
+    console.log(`📊 Found ${rows.length} reservations in database (${actualDbPath})`);
+    if (rows.length > 0) {
+      console.log(`   Sample reservation IDs: ${rows.slice(0, 5).map(r => r.id).join(', ')}`);
+    }
+
     // Map the result to include table_number in assigned_table for backward compatibility
     const mappedRows = rows.map(row => ({
       ...row,
@@ -1231,7 +1267,7 @@ app.get('/api/reservations', (req, res) => {
     }));
 
     // Add database info header for debugging
-    res.setHeader('X-Database-Path', path.resolve(dbPath));
+    res.setHeader('X-Database-Path', actualDbPath);
     res.setHeader('X-Database-Records', mappedRows.length);
     res.setHeader('X-Server-Environment', process.env.NODE_ENV || 'development');
 
