@@ -3129,24 +3129,22 @@ app.get('/api/table-availability', (req, res) => {
 // TABLE ASSIGNMENT & CONFIRMATION SYSTEM
 // ============================================
 
-// Helper function to calculate end_time, handling midnight crossover
-// Returns end_time in format "HH:MM" or "25:MM" (hours > 24) if crossing midnight
+// Helper function to calculate end_time, capping at 23:00:00 (11 PM) to avoid midnight crossover issues
+// Returns end_time in format "HH:MM", capped at 23:00:00
 function calculateEndTime(date, time, durationHours = 2) {
   const startDateTime = new Date(`${date}T${time}`);
   const endDateTime = new Date(startDateTime);
   endDateTime.setHours(endDateTime.getHours() + durationHours);
 
-  // Check if end time is on the next day
-  const endDate = endDateTime.toISOString().split('T')[0];
-  const isNextDay = endDate !== date;
+  let endHour = endDateTime.getHours();
+  const endMinutes = endDateTime.getMinutes();
 
-  if (isNextDay) {
-    // Store as hours > 24 to indicate next day (e.g., "25:00" for 1:00 AM next day)
-    const nextDayHour = endDateTime.getHours() + 24;
-    return `${nextDayHour.toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`;
-  } else {
-    return `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`;
+  // Cap end time at 23:00:00 (11 PM) to avoid midnight crossover issues with Google Calendar API
+  if (endHour >= 24) {
+    endHour = 23;
   }
+
+  return `${endHour.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
 }
 
 // Helper function to assign best available table
@@ -4034,18 +4032,28 @@ async function updateGoogleCalendarEvent(reservation) {
       let endMonth = parseInt(month);
       let endYear = parseInt(year);
 
-      // Handle midnight crossover:
-      // - hours >= 25 means next day (e.g., "25:00" = 1:00 AM next day)
-      // - if end hour is less than start hour, it's next day (e.g., 23:00 to 01:00)
-      // - BUT: if end hour >= start hour, it's same day (e.g., 17:00 to 19:00, 21:00 to 23:00)
-      if (endHour >= 25) {
-        endHour = endHour - 24;
-        endDay = endDay + 1;
+      // Cap end time at 23:00:00 (11 PM) to avoid Google Calendar API issues with midnight:
+      // - If end hour >= 24 or would cross midnight, cap at 23:00:00 same day
+      // - Otherwise, keep as is (same day if endHour >= startHour)
+      if (endHour >= 24) {
+        // Cap at 23:00:00 (11 PM) same day to avoid midnight crossover issues
+        endHour = 23;
+        endDay = parseInt(day); // EXPLICITLY keep same day
       } else if (endHour < timeParsed.hours) {
-        // End hour is less than start hour = midnight crossover (e.g., 23:00 to 01:00)
-        endDay = endDay + 1;
+        // End hour is less than start hour = would be midnight crossover (e.g., 23:00 to 01:00)
+        // Cap at 23:00:00 instead of going to next day
+        endHour = 23;
+        endDay = parseInt(day); // EXPLICITLY keep same day
+      } else {
+        // End hour >= start hour and < 24 = same day (normal case like 17:00 to 19:00, 21:00 to 23:00)
+        endDay = parseInt(day); // EXPLICITLY ensure same day
       }
-      // Otherwise, end time is on the same day (normal case like 17:00 to 19:00, 21:00 to 23:00)
+
+      // CRITICAL: Double-check that endDay matches start day (should never be different now)
+      if (endDay !== parseInt(day)) {
+        console.error(`   ❌ ERROR: endDay (${endDay}) does not match start day (${day})! Forcing to same day.`);
+        endDay = parseInt(day);
+      }
 
       // Handle month/year overflow
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
@@ -4067,13 +4075,23 @@ async function updateGoogleCalendarEvent(reservation) {
       let endMonth = parseInt(month);
       let endYear = parseInt(year);
 
-      // Handle hour overflow (next day)
+      // Cap end time at 23:00:00 (11 PM) to avoid midnight crossover issues with Google Calendar API
+      // If the calculated end time would be >= 24:00, cap it at 23:00:00 instead
       if (endHour >= 24) {
-        endHour = endHour - 24;
-        endDay = endDay + 1;
+        endHour = 23;
+        endDay = parseInt(day); // EXPLICITLY keep same day
+        console.log(`   ⚠️ End time capped at 23:00:00 (11 PM) - ${timeParsed.hours}:00 + 2h would cross midnight, capped to avoid API issues`);
+      } else {
+        endDay = parseInt(day); // EXPLICITLY ensure same day
       }
 
-      // Handle month/year overflow
+      // CRITICAL: Double-check that endDay matches start day (should never be different now)
+      if (endDay !== parseInt(day)) {
+        console.error(`   ❌ ERROR: endDay (${endDay}) does not match start day (${day})! Forcing to same day.`);
+        endDay = parseInt(day);
+      }
+
+      // Handle month/year overflow (shouldn't happen now since we cap at 23:00, but keep for safety)
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
       if (endDay > daysInMonth) {
         endDay = 1;
@@ -4084,14 +4102,7 @@ async function updateGoogleCalendarEvent(reservation) {
         }
       }
 
-      // Build endDateTimeISO - use 00:01:00 instead of 00:00:00 if it's midnight next day to avoid API issues
-      let finalEndMinutes = timeParsed.minutes;
-      if (endHour === 0 && finalEndMinutes === 0 && endDay > parseInt(day)) {
-        // This is midnight next day - use 00:01:00 to avoid Google Calendar API issues
-        finalEndMinutes = 1;
-      }
-
-      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${finalEndMinutes.toString().padStart(2, '0')}:00`;
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
     }
 
     // Get table number for display
@@ -4288,33 +4299,42 @@ async function createGoogleCalendarEvent(reservation) {
       // Parse end_time (handles midnight crossover like "25:00" and 12-hour format)
       const endTimeParsed = parseTime(reservation.end_time);
       let endHour = endTimeParsed.hours;
-      // IMPORTANT: Start with the SAME day as the reservation - only increment if crossing midnight
+      // IMPORTANT: ALWAYS start with the SAME day as the reservation - we cap at 23:00 so never cross midnight
       let endDay = parseInt(day);
       let endMonth = parseInt(month);
       let endYear = parseInt(year);
 
       console.log(`   Parsing end_time: "${reservation.end_time}" → hours=${endTimeParsed.hours}, minutes=${endTimeParsed.minutes}`);
       console.log(`   Start: ${timeParsed.hours}:${timeParsed.minutes}, End (raw): ${endHour}:${endTimeParsed.minutes}`);
-      console.log(`   Initial endDay: ${endDay} (same as start day)`);
+      console.log(`   Initial endDay: ${endDay} (same as start day ${day})`);
 
-      // Handle midnight crossover:
-      // - hours >= 25 means next day (e.g., "25:00" = 1:00 AM next day)
-      // - if end hour is less than start hour, it's next day (e.g., 23:00 to 01:00)
-      // - BUT: if end hour >= start hour, it's same day (e.g., 17:00 to 19:00, 21:00 to 23:00, 22:00 to 24:00)
-      if (endHour >= 25) {
-        endHour = endHour - 24;
-        endDay = endDay + 1;
-        console.log(`   ⏭️ Midnight crossover detected (>=25): endHour=${endHour}, endDay=${endDay}`);
+      // Cap end time at 23:00:00 (11 PM) to avoid Google Calendar API issues with midnight:
+      // - If end hour >= 24 or would cross midnight, cap at 23:00:00 same day
+      // - Otherwise, keep as is (same day if endHour >= startHour)
+      if (endHour >= 24) {
+        // Cap at 23:00:00 (11 PM) same day to avoid midnight crossover issues
+        endHour = 23;
+        endDay = parseInt(day); // EXPLICITLY keep same day
+        console.log(`   ⚠️ End time capped at 23:00:00 (11 PM) - ${endTimeParsed.hours}:00 would cross midnight, capped to avoid API issues`);
       } else if (endHour < timeParsed.hours) {
-        // End hour is less than start hour = midnight crossover (e.g., 23:00 to 01:00)
-        endDay = endDay + 1;
-        console.log(`   ⏭️ Midnight crossover detected (endHour < startHour): endHour=${endHour} < startHour=${timeParsed.hours}, endDay=${endDay}`);
+        // End hour is less than start hour = would be midnight crossover (e.g., 23:00 to 01:00)
+        // Cap at 23:00:00 instead of going to next day
+        endHour = 23;
+        endDay = parseInt(day); // EXPLICITLY keep same day
+        console.log(`   ⚠️ End time capped at 23:00:00 (11 PM) - ${endTimeParsed.hours}:00 would be next day, capped to avoid API issues`);
       } else {
-        // End hour >= start hour = same day (normal case like 17:00 to 19:00, 21:00 to 23:00)
-        console.log(`   ✓ Same day (endHour >= startHour): endHour=${endHour} >= startHour=${timeParsed.hours}, endDay stays ${endDay}`);
+        // End hour >= start hour and < 24 = same day (normal case like 17:00 to 19:00, 21:00 to 23:00)
+        endDay = parseInt(day); // EXPLICITLY ensure same day
+        console.log(`   ✓ Same day (endHour >= startHour): endHour=${endHour} >= startHour=${timeParsed.hours}, endDay=${endDay} (same as start day ${day})`);
       }
 
-      // Handle month/year overflow
+      // CRITICAL: Double-check that endDay matches start day (should never be different now)
+      if (endDay !== parseInt(day)) {
+        console.error(`   ❌ ERROR: endDay (${endDay}) does not match start day (${day})! Forcing to same day.`);
+        endDay = parseInt(day);
+      }
+
+      // Handle month/year overflow (shouldn't happen since we keep same day, but keep for safety)
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
       if (endDay > daysInMonth) {
         endDay = 1;
@@ -4326,33 +4346,35 @@ async function createGoogleCalendarEvent(reservation) {
       }
 
       endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${endTimeParsed.minutes.toString().padStart(2, '0')}:00`;
-      console.log(`   End time calculation: startHour=${timeParsed.hours}, endHour=${endTimeParsed.hours} (raw) → ${endHour} (adjusted), endDay=${endDay}, endDateTimeISO=${endDateTimeISO}`);
+      console.log(`   ✅ Final end time: startDay=${day}, endDay=${endDay}, startHour=${timeParsed.hours}, endHour=${endHour}, endDateTimeISO=${endDateTimeISO}`);
     } else {
       // Default 2 hours - calculate end time
       let endHour = timeParsed.hours + 2;
+      // IMPORTANT: ALWAYS start with the SAME day as the reservation - we cap at 23:00 so never cross midnight
       let endDay = parseInt(day);
       let endMonth = parseInt(month);
       let endYear = parseInt(year);
 
-      // Handle hour overflow (next day) - only if >= 24 (e.g., 22:00 + 2 = 24:00 → 00:00 next day)
+      console.log(`   Calculating default 2-hour duration: startHour=${timeParsed.hours}, endHour=${endHour}, startDay=${day}, endDay=${endDay}`);
+
+      // Cap end time at 23:00:00 (11 PM) to avoid midnight crossover issues with Google Calendar API
+      // If the calculated end time would be >= 24:00, cap it at 23:00:00 instead
       if (endHour >= 24) {
-        endHour = endHour - 24;
-        endDay = endDay + 1;
-        // Google Calendar may have issues with 00:00:00 as end time - use 00:01:00 instead (1 minute after midnight)
-        // This ensures the event is clearly on the next day and avoids potential API validation issues
-        if (endHour === 0 && timeParsed.minutes === 0) {
-          // Keep endHour as 0 but add 1 minute to avoid 00:00:00
-          const endMinutes = 1;
-          endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T00:01:00`;
-          console.log(`   End time crosses midnight: ${timeParsed.hours}:00 + 2h = 00:01 next day (adjusted from 00:00 to avoid API issues)`);
-        } else {
-          console.log(`   End time crosses midnight: ${timeParsed.hours}:00 + 2h = ${endHour}:${timeParsed.minutes.toString().padStart(2, '0')} next day`);
-        }
+        endHour = 23;
+        endDay = parseInt(day); // EXPLICITLY keep same day
+        console.log(`   ⚠️ End time capped at 23:00:00 (11 PM) - ${timeParsed.hours}:00 + 2h would cross midnight, capped to avoid API issues`);
       } else {
-        console.log(`   End time same day: ${timeParsed.hours}:00 + 2h = ${endHour}:${timeParsed.minutes.toString().padStart(2, '0')}`);
+        endDay = parseInt(day); // EXPLICITLY ensure same day
+        console.log(`   ✓ End time same day: ${timeParsed.hours}:00 + 2h = ${endHour}:${timeParsed.minutes.toString().padStart(2, '0')}, endDay=${endDay} (same as start day ${day})`);
       }
 
-      // Handle month/year overflow (must be done after day increment)
+      // CRITICAL: Double-check that endDay matches start day (should never be different now)
+      if (endDay !== parseInt(day)) {
+        console.error(`   ❌ ERROR: endDay (${endDay}) does not match start day (${day})! Forcing to same day.`);
+        endDay = parseInt(day);
+      }
+
+      // Handle month/year overflow (shouldn't happen now since we cap at 23:00, but keep for safety)
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
       if (endDay > daysInMonth) {
         endDay = 1;
@@ -4363,15 +4385,8 @@ async function createGoogleCalendarEvent(reservation) {
         }
       }
 
-      // Build endDateTimeISO - use 00:01:00 instead of 00:00:00 if it's midnight next day to avoid API issues
-      let finalEndMinutes = timeParsed.minutes;
-      if (endHour === 0 && finalEndMinutes === 0 && endDay > parseInt(day)) {
-        // This is midnight next day - use 00:01:00 to avoid Google Calendar API issues
-        finalEndMinutes = 1;
-        console.log(`   ⚠️ Adjusted end time from 00:00:00 to 00:01:00 to avoid Google Calendar API validation issues`);
-      }
-
-      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${finalEndMinutes.toString().padStart(2, '0')}:00`;
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
+      console.log(`   ✅ Final end time: startDay=${day}, endDay=${endDay}, startHour=${timeParsed.hours}, endHour=${endHour}, endDateTimeISO=${endDateTimeISO}`);
     }
 
     console.log(`   Final Start: ${startDateTimeISO} (Europe/London)`);
