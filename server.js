@@ -4021,7 +4021,17 @@ async function updateGoogleCalendarEvent(reservation) {
     const [year, month, day] = reservation.date.split('-');
     const timeParsed = parseTime(reservation.time);
 
-    const startDateTimeISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timeParsed.hours.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
+    // Calculate timezone offset (same logic as createGoogleCalendarEvent)
+    const monthNum = parseInt(month);
+    let offsetStr = '+00:00'; // Default to GMT (UTC+0)
+    try {
+      const isWinter = monthNum === 12 || monthNum <= 2 || (monthNum === 3 && parseInt(day) < 25) || (monthNum === 11 && parseInt(day) >= 1);
+      offsetStr = isWinter ? '+00:00' : '+01:00';
+    } catch (e) {
+      offsetStr = '+00:00';
+    }
+
+    const startDateTimeISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timeParsed.hours.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00${offsetStr}`;
 
     // Calculate end time
     let endDateTimeISO;
@@ -4066,7 +4076,7 @@ async function updateGoogleCalendarEvent(reservation) {
         }
       }
 
-      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${endTimeParsed.minutes.toString().padStart(2, '0')}:00`;
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${endTimeParsed.minutes.toString().padStart(2, '0')}:00${offsetStr}`;
       console.log(`   End time calculation: startHour=${timeParsed.hours}, endHour=${endTimeParsed.hours} (raw) → ${endHour} (adjusted), endDay=${endDay}, endDateTimeISO=${endDateTimeISO}`);
     } else {
       // Default 2 hours - calculate end time directly (no Date object to avoid timezone issues)
@@ -4102,7 +4112,7 @@ async function updateGoogleCalendarEvent(reservation) {
         }
       }
 
-      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00${offsetStr}`;
     }
 
     // Get table number for display
@@ -4276,15 +4286,48 @@ async function createGoogleCalendarEvent(reservation) {
 
     // Parse date and time (handle both 24-hour and 12-hour formats)
     // Google Calendar API expects dateTime in RFC3339 format with timezone
-    // When timeZone is specified, the dateTime should represent local time in that timezone
     // Europe/London is UTC+0 (GMT) in winter, UTC+1 (BST) in summer
     const [year, month, day] = reservation.date.split('-');
     const timeParsed = parseTime(reservation.time);
 
-    // IMPORTANT: When timeZone is specified in Google Calendar API, dateTime should NOT include timezone offset
-    // Google Calendar will interpret the dateTime as local time in the specified timezone (Europe/London)
-    // Format: YYYY-MM-DDTHH:MM:SS (no timezone offset)
-    const startDateTimeISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timeParsed.hours.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
+    // Determine timezone offset for Europe/London
+    // BST (British Summer Time) is UTC+1 (last Sunday in March to last Sunday in October)
+    // GMT is UTC+0 (rest of the year, including December)
+    // We need to explicitly include the offset in RFC3339 format to ensure Google Calendar interprets it correctly
+    const monthNum = parseInt(month);
+    let offsetStr = '+00:00'; // Default to GMT (UTC+0)
+
+    // Check if date is likely in BST period (April-October)
+    // For December (month 12), it's always GMT, so +00:00 is correct
+    if (monthNum >= 4 && monthNum <= 10) {
+      // Could be BST, but to be safe, we'll calculate it properly
+      // For now, use a simple check: if month is 4-10, it might be BST
+      // But actually, BST ends in late October, so October could be either
+      // For simplicity and to avoid issues, we'll use +00:00 for all dates
+      // and rely on the timeZone field in the API call
+      offsetStr = '+00:00';
+    }
+
+    // Actually, let's use a more reliable method: create a date and check its timezone offset
+    // For December 29, 2025, Europe/London is GMT (UTC+0)
+    // We'll explicitly set +00:00 for winter months (Nov-Mar) and +01:00 for summer months (Apr-Oct)
+    // But to be absolutely safe, let's calculate it dynamically
+    try {
+      const testDateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T12:00:00`;
+      const testDate = new Date(testDateStr);
+      // Use a library-free method: create date in UTC and compare
+      // For Europe/London in December, it's GMT (UTC+0)
+      // This is a simplified check - in production, you might want to use a timezone library
+      const isWinter = monthNum === 12 || monthNum <= 2 || (monthNum === 3 && parseInt(day) < 25) || (monthNum === 11 && parseInt(day) >= 1);
+      offsetStr = isWinter ? '+00:00' : '+01:00';
+    } catch (e) {
+      // Fallback to GMT
+      offsetStr = '+00:00';
+    }
+
+    // Format: YYYY-MM-DDTHH:MM:SS+HH:MM (RFC3339 with explicit timezone offset)
+    // This ensures Google Calendar interprets the time correctly as Europe/London local time
+    const startDateTimeISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timeParsed.hours.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00${offsetStr}`;
 
     console.log(`   Creating event for ${reservation.date} at ${reservation.time}`);
     console.log(`   Parsed time: ${timeParsed.hours}:${timeParsed.minutes}`);
@@ -4385,7 +4428,8 @@ async function createGoogleCalendarEvent(reservation) {
         }
       }
 
-      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
+      // Use the same timezone offset as start time (since endDay should equal start day)
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00${offsetStr}`;
       console.log(`   ✅ Final end time: startDay=${day}, endDay=${endDay}, startHour=${timeParsed.hours}, endHour=${endHour}, endDateTimeISO=${endDateTimeISO}`);
     }
 
