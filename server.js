@@ -4281,9 +4281,14 @@ async function createGoogleCalendarEvent(reservation) {
       // Parse end_time (handles midnight crossover like "25:00" and 12-hour format)
       const endTimeParsed = parseTime(reservation.end_time);
       let endHour = endTimeParsed.hours;
+      // IMPORTANT: Start with the SAME day as the reservation - only increment if crossing midnight
       let endDay = parseInt(day);
       let endMonth = parseInt(month);
       let endYear = parseInt(year);
+
+      console.log(`   Parsing end_time: "${reservation.end_time}" → hours=${endTimeParsed.hours}, minutes=${endTimeParsed.minutes}`);
+      console.log(`   Start: ${timeParsed.hours}:${timeParsed.minutes}, End (raw): ${endHour}:${endTimeParsed.minutes}`);
+      console.log(`   Initial endDay: ${endDay} (same as start day)`);
 
       // Handle midnight crossover:
       // - hours >= 25 means next day (e.g., "25:00" = 1:00 AM next day)
@@ -4292,11 +4297,15 @@ async function createGoogleCalendarEvent(reservation) {
       if (endHour >= 25) {
         endHour = endHour - 24;
         endDay = endDay + 1;
+        console.log(`   ⏭️ Midnight crossover detected (>=25): endHour=${endHour}, endDay=${endDay}`);
       } else if (endHour < timeParsed.hours) {
         // End hour is less than start hour = midnight crossover (e.g., 23:00 to 01:00)
         endDay = endDay + 1;
+        console.log(`   ⏭️ Midnight crossover detected (endHour < startHour): endHour=${endHour} < startHour=${timeParsed.hours}, endDay=${endDay}`);
+      } else {
+        // End hour >= start hour = same day (normal case like 17:00 to 19:00, 21:00 to 23:00)
+        console.log(`   ✓ Same day (endHour >= startHour): endHour=${endHour} >= startHour=${timeParsed.hours}, endDay stays ${endDay}`);
       }
-      // Otherwise, end time is on the same day (normal case like 17:00 to 19:00, 21:00 to 23:00)
 
       // Handle month/year overflow
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
@@ -4345,11 +4354,30 @@ async function createGoogleCalendarEvent(reservation) {
     console.log(`   Final End: ${endDateTimeISO} (Europe/London)`);
 
     // Validate that end time is after start time
-    const startDate = new Date(`${startDateTimeISO}+00:00`); // Treat as UTC to compare
-    const endDate = new Date(`${endDateTimeISO}+00:00`);
-    if (endDate <= startDate) {
-      console.error(`❌ Invalid event: end time (${endDateTimeISO}) must be after start time (${startDateTimeISO})`);
-      throw new Error(`Invalid event duration: end time must be after start time`);
+    // Compare dates by parsing them as local dates (treating as same timezone)
+    const startParts = startDateTimeISO.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+    const endParts = endDateTimeISO.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+
+    if (startParts && endParts) {
+      const startTimestamp = new Date(
+        parseInt(startParts[1]), parseInt(startParts[2]) - 1, parseInt(startParts[3]),
+        parseInt(startParts[4]), parseInt(startParts[5]), parseInt(startParts[6])
+      ).getTime();
+      const endTimestamp = new Date(
+        parseInt(endParts[1]), parseInt(endParts[2]) - 1, parseInt(endParts[3]),
+        parseInt(endParts[4]), parseInt(endParts[5]), parseInt(endParts[6])
+      ).getTime();
+
+      if (endTimestamp <= startTimestamp) {
+        console.error(`❌ Invalid event: end time (${endDateTimeISO}) must be after start time (${startDateTimeISO})`);
+        console.error(`   Start timestamp: ${startTimestamp}, End timestamp: ${endTimestamp}`);
+        console.error(`   Difference: ${endTimestamp - startTimestamp} ms`);
+        throw new Error(`Invalid event duration: end time must be after start time`);
+      } else {
+        console.log(`   ✅ Validation passed: end time is ${Math.round((endTimestamp - startTimestamp) / (1000 * 60 * 60) * 10) / 10} hours after start time`);
+      }
+    } else {
+      console.warn(`   ⚠️ Could not parse dateTime strings for validation`);
     }
 
     // Get table number for display
@@ -4410,6 +4438,8 @@ async function createGoogleCalendarEvent(reservation) {
       }
     };
 
+    console.log(`   Event object to send:`, JSON.stringify(event, null, 2));
+
     const createdEvent = await calendar.events.insert({
       calendarId: calendarId,
       resource: event
@@ -4421,12 +4451,23 @@ async function createGoogleCalendarEvent(reservation) {
   } catch (err) {
     console.error(`❌ Error creating Google Calendar event for reservation ${reservation.id}:`, err.message);
     console.error(`   Reservation details: ${reservation.name}, ${reservation.date}, ${reservation.time}`);
+    console.error(`   Start DateTime: ${startDateTimeISO}`);
+    console.error(`   End DateTime: ${endDateTimeISO}`);
     if (err.stack) {
       console.error('Stack trace:', err.stack);
     }
     if (err.response) {
       console.error('API Response Status:', err.response.status);
       console.error('API Response Data:', JSON.stringify(err.response.data, null, 2));
+      // Log more details about the error
+      if (err.response.data && err.response.data.error) {
+        const apiError = err.response.data.error;
+        if (apiError.errors && apiError.errors.length > 0) {
+          apiError.errors.forEach((errorDetail, index) => {
+            console.error(`   Error ${index + 1}: domain=${errorDetail.domain}, reason=${errorDetail.reason}, message=${errorDetail.message}`);
+          });
+        }
+      }
     }
     if (err.code) {
       console.error('Error Code:', err.code);
