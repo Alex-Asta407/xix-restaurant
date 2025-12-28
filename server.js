@@ -742,13 +742,58 @@ function getBaseUrl() {
 
 // Initialize SQLite database
 const dbPath = process.env.DATABASE_PATH || './reservations.db';
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err.message);
-    console.error('Database path:', dbPath);
+const resolvedDbPath = path.resolve(dbPath);
+
+// Check if database file exists and get its permissions
+try {
+  if (fs.existsSync(resolvedDbPath)) {
+    const stats = fs.statSync(resolvedDbPath);
+    console.log(`📁 Database file exists: ${resolvedDbPath}`);
+    console.log(`   File permissions: ${stats.mode.toString(8)}`);
+    console.log(`   Is readable: ${(stats.mode & parseInt('444', 8)) !== 0}`);
+    console.log(`   Is writable: ${(stats.mode & parseInt('222', 8)) !== 0}`);
   } else {
-    console.log('Connected to SQLite database');
-    console.log('Database path:', path.resolve(dbPath));
+    console.log(`📁 Database file does not exist, will be created: ${resolvedDbPath}`);
+  }
+} catch (statErr) {
+  console.warn(`⚠️ Could not check database file permissions:`, statErr.message);
+}
+
+// Open database in read-write mode (default, but explicit for clarity)
+// Mode options: sqlite3.OPEN_READONLY, sqlite3.OPEN_READWRITE, sqlite3.OPEN_CREATE
+const db = new sqlite3.Database(resolvedDbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+  if (err) {
+    console.error('❌ Error opening database:', err.message);
+    console.error('   Database path:', resolvedDbPath);
+    console.error('   Error code:', err.code);
+    console.error('   Error number:', err.errno);
+
+    if (err.code === 'SQLITE_READONLY' || err.errno === 8) {
+      console.error('');
+      console.error('⚠️ DATABASE IS READ-ONLY!');
+      console.error('   This usually means:');
+      console.error('   1. File permissions are incorrect (file is read-only)');
+      console.error('   2. Directory permissions prevent writing');
+      console.error('   3. File system is mounted read-only');
+      console.error('');
+      console.error('   To fix:');
+      console.error(`   - Check file permissions: ls -l ${resolvedDbPath}`);
+      console.error(`   - Make file writable: chmod 664 ${resolvedDbPath}`);
+      console.error(`   - Check directory permissions: ls -ld ${path.dirname(resolvedDbPath)}`);
+      console.error(`   - Make directory writable: chmod 755 ${path.dirname(resolvedDbPath)}`);
+    }
+  } else {
+    console.log('✅ Connected to SQLite database');
+    console.log('   Database path:', resolvedDbPath);
+
+    // Test write access
+    db.run('PRAGMA journal_mode = WAL;', (pragmaErr) => {
+      if (pragmaErr) {
+        console.warn('⚠️ Could not set WAL mode (may indicate read-only):', pragmaErr.message);
+      } else {
+        console.log('✅ Database write access confirmed (WAL mode enabled)');
+      }
+    });
   }
 });
 
@@ -1404,7 +1449,22 @@ app.delete('/api/reservations/:id', (req, res) => {
     // Delete from database
     db.run('DELETE FROM reservations WHERE id = ?', [reservationId], async function (deleteErr) {
       if (deleteErr) {
-        console.error('Error deleting reservation:', deleteErr);
+        console.error('❌ Error deleting reservation:', deleteErr);
+        console.error('   Error code:', deleteErr.code);
+        console.error('   Error number:', deleteErr.errno);
+
+        if (deleteErr.code === 'SQLITE_READONLY' || deleteErr.errno === 8) {
+          console.error('⚠️ DATABASE IS READ-ONLY!');
+          console.error(`   Database path: ${resolvedDbPath}`);
+          console.error('   Please check file permissions and ensure the database file is writable.');
+          return res.status(500).json({
+            error: 'Database is read-only. Please check file permissions.',
+            details: deleteErr.message,
+            code: deleteErr.code,
+            databasePath: resolvedDbPath
+          });
+        }
+
         return res.status(500).json({ error: 'Failed to delete reservation: ' + deleteErr.message });
       }
 
@@ -4891,6 +4951,14 @@ async function syncGoogleCalendar() {
                 db.run('DELETE FROM reservations WHERE id = ?', [res.id], (deleteErr) => {
                   if (deleteErr) {
                     console.error(`❌ Error deleting reservation ${res.id} (event deleted from calendar):`, deleteErr);
+                    console.error('   Error code:', deleteErr.code);
+                    console.error('   Error number:', deleteErr.errno);
+
+                    if (deleteErr.code === 'SQLITE_READONLY' || deleteErr.errno === 8) {
+                      console.error(`⚠️ DATABASE IS READ-ONLY! Cannot delete reservation ${res.id}`);
+                      console.error(`   Database path: ${resolvedDbPath}`);
+                      console.error('   Please check file permissions and ensure the database file is writable.');
+                    }
                   } else {
                     console.log(`✅ Deleted reservation #${res.id} (${res.name}) - Google Calendar event was manually removed from calendar`);
                   }
