@@ -4084,7 +4084,14 @@ async function updateGoogleCalendarEvent(reservation) {
         }
       }
 
-      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
+      // Build endDateTimeISO - use 00:01:00 instead of 00:00:00 if it's midnight next day to avoid API issues
+      let finalEndMinutes = timeParsed.minutes;
+      if (endHour === 0 && finalEndMinutes === 0 && endDay > parseInt(day)) {
+        // This is midnight next day - use 00:01:00 to avoid Google Calendar API issues
+        finalEndMinutes = 1;
+      }
+
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${finalEndMinutes.toString().padStart(2, '0')}:00`;
     }
 
     // Get table number for display
@@ -4331,12 +4338,21 @@ async function createGoogleCalendarEvent(reservation) {
       if (endHour >= 24) {
         endHour = endHour - 24;
         endDay = endDay + 1;
-        console.log(`   End time crosses midnight: ${timeParsed.hours}:00 + 2h = ${endHour}:00 next day`);
+        // Google Calendar may have issues with 00:00:00 as end time - use 00:01:00 instead (1 minute after midnight)
+        // This ensures the event is clearly on the next day and avoids potential API validation issues
+        if (endHour === 0 && timeParsed.minutes === 0) {
+          // Keep endHour as 0 but add 1 minute to avoid 00:00:00
+          const endMinutes = 1;
+          endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T00:01:00`;
+          console.log(`   End time crosses midnight: ${timeParsed.hours}:00 + 2h = 00:01 next day (adjusted from 00:00 to avoid API issues)`);
+        } else {
+          console.log(`   End time crosses midnight: ${timeParsed.hours}:00 + 2h = ${endHour}:${timeParsed.minutes.toString().padStart(2, '0')} next day`);
+        }
       } else {
-        console.log(`   End time same day: ${timeParsed.hours}:00 + 2h = ${endHour}:00`);
+        console.log(`   End time same day: ${timeParsed.hours}:00 + 2h = ${endHour}:${timeParsed.minutes.toString().padStart(2, '0')}`);
       }
 
-      // Handle month/year overflow
+      // Handle month/year overflow (must be done after day increment)
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
       if (endDay > daysInMonth) {
         endDay = 1;
@@ -4347,7 +4363,15 @@ async function createGoogleCalendarEvent(reservation) {
         }
       }
 
-      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
+      // Build endDateTimeISO - use 00:01:00 instead of 00:00:00 if it's midnight next day to avoid API issues
+      let finalEndMinutes = timeParsed.minutes;
+      if (endHour === 0 && finalEndMinutes === 0 && endDay > parseInt(day)) {
+        // This is midnight next day - use 00:01:00 to avoid Google Calendar API issues
+        finalEndMinutes = 1;
+        console.log(`   ⚠️ Adjusted end time from 00:00:00 to 00:01:00 to avoid Google Calendar API validation issues`);
+      }
+
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${finalEndMinutes.toString().padStart(2, '0')}:00`;
     }
 
     console.log(`   Final Start: ${startDateTimeISO} (Europe/London)`);
