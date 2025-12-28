@@ -235,9 +235,11 @@
         </div>
 
         <div class="db-info">
-            <strong>Database File:</strong> reservations.db<br>
+            <strong>Database File:</strong> <span id="dbFileName">reservations.db</span><br>
+            <strong>Full Path:</strong> <span id="dbFullPath">-</span><br>
             <strong>Current Table:</strong> <span id="currentTable">reservations</span><br>
-            <strong>Records:</strong> <span id="recordCount">-</span>
+            <strong>Records:</strong> <span id="recordCount">-</span><br>
+            <strong>Server Environment:</strong> <span id="dbServerEnv">-</span>
         </div>
 
         <div class="export-section">
@@ -310,15 +312,18 @@
                 const serverEnv = response.headers.get('X-Server-Environment') || 'Unknown';
                 
                 // Update database info display
-                const dbInfo = document.querySelector('.db-info');
-                if (dbInfo) {
-                    dbInfo.innerHTML = `
-                        <strong>Database File:</strong> ${dbPath.split(/[/\\]/).pop()}<br>
-                        <strong>Full Path:</strong> ${dbPath}<br>
-                        <strong>Current Table:</strong> reservations<br>
-                        <strong>Records:</strong> ${dbRecords}<br>
-                        <strong>Server Environment:</strong> ${serverEnv}
-                    `;
+                const dbFileNameEl = document.getElementById('dbFileName');
+                const dbFullPathEl = document.getElementById('dbFullPath');
+                const dbServerEnvEl = document.getElementById('dbServerEnv');
+                
+                if (dbFileNameEl) {
+                    dbFileNameEl.textContent = dbPath !== 'Unknown' ? dbPath.split(/[/\\]/).pop() : 'reservations.db';
+                }
+                if (dbFullPathEl) {
+                    dbFullPathEl.textContent = dbPath;
+                }
+                if (dbServerEnvEl) {
+                    dbServerEnvEl.textContent = serverEnv;
                 }
                 
                 console.log('Database info:', { dbPath, dbRecords, serverEnv });
