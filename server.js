@@ -4034,12 +4034,19 @@ async function updateGoogleCalendarEvent(reservation) {
       let endMonth = parseInt(month);
       let endYear = parseInt(year);
 
+      // Handle midnight crossover:
+      // - hours >= 25 means next day (e.g., "25:00" = 1:00 AM next day)
+      // - if end hour is less than start hour AND end hour is < 12, it's likely next day
+      //   (e.g., start 23:00, end 01:00 = next day, but start 17:00, end 19:00 = same day)
       if (endHour >= 25) {
         endHour = endHour - 24;
         endDay = endDay + 1;
-      } else if (endHour < timeParsed.hours) {
+      } else if (endHour < timeParsed.hours && endHour < 12) {
+        // Only treat as next day if end hour is early morning (< 12) and less than start hour
+        // This handles cases like 23:00 to 01:00, but NOT 17:00 to 19:00
         endDay = endDay + 1;
       }
+      // Otherwise, end time is on the same day (normal case like 17:00 to 19:00)
 
       // Handle month/year overflow
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
@@ -4275,14 +4282,19 @@ async function createGoogleCalendarEvent(reservation) {
       let endMonth = parseInt(month);
       let endYear = parseInt(year);
 
-      // Handle midnight crossover (hours >= 25 means next day, or if parsed hour is less than start hour)
+      // Handle midnight crossover:
+      // - hours >= 25 means next day (e.g., "25:00" = 1:00 AM next day)
+      // - if end hour is less than start hour AND end hour is < 12, it's likely next day
+      //   (e.g., start 23:00, end 01:00 = next day, but start 17:00, end 19:00 = same day)
       if (endHour >= 25) {
         endHour = endHour - 24;
         endDay = endDay + 1;
-      } else if (endHour < timeParsed.hours) {
-        // If end time is earlier than start time, it's next day
+      } else if (endHour < timeParsed.hours && endHour < 12) {
+        // Only treat as next day if end hour is early morning (< 12) and less than start hour
+        // This handles cases like 23:00 to 01:00, but NOT 17:00 to 19:00
         endDay = endDay + 1;
       }
+      // Otherwise, end time is on the same day (normal case like 17:00 to 19:00)
 
       // Handle month/year overflow
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
