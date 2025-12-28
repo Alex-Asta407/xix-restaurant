@@ -242,10 +242,10 @@ if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_
       console.log(`✅ Calendar initialization completed successfully - calendar operations are enabled`);
 
       // Start sync job after successful initialization
-      console.log(`🔄 Starting Google Calendar sync job (runs every minute)...`);
+      console.log(`🔄 Starting Google Calendar sync job (runs every 30 seconds)...`);
       setInterval(() => {
         syncGoogleCalendar();
-      }, 1 * 60 * 1000); // Every 1 minute
+      }, 30 * 1000); // Every 30 seconds
 
       // Initial sync on startup (wait a bit for everything to be ready)
       setTimeout(() => {
