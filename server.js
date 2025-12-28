@@ -1830,7 +1830,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
       phone: sanitizeInput(reservation.phone),
       date: sanitizeInput(reservation.date),
       time: sanitizeInput(reservation.time),
-      guests: reservation.guests,
+      guests: parseInt(reservation.guests, 10) || 0, // Convert to number, default to 0 if invalid
       table: sanitizeInput(reservation.table),
       occasion: sanitizeInput(reservation.occasion),
       specialRequests: sanitizeInput(reservation.specialRequests),
@@ -3152,17 +3152,25 @@ function assignTable(guests, date, time, venue, callback) {
   // Calculate end time (default 2 hours after start) - handles midnight crossover
   const endTime = calculateEndTime(date, time, 2);
 
+  // Ensure guests is a number (handle string inputs from API)
+  const guestCount = typeof guests === 'string' ? parseInt(guests, 10) : guests;
+
+  // Validate guest count is a valid number
+  if (isNaN(guestCount) || guestCount < 1) {
+    return callback(new Error('Invalid guest count for table assignment'), null, endTime);
+  }
+
   // Determine which table capacities to use based on guest count (same logic as table-availability)
   let capacityQuery = '';
-  if (guests >= 1 && guests <= 2) {
+  if (guestCount >= 1 && guestCount <= 2) {
     capacityQuery = 't.capacity = 2';
-  } else if (guests === 3) {
+  } else if (guestCount === 3) {
     capacityQuery = 't.capacity = 3 OR t.capacity = 4';
-  } else if (guests === 4) {
+  } else if (guestCount === 4) {
     capacityQuery = 't.capacity = 4';
-  } else if (guests >= 5 && guests <= 6) {
+  } else if (guestCount >= 5 && guestCount <= 6) {
     capacityQuery = 't.capacity = 6';
-  } else if (guests >= 7) {
+  } else if (guestCount >= 7) {
     capacityQuery = 't.capacity = 12';
   } else {
     return callback(new Error('Invalid guest count for table assignment'), null, endTime);
@@ -3171,7 +3179,7 @@ function assignTable(guests, date, time, venue, callback) {
   // Find available tables that can accommodate guests
   // Use table ID instead of table_number for simpler joins
   // Handle both cases: assigned_table might be table_number (string) or table ID (integer)
-  console.log(`🔍 assignTable: Looking for table for ${guests} guests on ${date} at ${time} (endTime: ${endTime}, capacity: ${capacityQuery})`);
+  console.log(`🔍 assignTable: Looking for table for ${guestCount} guests (original: ${guests}, type: ${typeof guests}) on ${date} at ${time} (endTime: ${endTime}, capacity: ${capacityQuery})`);
 
   // First, get all tables of the required capacity
   // Normalize venue to uppercase for consistency (tables are stored as 'XIX')
@@ -4627,15 +4635,25 @@ async function syncGoogleCalendar() {
     const events = response.data.items || [];
     console.log(`📅 Found ${events.length} events in Google Calendar (from ${sevenDaysAgo.toISOString().split('T')[0]} to ${thirtyDaysLater.toISOString().split('T')[0]})`);
 
-    // Log event details for debugging
+    // Log event details for debugging (especially for December 29th)
     if (events.length > 0) {
-      console.log('📋 Events found:');
+      console.log('📋 Events found in Google Calendar:');
+      const dec29Events = [];
       events.forEach((event, index) => {
         const eventStart = new Date(event.start.dateTime || event.start.date);
         const eventDate = eventStart.toISOString().split('T')[0];
         const eventTime = eventStart.toTimeString().split(' ')[0].substring(0, 5);
         console.log(`   ${index + 1}. ${event.summary || 'Untitled'} - ${eventDate} at ${eventTime} (ID: ${event.id})`);
+
+        // Track events on December 29th for debugging
+        if (eventDate === '2025-12-29') {
+          dec29Events.push(event);
+        }
       });
+
+      if (dec29Events.length > 0) {
+        console.log(`⚠️ Found ${dec29Events.length} events on December 29, 2025 - will check if they exist in database`);
+      }
     }
 
     // Process all events and check for updates (using Promise.all to avoid race conditions)
@@ -4843,6 +4861,63 @@ async function syncGoogleCalendar() {
           }
         } else {
           console.log(`ℹ️ No reservations with calendar events found in database`);
+          resolve();
+        }
+      });
+    });
+
+    // Check for events in Google Calendar that don't have a corresponding reservation in the database
+    // This detects orphaned events that should be deleted from Google Calendar
+    await new Promise((resolve) => {
+      db.all('SELECT id, date, google_calendar_event_id FROM reservations WHERE google_calendar_event_id IS NOT NULL', [], (err, reservationsWithEvents) => {
+        if (err) {
+          console.error('❌ Error checking reservations with event IDs:', err);
+          return resolve();
+        }
+
+        // Create a Set of event IDs that exist in the database
+        const dbEventIds = new Set(reservationsWithEvents.map(r => r.google_calendar_event_id).filter(Boolean));
+        console.log(`📋 Checking for orphaned events: ${events.length} events in calendar, ${dbEventIds.size} events linked in database`);
+
+        // Debug: Check reservations for December 29th
+        const dec29Reservations = reservationsWithEvents.filter(r => r.date === '2025-12-29');
+        if (dec29Reservations.length > 0) {
+          console.log(`📅 Found ${dec29Reservations.length} reservations in database for December 29, 2025:`, dec29Reservations.map(r => `Reservation #${r.id} (Event ID: ${r.google_calendar_event_id})`).join(', '));
+        } else {
+          console.log(`📅 No reservations found in database for December 29, 2025`);
+        }
+
+        // Find events in Google Calendar that don't have a corresponding reservation in DB
+        const orphanedEvents = events.filter(event => !dbEventIds.has(event.id));
+
+        if (orphanedEvents.length > 0) {
+          console.log(`🗑️ Found ${orphanedEvents.length} orphaned events in Google Calendar (no matching reservation in database) - deleting them:`);
+          orphanedEvents.forEach((event, index) => {
+            const eventStart = new Date(event.start.dateTime || event.start.date);
+            const eventDate = eventStart.toISOString().split('T')[0];
+            const eventTime = eventStart.toTimeString().split(' ')[0].substring(0, 5);
+            console.log(`   ${index + 1}. ${event.summary || 'Untitled'} - ${eventDate} at ${eventTime} (Event ID: ${event.id})`);
+          });
+
+          // Delete orphaned events from Google Calendar
+          const deletePromises = orphanedEvents.map((event) => {
+            return deleteGoogleCalendarEvent(event.id).then((success) => {
+              if (success) {
+                console.log(`✅ Deleted orphaned event ${event.id} (${event.summary || 'Untitled'}) from Google Calendar`);
+              } else {
+                console.error(`❌ Failed to delete orphaned event ${event.id} from Google Calendar`);
+              }
+            }).catch((err) => {
+              console.error(`❌ Error deleting orphaned event ${event.id}:`, err.message);
+            });
+          });
+
+          Promise.all(deletePromises).then(() => {
+            console.log(`✅ Finished cleaning up ${orphanedEvents.length} orphaned events from Google Calendar`);
+            resolve();
+          });
+        } else {
+          console.log(`✅ All ${events.length} events in Google Calendar have corresponding reservations in database`);
           resolve();
         }
       });
