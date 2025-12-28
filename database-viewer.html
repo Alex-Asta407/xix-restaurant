@@ -304,10 +304,29 @@
                 allData = await response.json();
                 currentTable = 'reservations';
 
+                // Get database info from response headers
+                const dbPath = response.headers.get('X-Database-Path') || 'Unknown';
+                const dbRecords = response.headers.get('X-Database-Records') || allData.length;
+                const serverEnv = response.headers.get('X-Server-Environment') || 'Unknown';
+                
+                // Update database info display
+                const dbInfo = document.querySelector('.db-info');
+                if (dbInfo) {
+                    dbInfo.innerHTML = `
+                        <strong>Database File:</strong> ${dbPath.split(/[/\\]/).pop()}<br>
+                        <strong>Full Path:</strong> ${dbPath}<br>
+                        <strong>Current Table:</strong> reservations<br>
+                        <strong>Records:</strong> ${dbRecords}<br>
+                        <strong>Server Environment:</strong> ${serverEnv}
+                    `;
+                }
+                
+                console.log('Database info:', { dbPath, dbRecords, serverEnv });
+                console.log('Reservations loaded successfully:', allData.length);
+
                 displayReservations(allData);
                 updateRecordCount();
                 updateTableInfo('reservations');
-                console.log('Reservations loaded successfully:', allData.length);
             } catch (error) {
                 console.error('Error loading reservations:', error);
                 document.getElementById('dbTableBody').innerHTML =

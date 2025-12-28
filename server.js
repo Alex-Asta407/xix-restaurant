@@ -741,11 +741,14 @@ function getBaseUrl() {
 }
 
 // Initialize SQLite database
-const db = new sqlite3.Database('./reservations.db', (err) => {
+const dbPath = process.env.DATABASE_PATH || './reservations.db';
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening database:', err.message);
+    console.error('Database path:', dbPath);
   } else {
     console.log('Connected to SQLite database');
+    console.log('Database path:', path.resolve(dbPath));
   }
 });
 
@@ -1226,6 +1229,12 @@ app.get('/api/reservations', (req, res) => {
       // Keep assigned_table as ID for internal use
       assigned_table_display: row.table_name || row.assigned_table || null
     }));
+
+    // Add database info header for debugging
+    res.setHeader('X-Database-Path', path.resolve(dbPath));
+    res.setHeader('X-Database-Records', mappedRows.length);
+    res.setHeader('X-Server-Environment', process.env.NODE_ENV || 'development');
+
     res.json(mappedRows);
   });
 });
