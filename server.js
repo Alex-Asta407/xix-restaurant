@@ -4036,17 +4036,16 @@ async function updateGoogleCalendarEvent(reservation) {
 
       // Handle midnight crossover:
       // - hours >= 25 means next day (e.g., "25:00" = 1:00 AM next day)
-      // - if end hour is less than start hour AND end hour is < 12, it's likely next day
-      //   (e.g., start 23:00, end 01:00 = next day, but start 17:00, end 19:00 = same day)
+      // - if end hour is less than start hour, it's next day (e.g., 23:00 to 01:00)
+      // - BUT: if end hour >= start hour, it's same day (e.g., 17:00 to 19:00, 21:00 to 23:00)
       if (endHour >= 25) {
         endHour = endHour - 24;
         endDay = endDay + 1;
-      } else if (endHour < timeParsed.hours && endHour < 12) {
-        // Only treat as next day if end hour is early morning (< 12) and less than start hour
-        // This handles cases like 23:00 to 01:00, but NOT 17:00 to 19:00
+      } else if (endHour < timeParsed.hours) {
+        // End hour is less than start hour = midnight crossover (e.g., 23:00 to 01:00)
         endDay = endDay + 1;
       }
-      // Otherwise, end time is on the same day (normal case like 17:00 to 19:00)
+      // Otherwise, end time is on the same day (normal case like 17:00 to 19:00, 21:00 to 23:00)
 
       // Handle month/year overflow
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
@@ -4060,6 +4059,7 @@ async function updateGoogleCalendarEvent(reservation) {
       }
 
       endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${endTimeParsed.minutes.toString().padStart(2, '0')}:00`;
+      console.log(`   End time calculation: startHour=${timeParsed.hours}, endHour=${endTimeParsed.hours} (raw) → ${endHour} (adjusted), endDay=${endDay}, endDateTimeISO=${endDateTimeISO}`);
     } else {
       // Default 2 hours - calculate end time directly (no Date object to avoid timezone issues)
       let endHour = timeParsed.hours + 2;
@@ -4270,7 +4270,10 @@ async function createGoogleCalendarEvent(reservation) {
 
     console.log(`   Creating event for ${reservation.date} at ${reservation.time}`);
     console.log(`   Parsed time: ${timeParsed.hours}:${timeParsed.minutes}`);
-    console.log(`   DateTime: ${startDateTimeISO} (interpreted as Europe/London local time)`);
+    console.log(`   Start DateTime: ${startDateTimeISO} (interpreted as Europe/London local time)`);
+    if (reservation.end_time) {
+      console.log(`   End time from DB: ${reservation.end_time}`);
+    }
 
     // Calculate end time (default 2 hours, or use end_time if available)
     let endDateTimeISO;
@@ -4284,17 +4287,16 @@ async function createGoogleCalendarEvent(reservation) {
 
       // Handle midnight crossover:
       // - hours >= 25 means next day (e.g., "25:00" = 1:00 AM next day)
-      // - if end hour is less than start hour AND end hour is < 12, it's likely next day
-      //   (e.g., start 23:00, end 01:00 = next day, but start 17:00, end 19:00 = same day)
+      // - if end hour is less than start hour, it's next day (e.g., 23:00 to 01:00)
+      // - BUT: if end hour >= start hour, it's same day (e.g., 17:00 to 19:00, 21:00 to 23:00, 22:00 to 24:00)
       if (endHour >= 25) {
         endHour = endHour - 24;
         endDay = endDay + 1;
-      } else if (endHour < timeParsed.hours && endHour < 12) {
-        // Only treat as next day if end hour is early morning (< 12) and less than start hour
-        // This handles cases like 23:00 to 01:00, but NOT 17:00 to 19:00
+      } else if (endHour < timeParsed.hours) {
+        // End hour is less than start hour = midnight crossover (e.g., 23:00 to 01:00)
         endDay = endDay + 1;
       }
-      // Otherwise, end time is on the same day (normal case like 17:00 to 19:00)
+      // Otherwise, end time is on the same day (normal case like 17:00 to 19:00, 21:00 to 23:00)
 
       // Handle month/year overflow
       const daysInMonth = new Date(endYear, endMonth, 0).getDate();
@@ -4308,6 +4310,7 @@ async function createGoogleCalendarEvent(reservation) {
       }
 
       endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${endTimeParsed.minutes.toString().padStart(2, '0')}:00`;
+      console.log(`   End time calculation: startHour=${timeParsed.hours}, endHour=${endTimeParsed.hours} (raw) → ${endHour} (adjusted), endDay=${endDay}, endDateTimeISO=${endDateTimeISO}`);
     } else {
       // Default 2 hours - calculate end time
       let endHour = timeParsed.hours + 2;
@@ -4315,10 +4318,13 @@ async function createGoogleCalendarEvent(reservation) {
       let endMonth = parseInt(month);
       let endYear = parseInt(year);
 
-      // Handle hour overflow (next day)
+      // Handle hour overflow (next day) - only if >= 24 (e.g., 22:00 + 2 = 24:00 → 00:00 next day)
       if (endHour >= 24) {
         endHour = endHour - 24;
         endDay = endDay + 1;
+        console.log(`   End time crosses midnight: ${timeParsed.hours}:00 + 2h = ${endHour}:00 next day`);
+      } else {
+        console.log(`   End time same day: ${timeParsed.hours}:00 + 2h = ${endHour}:00`);
       }
 
       // Handle month/year overflow
@@ -4335,8 +4341,16 @@ async function createGoogleCalendarEvent(reservation) {
       endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
     }
 
-    console.log(`   Start: ${startDateTimeISO} (Europe/London)`);
-    console.log(`   End: ${endDateTimeISO} (Europe/London)`);
+    console.log(`   Final Start: ${startDateTimeISO} (Europe/London)`);
+    console.log(`   Final End: ${endDateTimeISO} (Europe/London)`);
+
+    // Validate that end time is after start time
+    const startDate = new Date(`${startDateTimeISO}+00:00`); // Treat as UTC to compare
+    const endDate = new Date(`${endDateTimeISO}+00:00`);
+    if (endDate <= startDate) {
+      console.error(`❌ Invalid event: end time (${endDateTimeISO}) must be after start time (${startDateTimeISO})`);
+      throw new Error(`Invalid event duration: end time must be after start time`);
+    }
 
     // Get table number for display
     let tableDisplay = 'Not assigned';
