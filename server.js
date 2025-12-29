@@ -1357,8 +1357,10 @@ app.get('/api/reservations', (req, res) => {
     }));
 
     // Add database info header for debugging
-    res.setHeader('X-Database-Path', actualDbPath);
-    res.setHeader('X-Database-Records', mappedRows.length);
+    // Encode path to handle special characters (backslashes, Cyrillic, etc.)
+    const encodedDbPath = encodeURIComponent(actualDbPath);
+    res.setHeader('X-Database-Path', encodedDbPath);
+    res.setHeader('X-Database-Records', mappedRows.length.toString());
     res.setHeader('X-Server-Environment', process.env.NODE_ENV || 'development');
 
     res.json(mappedRows);
@@ -2536,6 +2538,15 @@ Reservation made through ${venueName} website.`;
 
         // Send SMS notification (if enabled and phone number provided and table assigned)
         if (twilioClient && process.env.TWILIO_PHONE_NUMBER && reservationData.phone && hasTable && resId) {
+          // Skip SMS if To and From numbers are the same (Twilio doesn't allow this)
+          const normalizedToPhone = reservationData.phone.replace(/\s/g, '').trim();
+          const normalizedFromPhone = process.env.TWILIO_PHONE_NUMBER.replace(/\s/g, '').trim();
+
+          if (normalizedToPhone === normalizedFromPhone) {
+            console.warn(`⚠️ Skipping SMS: To and From numbers are the same (${normalizedToPhone}). Twilio doesn't allow sending SMS to yourself.`);
+            return;
+          }
+
           // Get confirmation token from database
           db.get('SELECT confirmation_token FROM reservations WHERE id = ?', [resId], (err, row) => {
             if (err || !row || !row.confirmation_token) {
@@ -2723,7 +2734,16 @@ Reservation made through ${venueName} website.`;
 
         // Send SMS notification (if enabled)
         if (twilioClient && process.env.TWILIO_PHONE_NUMBER && reservation.phone) {
-          const smsMessage = `Hi ${reservation.name || 'there'}, please confirm or reject your reservation at ${venueName} for ${date} at ${time12}. Confirm here: ${confirmationUrl}`;
+          // Skip SMS if To and From numbers are the same (Twilio doesn't allow this)
+          const normalizedToPhone = reservation.phone.replace(/\s/g, '').trim();
+          const normalizedFromPhone = process.env.TWILIO_PHONE_NUMBER.replace(/\s/g, '').trim();
+
+          if (normalizedToPhone === normalizedFromPhone) {
+            console.warn(`⚠️ Skipping SMS: To and From numbers are the same (${normalizedToPhone}). Twilio doesn't allow sending SMS to yourself.`);
+            return;
+          }
+
+          const smsMessage = `Please accept or decline your reservation: ${confirmationUrl}`;
 
           twilioClient.messages.create({
             body: smsMessage,
@@ -4807,6 +4827,15 @@ function sendConfirmationReminder(reservation) {
 
   // Send SMS reminder (if enabled)
   if (twilioClient && process.env.TWILIO_PHONE_NUMBER && reservation.phone) {
+    // Skip SMS if To and From numbers are the same (Twilio doesn't allow this)
+    const normalizedToPhone = reservation.phone.replace(/\s/g, '').trim();
+    const normalizedFromPhone = process.env.TWILIO_PHONE_NUMBER.replace(/\s/g, '').trim();
+
+    if (normalizedToPhone === normalizedFromPhone) {
+      console.warn(`⚠️ Skipping reminder SMS: To and From numbers are the same (${normalizedToPhone}). Twilio doesn't allow sending SMS to yourself.`);
+      return;
+    }
+
     const smsMessage = `Please accept or decline your reservation: ${confirmationUrl}`;
 
     twilioClient.messages.create({
