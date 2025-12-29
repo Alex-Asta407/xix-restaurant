@@ -1202,6 +1202,51 @@ app.get('/api/debug/database', (req, res) => {
   });
 });
 
+// Test endpoint for SMS functionality
+app.post('/api/test/sms', async (req, res) => {
+  if (!twilioClient || !process.env.TWILIO_PHONE_NUMBER) {
+    return res.status(400).json({
+      error: 'SMS not configured',
+      message: 'Twilio credentials not set or SMS disabled. Set ENABLE_SMS_REMINDERS=true in .env'
+    });
+  }
+
+  const { phone, message } = req.body;
+
+  if (!phone) {
+    return res.status(400).json({ error: 'Phone number is required' });
+  }
+
+  const testMessage = message || `Test SMS from XIX Restaurant. Twilio integration is working! 🎉`;
+
+  try {
+    const result = await twilioClient.messages.create({
+      body: testMessage,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone
+    });
+
+    console.log(`✅ Test SMS sent to ${phone}: ${result.sid}`);
+
+    res.json({
+      success: true,
+      message: 'SMS sent successfully',
+      messageSid: result.sid,
+      status: result.status,
+      to: phone,
+      from: process.env.TWILIO_PHONE_NUMBER
+    });
+  } catch (err) {
+    console.error('❌ Error sending test SMS:', err);
+    res.status(500).json({
+      error: 'Failed to send SMS',
+      message: err.message,
+      code: err.code,
+      moreInfo: err.moreInfo
+    });
+  }
+});
+
 app.get('/api/debug/env', (req, res) => {
   const envPath = path.resolve(__dirname, '.env');
   const envExists = fs.existsSync(envPath);
@@ -2206,21 +2251,19 @@ app.post('/api/send-reservation-email', async (req, res) => {
             });
           }
 
-          // Send second email 5 minutes later (confirmation button only)
+          // Send confirmation email 5 minutes after reservation creation (for testing)
           // BUT ONLY if table was assigned (skip for waitlist customers)
-          // (or immediately if reservation is less than 5 minutes away)
           if (assignedTable) {
-            const reservationDateTime = new Date(`${sanitizedReservation.date}T${sanitizedReservation.time}`);
-            const now = new Date();
-            const timeUntilReservation = reservationDateTime.getTime() - now.getTime();
-            const fiveMinutes = 5 * 60 * 1000; // Changed to 5 minutes for testing
+            // Always send confirmation email 5 minutes after reservation creation (for testing)
+            const confirmationEmailDelay = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-            if (timeUntilReservation <= fiveMinutes) {
-              // If reservation is less than 5 minutes away, send confirmation button email immediately
-              // Capture the actual ID and token values to avoid closure issues
-              const capturedReservationId = reservationId;
-              const capturedToken = confirmationToken;
-              console.log(`⏰ Reservation is less than 5 minutes away, sending confirmation button email immediately for reservation ID: ${capturedReservationId}`);
+            // Capture the actual ID and token values to avoid closure issues
+            const capturedReservationId = reservationId;
+            const capturedToken = confirmationToken;
+            console.log(`⏰ Scheduling confirmation button email to be sent in 5 minutes for reservation ID: ${capturedReservationId}`);
+
+            setTimeout(() => {
+              console.log(`⏰ Timeout triggered (5 minutes) - sending confirmation button email for reservation ID: ${capturedReservationId}`);
               // Verify reservation still exists before sending
               db.get('SELECT id, confirmation_status FROM reservations WHERE id = ?', [capturedReservationId], (err, reservation) => {
                 if (err) {
@@ -2236,37 +2279,10 @@ app.post('/api/send-reservation-email', async (req, res) => {
                   return;
                 }
                 sendConfirmationButtonEmail(capturedReservationId, capturedToken).catch(err => {
-                  console.error('❌ Error sending immediate confirmation button email:', err);
+                  console.error('❌ Error sending scheduled confirmation button email:', err);
                 });
               });
-            } else {
-              // Otherwise, send confirmation button email 5 minutes after reservation creation
-              // Capture the actual ID and token values to avoid closure issues
-              const capturedReservationId = reservationId;
-              const capturedToken = confirmationToken;
-              console.log(`⏰ Scheduling confirmation button email to be sent in 5 minutes for reservation ID: ${capturedReservationId}`);
-              setTimeout(() => {
-                console.log(`⏰ Timeout triggered - sending confirmation button email for reservation ID: ${capturedReservationId}`);
-                // Verify reservation still exists before sending
-                db.get('SELECT id, confirmation_status FROM reservations WHERE id = ?', [capturedReservationId], (err, reservation) => {
-                  if (err) {
-                    console.error(`❌ Error checking reservation ${capturedReservationId} before sending email:`, err);
-                    return;
-                  }
-                  if (!reservation) {
-                    console.log(`ℹ️ Reservation ${capturedReservationId} no longer exists, skipping confirmation email`);
-                    return;
-                  }
-                  if (reservation.confirmation_status === 'cancelled' || reservation.confirmation_status === 'confirmed') {
-                    console.log(`ℹ️ Reservation ${capturedReservationId} status is ${reservation.confirmation_status}, skipping confirmation email`);
-                    return;
-                  }
-                  sendConfirmationButtonEmail(capturedReservationId, capturedToken).catch(err => {
-                    console.error('❌ Error sending scheduled confirmation button email:', err);
-                  });
-                });
-              }, fiveMinutes);
-            }
+            }, confirmationEmailDelay);
           } else {
             console.log(`ℹ️ Skipping confirmation button email for waitlist reservation ${reservationId} (no table assigned)`);
           }
@@ -2518,6 +2534,45 @@ Reservation made through ${venueName} website.`;
         });
         console.log('Manager email sent:', managerInfo.messageId);
 
+        // Send SMS notification (if enabled and phone number provided and table assigned)
+        if (twilioClient && process.env.TWILIO_PHONE_NUMBER && reservationData.phone && hasTable && resId) {
+          // Get confirmation token from database
+          db.get('SELECT confirmation_token FROM reservations WHERE id = ?', [resId], (err, row) => {
+            if (err || !row || !row.confirmation_token) {
+              console.warn('⚠️ Could not retrieve confirmation token for SMS, skipping SMS');
+              return;
+            }
+
+            const confirmationUrl = `${getBaseUrl()}/api/confirm-reservation/${row.confirmation_token}`;
+            const smsMessage = `Please accept or decline your reservation: ${confirmationUrl}`;
+
+            twilioClient.messages.create({
+              body: smsMessage,
+              from: process.env.TWILIO_PHONE_NUMBER,
+              to: reservationData.phone
+            }).then(message => {
+              console.log(`✅ Preliminary SMS sent to ${reservationData.phone}: ${message.sid}`);
+              logger.info('Preliminary SMS sent', {
+                reservationId: resId,
+                customerPhone: reservationData.phone,
+                messageSid: message.sid,
+                hasTable: hasTable,
+                timestamp: new Date().toISOString()
+              });
+            }).catch(err => {
+              console.error('❌ Error sending preliminary SMS:', err.message);
+              logger.error('Preliminary SMS failed', {
+                reservationId: resId,
+                customerPhone: reservationData.phone,
+                error: err.message,
+                errorCode: err.code,
+                timestamp: new Date().toISOString()
+              });
+              // Don't fail the whole process if SMS fails
+            });
+          });
+        }
+
         // Update email status in database
         if (resId) {
           db.run(
@@ -2665,6 +2720,35 @@ Reservation made through ${venueName} website.`;
           html: customerHtml
         });
         console.log('✅ Confirmation button email sent successfully:', customerInfo.messageId);
+
+        // Send SMS notification (if enabled)
+        if (twilioClient && process.env.TWILIO_PHONE_NUMBER && reservation.phone) {
+          const smsMessage = `Hi ${reservation.name || 'there'}, please confirm or reject your reservation at ${venueName} for ${date} at ${time12}. Confirm here: ${confirmationUrl}`;
+
+          twilioClient.messages.create({
+            body: smsMessage,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: reservation.phone
+          }).then(message => {
+            console.log(`✅ Confirmation SMS sent to ${reservation.phone}: ${message.sid}`);
+            logger.info('Confirmation SMS sent', {
+              reservationId: resId,
+              customerPhone: reservation.phone,
+              messageSid: message.sid,
+              timestamp: new Date().toISOString()
+            });
+          }).catch(err => {
+            console.error('❌ Error sending confirmation SMS:', err.message);
+            logger.error('Confirmation SMS failed', {
+              reservationId: resId,
+              customerPhone: reservation.phone,
+              error: err.message,
+              errorCode: err.code,
+              timestamp: new Date().toISOString()
+            });
+            // Don't fail the whole process if SMS fails
+          });
+        }
 
         // Log successful email sending
         logger.info('Confirmation button email sent', {
@@ -4723,7 +4807,7 @@ function sendConfirmationReminder(reservation) {
 
   // Send SMS reminder (if enabled)
   if (twilioClient && process.env.TWILIO_PHONE_NUMBER && reservation.phone) {
-    const smsMessage = `XIX Restaurant: Please confirm your reservation for ${reservation.date} at ${reservation.time}. Confirm: ${confirmationUrl}`;
+    const smsMessage = `Please accept or decline your reservation: ${confirmationUrl}`;
 
     twilioClient.messages.create({
       body: smsMessage,
@@ -4731,8 +4815,24 @@ function sendConfirmationReminder(reservation) {
       to: reservation.phone
     }).then(message => {
       console.log(`✅ Reminder SMS sent to ${reservation.phone}: ${message.sid}`);
+      logger.info('Reminder SMS sent', {
+        reservationId: reservation.id,
+        customerPhone: reservation.phone,
+        messageSid: message.sid,
+        timestamp: new Date().toISOString()
+      });
     }).catch(err => {
-      console.error('Error sending reminder SMS:', err);
+      console.error('❌ Error sending reminder SMS:', err.message);
+      console.error('   Error code:', err.code);
+      console.error('   Error details:', err.moreInfo || err.message);
+      logger.error('Reminder SMS failed', {
+        reservationId: reservation.id,
+        customerPhone: reservation.phone,
+        error: err.message,
+        errorCode: err.code,
+        timestamp: new Date().toISOString()
+      });
+      // Don't fail the whole process if SMS fails
     });
   }
 
