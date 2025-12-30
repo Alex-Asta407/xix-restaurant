@@ -5255,11 +5255,28 @@ async function createGoogleCalendarEvent(reservation) {
     console.log(`📅 Creating Google Calendar event for reservation ${reservation.id} in calendar ${calendarId}`);
     console.log(`   Reservation: ${reservation.name} on ${reservation.date} at ${reservation.time}`);
 
+    // Validate reservation data before parsing
+    if (!reservation.date || !reservation.time) {
+      throw new Error(`Invalid reservation data: date=${reservation.date}, time=${reservation.time}`);
+    }
+
     // Parse date and time (handle both 24-hour and 12-hour formats)
     // Google Calendar API handles timezone automatically when timeZone field is provided
     // We just need to provide the naive local time and the timezone string
-    const [year, month, day] = reservation.date.split('-');
+    let year, month, day;
+    try {
+      [year, month, day] = reservation.date.split('-');
+      if (!year || !month || !day) {
+        throw new Error(`Invalid date format: ${reservation.date}`);
+      }
+    } catch (dateErr) {
+      throw new Error(`Failed to parse date: ${reservation.date} - ${dateErr.message}`);
+    }
+
     const timeParsed = parseTime(reservation.time);
+    if (!timeParsed || timeParsed.hours === undefined || timeParsed.minutes === undefined) {
+      throw new Error(`Failed to parse time: ${reservation.time}`);
+    }
 
     // Format: YYYY-MM-DDTHH:MM:SS (naive local time - no timezone offset)
     // Google Calendar will interpret this as restaurant local time based on timeZone field
@@ -5488,8 +5505,13 @@ async function createGoogleCalendarEvent(reservation) {
   } catch (err) {
     console.error(`❌ Error creating Google Calendar event for reservation ${reservation.id}:`, err.message);
     console.error(`   Reservation details: ${reservation.name}, ${reservation.date}, ${reservation.time}`);
-    console.error(`   Start DateTime: ${startDateTimeISO}`);
-    console.error(`   End DateTime: ${endDateTimeISO}`);
+    // Safely log dateTime variables - they may not be defined if error occurred early
+    try {
+      console.error(`   Start DateTime: ${typeof startDateTimeISO !== 'undefined' ? startDateTimeISO : 'not defined'}`);
+      console.error(`   End DateTime: ${typeof endDateTimeISO !== 'undefined' ? endDateTimeISO : 'not defined'}`);
+    } catch (logErr) {
+      console.error(`   Date/Time variables not available for logging`);
+    }
     if (err.stack) {
       console.error('Stack trace:', err.stack);
     }
