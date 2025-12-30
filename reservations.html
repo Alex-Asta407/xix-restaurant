@@ -566,6 +566,16 @@
                     };
 
                     console.log('XIX: Reservation data:', reservation);
+                    console.log('XIX: Date from form:', reservation.date, '(should be YYYY-MM-DD format)');
+                    
+                    // CRITICAL: Ensure date is sent exactly as selected (no conversion)
+                    // HTML5 date inputs return YYYY-MM-DD in user's local timezone, which is what we want
+                    if (!reservation.date || !/^\d{4}-\d{2}-\d{2}$/.test(reservation.date)) {
+                        console.error('⚠️ Date format invalid:', reservation.date);
+                        alert('Invalid date format. Please select a date again.');
+                        submitBtn.disabled = false;
+                        return;
+                    }
 
                     // Check if the selected time is still available
                     try {
