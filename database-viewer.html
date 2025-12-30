@@ -220,6 +220,10 @@
         <div class="db-header">
             <h1>Database Viewer</h1>
             <p>View and manage the SQLite database (Reservations & Payments)</p>
+            <p style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
+                <i class="fas fa-clock"></i> Times shown are in <span id="restaurantTimezone">Europe/London</span> local
+                time
+            </p>
         </div>
 
         <div class="db-actions">
@@ -295,6 +299,7 @@
 
         let allData = [];
         let currentTable = 'reservations';
+        let restaurantTimezone = 'Europe/London'; // Default, will be fetched from server
 
         async function loadReservations() {
             try {
@@ -310,12 +315,20 @@
                 const dbPath = response.headers.get('X-Database-Path') || 'Unknown';
                 const dbRecords = response.headers.get('X-Database-Records') || allData.length;
                 const serverEnv = response.headers.get('X-Server-Environment') || 'Unknown';
-                
+                const timezone = response.headers.get('X-Restaurant-Timezone') || 'Europe/London';
+
+                // Update restaurant timezone
+                restaurantTimezone = timezone;
+                const timezoneEl = document.getElementById('restaurantTimezone');
+                if (timezoneEl) {
+                    timezoneEl.textContent = timezone;
+                }
+
                 // Update database info display
                 const dbFileNameEl = document.getElementById('dbFileName');
                 const dbFullPathEl = document.getElementById('dbFullPath');
                 const dbServerEnvEl = document.getElementById('dbServerEnv');
-                
+
                 if (dbFileNameEl) {
                     dbFileNameEl.textContent = dbPath !== 'Unknown' ? dbPath.split(/[/\\]/).pop() : 'reservations.db';
                 }
@@ -325,7 +338,7 @@
                 if (dbServerEnvEl) {
                     dbServerEnvEl.textContent = serverEnv;
                 }
-                
+
                 console.log('Database info:', { dbPath, dbRecords, serverEnv });
                 console.log('Reservations loaded successfully:', allData.length);
 
@@ -439,11 +452,38 @@
             }
 
             tbody.innerHTML = reservations.map(reservation => {
-                const createdDate = new Date(reservation.created_at).toLocaleString();
-                const dateParts = reservation.date ? reservation.date.split('-') : [];
-                const reservationDate = dateParts.length === 3
-                    ? new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])).toLocaleDateString()
-                    : 'N/A';
+                // Format created_at timestamp in restaurant timezone
+                let createdDate = '-';
+                if (reservation.created_at) {
+                    try {
+                        // Parse the timestamp and format in restaurant timezone
+                        const date = new Date(reservation.created_at);
+                        if (!isNaN(date.getTime())) {
+                            // Format in restaurant timezone using en-GB locale for consistency
+                            createdDate = date.toLocaleString('en-GB', {
+                                timeZone: restaurantTimezone,
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Error formatting created_at:', e);
+                        createdDate = reservation.created_at; // Fallback to raw value
+                    }
+                }
+
+                // Format date - simple display from YYYY-MM-DD to DD/MM/YYYY
+                let reservationDate = reservation.date || '-';
+                if (reservationDate !== '-' && reservationDate.includes('-')) {
+                    const parts = reservationDate.split('-');
+                    if (parts.length === 3) {
+                        reservationDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    }
+                }
                 const time = formatTime(reservation.time);
                 const endTime = formatEndTime(reservation.end_time);
 
@@ -520,11 +560,44 @@
             }
 
             tbody.innerHTML = payments.map(payment => {
-                const createdDate = new Date(payment.created_at).toLocaleString();
+                // Format created_at timestamp in restaurant timezone
+                let createdDate = '-';
+                if (payment.created_at) {
+                    try {
+                        const date = new Date(payment.created_at);
+                        if (!isNaN(date.getTime())) {
+                            createdDate = date.toLocaleString('en-GB', {
+                                timeZone: restaurantTimezone,
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Error formatting payment created_at:', e);
+                        createdDate = payment.created_at;
+                    }
+                }
+                // Format reservation date in restaurant timezone
                 const dateParts = payment.reservation_date ? payment.reservation_date.split('-') : [];
-                const reservationDate = dateParts.length === 3
-                    ? new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])).toLocaleDateString()
-                    : 'N/A';
+                let reservationDate = 'N/A';
+                if (dateParts.length === 3) {
+                    try {
+                        const dateStr = `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`;
+                        const date = new Date(dateStr + 'T00:00:00');
+                        reservationDate = date.toLocaleDateString('en-GB', {
+                            timeZone: restaurantTimezone,
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit'
+                        });
+                    } catch (e) {
+                        reservationDate = payment.reservation_date;
+                    }
+                }
 
                 return `
                     <tr>
@@ -697,8 +770,12 @@
                 const result = await response.json();
                 console.log('Reservation deleted:', result);
 
-                // Show success message
-                alert(`Reservation #${id} deleted successfully.`);
+                // Show success message with warning if Google Calendar deletion failed
+                if (result.warning) {
+                    alert(`Reservation #${id} deleted successfully.\n\n⚠️ Warning: ${result.warning}\n\nThe Google Calendar event could not be removed. It will be retried by the sync job. Please verify the calendar if needed.`);
+                } else {
+                    alert(`Reservation #${id} deleted successfully.`);
+                }
 
                 // Reload the current table to refresh the view
                 loadCurrentTable();

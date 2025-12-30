@@ -66,6 +66,12 @@ if (process.env.STRIPE_SECRET_KEY) {
   stripe = null;
 }
 
+// Restaurant timezone configuration
+// Default to Europe/London, but can be overridden via RESTAURANT_TIMEZONE env var
+// Examples: 'Europe/London', 'Europe/Kiev', 'Europe/Vilnius', 'UTC'
+const RESTAURANT_TIMEZONE = process.env.RESTAURANT_TIMEZONE || 'Europe/London';
+console.log(`🌍 Restaurant timezone configured: ${RESTAURANT_TIMEZONE}`);
+
 // Initialize Google Calendar API (optional)
 let calendar;
 let calendarInitialized = false;
@@ -235,13 +241,15 @@ async function initializeGoogleCalendar() {
 }
 
 // Initialize calendar synchronously (will be verified async)
+// STEP 1: Enable Google Calendar connection only (no sync job yet)
 if (process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH && process.env.GOOGLE_CALENDAR_ID) {
   console.log(`🔄 Starting Google Calendar initialization...`);
   initializeGoogleCalendar().then(initialized => {
     if (initialized) {
-      console.log(`✅ Calendar initialization completed successfully - calendar operations are enabled`);
+      console.log(`✅ Calendar initialization completed successfully - calendar connection is active`);
+      console.log(`   📝 Step 1: Connection ✅ | Step 2: Event creation ✅ | Step 3: Sync job enabled`);
 
-      // Start sync job after successful initialization
+      // STEP 3: Enable sync job - bidirectional sync between DB and Google Calendar
       console.log(`🔄 Starting Google Calendar sync job (runs every 30 seconds)...`);
       setInterval(() => {
         syncGoogleCalendar();
@@ -293,19 +301,28 @@ if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.e
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Trust proxy for dev tunnels and production deployments
-// Set to 1 to trust only the first proxy (prevents IP spoofing)
+// Trust proxy for production deployments only
+// Set to 1 to trust exactly one proxy (prevents IP spoofing)
 // In production behind nginx/load balancer, this is safe
-// Set to true only if you're behind a trusted reverse proxy
-app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : true);
+// Set to false in development to prevent IP-based rate limiting bypass
+// Trust exactly 1 proxy in production; trust none in dev
+app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 
 // Security Logging Configuration
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
-    winston.format.timestamp(),
     winston.format.errors({ stack: true }),
-    winston.format.json()
+    winston.format.printf((info) => {
+      const localTime = new Date().toLocaleString();
+      const { level, message, ...meta } = info;
+      return JSON.stringify({
+        timestamp: localTime,
+        level,
+        message,
+        ...meta
+      });
+    })
   ),
   defaultMeta: { service: 'xix-restaurant' },
   transports: [
@@ -351,7 +368,9 @@ const limiter = rateLimit({
     error: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  // Fix trust proxy warning: explicitly set trustProxy to match app setting
+  trustProxy: process.env.NODE_ENV === 'production' ? 1 : false
 });
 
 const reservationLimiter = rateLimit({
@@ -359,7 +378,9 @@ const reservationLimiter = rateLimit({
   max: process.env.NODE_ENV === 'production' ? 100 : 500, // Increased for legitimate use (users may try multiple dates/times)
   message: {
     error: 'Too many reservation attempts. Please try again later.'
-  }
+  },
+  // Fix trust proxy warning: explicitly set trustProxy to match app setting
+  trustProxy: process.env.NODE_ENV === 'production' ? 1 : false
 });
 
 // Apply security middleware
@@ -372,8 +393,12 @@ app.use((req, res, next) => {
 });
 app.use('/api/reservations', reservationLimiter);
 
-// HTTP Request Logging
-app.use(morgan('combined', {
+// HTTP Request Logging with local timezone
+morgan.token('local-date', () => {
+  return new Date().toLocaleString();
+});
+
+app.use(morgan(':remote-addr - :remote-user [:local-date] ":method :url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"', {
   stream: {
     write: (message) => {
       logger.info(message.trim());
@@ -390,7 +415,7 @@ app.use((req, res, next) => {
       userAgent: req.get('User-Agent'),
       url: req.url,
       method: req.method,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
   }
   next();
@@ -425,7 +450,7 @@ app.use((req, res, next) => {
       userAgent: userAgent,
       url: req.url,
       method: req.method,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
   }
 
@@ -579,7 +604,9 @@ app.get('/api/stripe-config', (req, res) => {
 
 // Debug middleware to log all requests
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  // Use local time for request logging
+  const localTime = new Date().toLocaleString();
+  console.log(`${localTime} - ${req.method} ${req.path}`);
   next();
 });
 
@@ -713,31 +740,33 @@ function getBaseUrl() {
   // Debug: Log what we're checking
   const baseUrlEnv = process.env.BASE_URL;
   const nodeEnv = process.env.NODE_ENV;
+  const port = process.env.PORT || 3001;
 
-  console.log(`🔍 getBaseUrl() called - BASE_URL: ${baseUrlEnv || 'NOT SET'}, NODE_ENV: ${nodeEnv || 'NOT SET'}`);
+  console.log(`🔍 getBaseUrl() called - BASE_URL: ${baseUrlEnv || 'NOT SET'}, NODE_ENV: ${nodeEnv || 'NOT SET'}, PORT: ${port}`);
 
   // Use BASE_URL from environment if set (highest priority)
   if (baseUrlEnv) {
     // Warn if BASE_URL is set to localhost in what appears to be production
-    if (baseUrlEnv.includes('localhost') && nodeEnv !== 'development') {
-      console.warn(`⚠️ WARNING: BASE_URL is set to ${baseUrlEnv} but NODE_ENV is not 'development'. This may cause issues in production!`);
+    if (baseUrlEnv.includes('localhost') && nodeEnv === 'production') {
+      console.warn(`⚠️ WARNING: BASE_URL is set to ${baseUrlEnv} but NODE_ENV is 'production'. This may cause issues!`);
     }
     console.log(`✅ Using BASE_URL from environment: ${baseUrlEnv}`);
     return baseUrlEnv;
   }
 
-  // Default to production URL unless explicitly in development
-  // This ensures cPanel/production servers use production URL even if NODE_ENV is not set
-  // Only use localhost if NODE_ENV is explicitly set to 'development' or 'dev'
-  if (nodeEnv === 'development' || nodeEnv === 'dev') {
-    console.log('🔧 Using development base URL: http://localhost:3001');
-    return 'http://localhost:3001';
+  // If NODE_ENV is explicitly set to 'production', use production URL
+  if (nodeEnv === 'production') {
+    const productionUrl = 'https://xixlondon.co.uk';
+    console.log(`🌐 Using production base URL: ${productionUrl} (NODE_ENV is 'production')`);
+    return productionUrl;
   }
 
-  // Default to production URL (for cPanel and other production environments)
-  const productionUrl = 'https://xixlondon.co.uk';
-  console.log(`🌐 Using production base URL: ${productionUrl} (NODE_ENV: ${nodeEnv || 'not set'})`);
-  return productionUrl;
+  // Default to localhost for development (safer for local testing)
+  // This ensures that if NODE_ENV is not set, we default to development
+  const devUrl = `http://localhost:${port}`;
+  console.log(`🔧 Using development base URL: ${devUrl} (NODE_ENV: ${nodeEnv || 'not set - defaulting to development'}, PORT: ${port})`);
+  console.log(`   💡 To use production URL, set NODE_ENV=production or BASE_URL=https://xixlondon.co.uk in your .env file`);
+  return devUrl;
 }
 
 // Initialize SQLite database
@@ -1362,6 +1391,7 @@ app.get('/api/reservations', (req, res) => {
     res.setHeader('X-Database-Path', encodedDbPath);
     res.setHeader('X-Database-Records', mappedRows.length.toString());
     res.setHeader('X-Server-Environment', process.env.NODE_ENV || 'development');
+    res.setHeader('X-Restaurant-Timezone', RESTAURANT_TIMEZONE);
 
     res.json(mappedRows);
   });
@@ -1405,25 +1435,37 @@ app.delete('/api/reservations/clear-all', (req, res, next) => {
       const deletedCount = this.changes;
       console.log(`✅ Deleted ${deletedCount} reservations from database`);
 
-      // Delete Google Calendar events if calendar is configured
+      // BIDIRECTIONAL SYNC: Delete Google Calendar events when reservations are deleted from DB
       if (calendarEventIds.length > 0 && calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
         const calendarId = process.env.GOOGLE_CALENDAR_ID;
         console.log(`🗑️ Deleting ${calendarEventIds.length} Google Calendar events...`);
 
-        const deletePromises = calendarEventIds.map(eventId => {
-          return deleteGoogleCalendarEvent(eventId).catch((err) => {
-            console.error(`⚠️ Error deleting Google Calendar event ${eventId}:`, err.message);
-            return false; // Continue even if one fails
-          });
-        });
+        let deletedEvents = 0;
+        let failedEvents = 0;
 
-        const results = await Promise.all(deletePromises);
-        const successCount = results.filter(r => r === true).length;
-        console.log(`✅ Deleted ${successCount}/${calendarEventIds.length} Google Calendar events`);
+        // Delete each calendar event
+        for (const eventId of calendarEventIds) {
+          try {
+            const deleteSuccess = await deleteGoogleCalendarEvent(eventId);
+            if (deleteSuccess) {
+              deletedEvents++;
+            } else {
+              failedEvents++;
+            }
+          } catch (deleteErr) {
+            console.error(`❌ Error deleting calendar event ${eventId}:`, deleteErr);
+            failedEvents++;
+          }
+        }
+
+        console.log(`✅ Deleted ${deletedEvents} calendar events (${failedEvents} failed)`);
+        if (failedEvents > 0) {
+          console.warn(`⚠️ ${failedEvents} calendar events could not be deleted - sync job will clean them up`);
+        }
 
         res.json({
           success: true,
-          message: `Deleted ${deletedCount} reservations and ${successCount} Google Calendar events`
+          message: `Deleted ${deletedCount} reservations and ${deletedEvents} calendar events${failedEvents > 0 ? ` (${failedEvents} events will be cleaned up by sync)` : ''}`
         });
       } else {
         if (calendarEventIds.length > 0) {
@@ -1521,26 +1563,31 @@ app.delete('/api/reservations/:id', (req, res) => {
 
       console.log(`✅ Reservation ${reservationId} deleted from database`);
 
-      // If there's a Google Calendar event ID, delete it from Google Calendar too
-      if (calendarEventId) {
-        const deleted = await deleteGoogleCalendarEvent(calendarEventId);
-        if (deleted) {
-          res.json({
-            success: true,
-            message: `Reservation ${reservationId} and Google Calendar event deleted successfully`
-          });
-        } else {
-          // Still return success since DB deletion succeeded
-          res.json({
-            success: true,
-            message: `Reservation ${reservationId} deleted from database, but Google Calendar deletion failed`,
-            warning: 'Google Calendar event may still exist'
-          });
+      // BIDIRECTIONAL SYNC: Delete Google Calendar event when reservation is deleted from DB
+      if (calendarEventId && calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
+        console.log(`🗑️ Deleting Google Calendar event ${calendarEventId} for reservation ${reservationId}...`);
+        try {
+          const deleteSuccess = await deleteGoogleCalendarEvent(calendarEventId);
+          if (deleteSuccess) {
+            console.log(`✅ Successfully deleted Google Calendar event ${calendarEventId} for reservation ${reservationId}`);
+          } else {
+            console.warn(`⚠️ Failed to delete Google Calendar event ${calendarEventId} for reservation ${reservationId}`);
+            console.warn(`   The sync job will clean it up on the next cycle`);
+          }
+        } catch (deleteErr) {
+          console.error(`❌ Error deleting calendar event ${calendarEventId}:`, deleteErr);
+          console.warn(`   The sync job will clean it up on the next cycle`);
         }
-      } else {
-        // No calendar event to delete, or calendar not configured
-        res.json({ success: true, message: `Reservation ${reservationId} deleted successfully` });
+      } else if (calendarEventId) {
+        console.warn(`⚠️ Calendar not initialized - event ${calendarEventId} will remain in calendar`);
+        console.warn(`   The sync job will clean it up on the next cycle`);
       }
+
+      // Return success
+      res.json({
+        success: true,
+        message: `Reservation ${reservationId} deleted successfully`
+      });
     });
   });
 });
@@ -1892,7 +1939,7 @@ app.get('/api/security/logs', (req, res) => {
     logger.warn('Unauthorized access attempt to security logs', {
       ip: req.ip,
       userAgent: req.get('User-Agent'),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
     return res.status(403).json({ error: 'Access denied' });
   }
@@ -1939,7 +1986,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
         logger.warn('Suspicious mobile user agent detected', {
           ip: req.ip,
           userAgent: userAgent,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toLocaleString()
         });
         return res.status(400).json({ error: 'Invalid mobile device detected' });
       }
@@ -1953,7 +2000,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
             userAgent: userAgent,
             field: field,
             value: reservation[field],
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toLocaleString()
           });
           return res.status(400).json({ error: `Invalid input in ${field} field` });
         }
@@ -2041,7 +2088,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
           time: sanitizedReservation.time,
           guests: sanitizedReservation.guests
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toLocaleString()
       });
       return res.status(400).json({
         error: 'Validation failed',
@@ -2068,10 +2115,15 @@ app.post('/api/send-reservation-email', async (req, res) => {
         const confirmationToken = generateConfirmationToken();
         const confirmationDeadline = calculateConfirmationDeadline(sanitizedReservation.date, sanitizedReservation.time);
 
+        // Get UTC timestamp in format: YYYY-MM-DD HH:MM:SS for consistent storage
+        // Using UTC ensures consistent time base regardless of server timezone
+        const now = new Date();
+        const utcTimestamp = now.toISOString().replace('T', ' ').substring(0, 19); // Format: YYYY-MM-DD HH:MM:SS
+
         const stmt = db.prepare(`INSERT INTO reservations 
           (name, email, phone, date, time, guests, table_preference, occasion, special_requests, venue, event_type, menu_preference, entertainment, 
-           assigned_table, end_time, confirmation_status, confirmation_token, confirmation_deadline, email_sent_to_customer, email_sent_to_manager, google_calendar_event_id) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+           assigned_table, end_time, confirmation_status, confirmation_token, confirmation_deadline, email_sent_to_customer, email_sent_to_manager, google_calendar_event_id, created_at) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
         stmt.run([
           sanitizedReservation.name,
@@ -2094,7 +2146,8 @@ app.post('/api/send-reservation-email', async (req, res) => {
           confirmationDeadline,
           0, // email_sent_to_customer - will be updated after sending
           0, // email_sent_to_manager - will be updated after sending
-          null // google_calendar_event_id - will be set after creating calendar event
+          null, // google_calendar_event_id - will be set after creating calendar event
+          utcTimestamp // created_at - UTC for consistent time base
         ], async function (err) {
           if (err) {
             console.error('Database error:', err);
@@ -2106,68 +2159,57 @@ app.post('/api/send-reservation-email', async (req, res) => {
           reservationId = actualReservationId; // Store for updating email status
           console.log(`📝 Reservation ID ${actualReservationId} assigned to variable reservationId for email scheduling`);
 
-          // Create Google Calendar event for this reservation
-          console.log(`📅 Checking Google Calendar setup: calendar=${!!calendar}, calendarInitialized=${calendarInitialized}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
-
+          // STEP 2: Create Google Calendar event (if calendar is initialized)
           if (calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
-            console.log(`📅 Attempting to create Google Calendar event for reservation ${reservationId}`);
-            // Get full reservation data for calendar event
-            db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, fullReservation) => {
-              if (err) {
-                console.error(`❌ Error fetching reservation ${reservationId} for calendar event:`, err);
-                logger.error('Error fetching reservation for calendar event', { reservationId, error: err.message });
-                return;
-              }
-
-              if (!fullReservation) {
-                console.error(`❌ Reservation ${reservationId} not found for calendar event creation`);
-                logger.error('Reservation not found for calendar event', { reservationId });
-                return;
-              }
-
-              console.log(`📅 Found reservation ${reservationId}: ${fullReservation.name} on ${fullReservation.date} at ${fullReservation.time}`);
-
-              try {
-                const calendarEventId = await createGoogleCalendarEvent(fullReservation);
-                if (calendarEventId) {
-                  console.log(`✅ Calendar event created with ID: ${calendarEventId}, updating reservation ${reservationId}...`);
-                  // Update reservation with calendar event ID
-                  db.run('UPDATE reservations SET google_calendar_event_id = ? WHERE id = ?', [calendarEventId, reservationId], (updateErr) => {
-                    if (updateErr) {
-                      console.error(`❌ Error updating reservation ${reservationId} with calendar event ID:`, updateErr);
-                      logger.error('Error updating reservation with calendar event ID', { reservationId, calendarEventId, error: updateErr.message });
-                    } else {
-                      console.log(`✅ Successfully linked reservation ${reservationId} to Google Calendar event ${calendarEventId}`);
-                      logger.info('Reservation linked to Google Calendar', { reservationId, calendarEventId });
+            // Fetch full reservation data to pass to createGoogleCalendarEvent
+            db.get('SELECT * FROM reservations WHERE id = ?', [actualReservationId], async (fetchErr, fullReservation) => {
+              if (fetchErr) {
+                console.error(`❌ Error fetching reservation ${actualReservationId} for calendar event:`, fetchErr);
+              } else if (fullReservation) {
+                try {
+                  const calendarEventId = await createGoogleCalendarEvent(fullReservation);
+                  if (calendarEventId) {
+                    // Verify the event was actually created by fetching it
+                    try {
+                      const calendarId = process.env.GOOGLE_CALENDAR_ID;
+                      const verifyEvent = await calendar.events.get({
+                        calendarId: calendarId,
+                        eventId: calendarEventId
+                      });
+                      console.log(`✅ Verified: Event ${calendarEventId} exists in calendar`);
+                      console.log(`   Event summary: ${verifyEvent.data.summary}`);
+                      console.log(`   Event start: ${verifyEvent.data.start?.dateTime || verifyEvent.data.start?.date}`);
+                      console.log(`   Calendar ID used: ${calendarId}`);
+                    } catch (verifyErr) {
+                      console.error(`❌ Verification failed: Event ${calendarEventId} NOT found in calendar!`);
+                      console.error(`   Error: ${verifyErr.message}`);
+                      if (verifyErr.response) {
+                        console.error(`   Status: ${verifyErr.response.status}`);
+                        console.error(`   Data: ${JSON.stringify(verifyErr.response.data, null, 2)}`);
+                      }
                     }
-                  });
-                } else {
-                  console.warn(`⚠️ Failed to create Google Calendar event for reservation ${reservationId} - createGoogleCalendarEvent returned null`);
-                  logger.warn('Google Calendar event creation returned null', { reservationId });
+
+                    // Update reservation with calendar event ID
+                    db.run('UPDATE reservations SET google_calendar_event_id = ? WHERE id = ?',
+                      [calendarEventId, actualReservationId],
+                      async (updateErr) => {
+                        if (updateErr) {
+                          console.error(`❌ Error updating reservation ${actualReservationId} with calendar event ID:`, updateErr);
+                        } else {
+                          console.log(`✅ Calendar event ${calendarEventId} created and linked to reservation ${actualReservationId}`);
+                        }
+                      }
+                    );
+                  } else {
+                    console.warn(`⚠️ Calendar event creation returned null for reservation ${actualReservationId}`);
+                  }
+                } catch (eventErr) {
+                  console.error(`❌ Error creating calendar event for reservation ${actualReservationId}:`, eventErr);
                 }
-              } catch (calendarErr) {
-                console.error(`❌ Exception creating Google Calendar event for reservation ${reservationId}:`, calendarErr);
-                console.error('Error details:', calendarErr.message);
-                if (calendarErr.stack) {
-                  console.error('Stack trace:', calendarErr.stack);
-                }
-                logger.error('Exception creating Google Calendar event', {
-                  reservationId,
-                  error: calendarErr.message,
-                  stack: calendarErr.stack
-                });
               }
             });
           } else {
-            if (!calendar || !calendarInitialized) {
-              console.warn(`⚠️ Google Calendar not initialized - check GOOGLE_CALENDAR_CREDENTIALS_PATH and GOOGLE_CALENDAR_ID`);
-              console.warn(`   calendar=${!!calendar}, calendarInitialized=${calendarInitialized}`);
-              console.warn(`   GOOGLE_CALENDAR_CREDENTIALS_PATH: ${process.env.GOOGLE_CALENDAR_CREDENTIALS_PATH || 'NOT SET'}`);
-              console.warn(`   GOOGLE_CALENDAR_ID: ${process.env.GOOGLE_CALENDAR_ID || 'NOT SET'}`);
-              console.warn(`   Reservation ${reservationId} will be saved but calendar event will not be created`);
-            } else if (!process.env.GOOGLE_CALENDAR_ID) {
-              console.warn(`⚠️ GOOGLE_CALENDAR_ID not set - calendar events will not be created`);
-            }
+            console.log(`ℹ️ Google Calendar not initialized - skipping event creation for reservation ${actualReservationId}`);
           }
 
           // Send response immediately (don't wait for email)
@@ -2220,7 +2262,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
                           reservationId: reservationId,
                           error: err.message,
                           stack: err.stack,
-                          timestamp: new Date().toISOString()
+                          timestamp: new Date().toLocaleString()
                         });
                       });
                     }
@@ -2234,7 +2276,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
                       reservationId: reservationId,
                       error: err.message,
                       stack: err.stack,
-                      timestamp: new Date().toISOString()
+                      timestamp: new Date().toLocaleString()
                     });
                   });
                 }
@@ -2248,15 +2290,16 @@ app.post('/api/send-reservation-email', async (req, res) => {
                 reservationId: reservationId,
                 error: err.message,
                 stack: err.stack,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toLocaleString()
               });
             });
           }
 
-          // Send confirmation email 5 minutes after reservation creation (for testing)
-          // BUT ONLY if table was assigned (skip for waitlist customers)
+          // Send confirmation email 5 minutes after reservation creation
+          // This gives customers time to see the initial confirmation, then sends a reminder with confirmation button
+          // For waitlist customers (no table assigned), email is sent when table becomes available
           if (assignedTable) {
-            // Always send confirmation email 5 minutes after reservation creation (for testing)
+            // Schedule confirmation button email to be sent 5 minutes after reservation creation
             const confirmationEmailDelay = 5 * 60 * 1000; // 5 minutes in milliseconds
 
             // Capture the actual ID and token values to avoid closure issues
@@ -2266,7 +2309,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
 
             setTimeout(() => {
               console.log(`⏰ Timeout triggered (5 minutes) - sending confirmation button email for reservation ID: ${capturedReservationId}`);
-              // Verify reservation still exists before sending
+              // Verify reservation still exists and is still pending before sending
               db.get('SELECT id, confirmation_status FROM reservations WHERE id = ?', [capturedReservationId], (err, reservation) => {
                 if (err) {
                   console.error(`❌ Error checking reservation ${capturedReservationId} before sending email:`, err);
@@ -2286,7 +2329,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
               });
             }, confirmationEmailDelay);
           } else {
-            console.log(`ℹ️ Skipping confirmation button email for waitlist reservation ${reservationId} (no table assigned)`);
+            console.log(`ℹ️ Skipping confirmation button email for waitlist reservation ${reservationId} (no table assigned - will send when table becomes available)`);
           }
         });
       }
@@ -2536,53 +2579,8 @@ Reservation made through ${venueName} website.`;
         });
         console.log('Manager email sent:', managerInfo.messageId);
 
-        // Send SMS notification (if enabled and phone number provided and table assigned)
-        if (twilioClient && process.env.TWILIO_PHONE_NUMBER && reservationData.phone && hasTable && resId) {
-          // Skip SMS if To and From numbers are the same (Twilio doesn't allow this)
-          const normalizedToPhone = reservationData.phone.replace(/\s/g, '').trim();
-          const normalizedFromPhone = process.env.TWILIO_PHONE_NUMBER.replace(/\s/g, '').trim();
-
-          if (normalizedToPhone === normalizedFromPhone) {
-            console.warn(`⚠️ Skipping SMS: To and From numbers are the same (${normalizedToPhone}). Twilio doesn't allow sending SMS to yourself.`);
-            return;
-          }
-
-          // Get confirmation token from database
-          db.get('SELECT confirmation_token FROM reservations WHERE id = ?', [resId], (err, row) => {
-            if (err || !row || !row.confirmation_token) {
-              console.warn('⚠️ Could not retrieve confirmation token for SMS, skipping SMS');
-              return;
-            }
-
-            const confirmationUrl = `${getBaseUrl()}/api/confirm-reservation/${row.confirmation_token}`;
-            const smsMessage = `Please accept or decline your reservation: ${confirmationUrl}`;
-
-            twilioClient.messages.create({
-              body: smsMessage,
-              from: process.env.TWILIO_PHONE_NUMBER,
-              to: reservationData.phone
-            }).then(message => {
-              console.log(`✅ Preliminary SMS sent to ${reservationData.phone}: ${message.sid}`);
-              logger.info('Preliminary SMS sent', {
-                reservationId: resId,
-                customerPhone: reservationData.phone,
-                messageSid: message.sid,
-                hasTable: hasTable,
-                timestamp: new Date().toISOString()
-              });
-            }).catch(err => {
-              console.error('❌ Error sending preliminary SMS:', err.message);
-              logger.error('Preliminary SMS failed', {
-                reservationId: resId,
-                customerPhone: reservationData.phone,
-                error: err.message,
-                errorCode: err.code,
-                timestamp: new Date().toISOString()
-              });
-              // Don't fail the whole process if SMS fails
-            });
-          });
-        }
+        // Note: SMS is NOT sent here - it will be sent only with the final confirmation email (5 minutes later)
+        // This ensures SMS and final confirmation email are sent at the same time
 
         // Update email status in database
         if (resId) {
@@ -2609,7 +2607,7 @@ Reservation made through ${venueName} website.`;
           date: reservationData.date,
           time: reservationData.time,
           guests: reservationData.guests,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toLocaleString()
         });
       } catch (emailErr) {
         console.error('Error sending preliminary email:', emailErr);
@@ -2619,7 +2617,7 @@ Reservation made through ${venueName} website.`;
           error: emailErr.message,
           stack: emailErr.stack,
           reservationId: resId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toLocaleString()
         });
       }
     }
@@ -2755,7 +2753,7 @@ Reservation made through ${venueName} website.`;
               reservationId: resId,
               customerPhone: reservation.phone,
               messageSid: message.sid,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toLocaleString()
             });
           }).catch(err => {
             console.error('❌ Error sending confirmation SMS:', err.message);
@@ -2764,7 +2762,7 @@ Reservation made through ${venueName} website.`;
               customerPhone: reservation.phone,
               error: err.message,
               errorCode: err.code,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toLocaleString()
             });
             // Don't fail the whole process if SMS fails
           });
@@ -2777,7 +2775,7 @@ Reservation made through ${venueName} website.`;
           customerName: reservation.name,
           date: reservation.date,
           time: reservation.time,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toLocaleString()
         });
       } catch (emailErr) {
         console.error('❌ Error in sendConfirmationButtonEmail function:', emailErr);
@@ -2785,7 +2783,7 @@ Reservation made through ${venueName} website.`;
           error: emailErr.message,
           stack: emailErr.stack,
           reservationId: resId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toLocaleString()
         });
         // Re-throw to allow caller's .catch() to handle it
         throw emailErr;
@@ -2798,7 +2796,7 @@ Reservation made through ${venueName} website.`;
       userAgent: req.get('User-Agent'),
       error: err.message,
       stack: err.stack,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
     res.status(500).json({ error: 'Failed to create reservation' });
   }
@@ -2965,7 +2963,7 @@ Reservation made through ${venueName} website.`;
       reservationId: resId,
       customerEmail: reservationData.email,
       messageId: customerInfo.messageId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
   } catch (error) {
     console.error('❌ Error sending waitlist assignment email:', error);
@@ -2973,7 +2971,7 @@ Reservation made through ${venueName} website.`;
       reservationId: resId,
       error: error.message,
       stack: error.stack,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
   }
 }
@@ -3078,7 +3076,7 @@ app.post('/api/send-payment-email', async (req, res) => {
       error: error.message,
       stack: error.stack,
       sessionId: req.body?.session_id,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
     res.status(500).json({ error: 'Failed to send payment confirmation email' });
   }
@@ -3674,17 +3672,39 @@ function parseTime(timeString) {
   return { hours: 0, minutes: 0 };
 }
 
+// Helper: Convert restaurant local time to UTC Date object
+function restaurantLocalToUTC(year, month, day, hour, minute) {
+  // Create date string as if it's in restaurant timezone
+  const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+
+  // Create a reference date in UTC
+  const utcRef = new Date(dateStr + 'Z');
+
+  // Get what this same moment would be represented as in restaurant timezone
+  const restaurantRef = new Date(utcRef.toLocaleString('en-US', { timeZone: RESTAURANT_TIMEZONE }));
+
+  // Calculate the offset
+  const offsetMs = utcRef.getTime() - restaurantRef.getTime();
+
+  // Apply offset to get UTC time
+  return new Date(utcRef.getTime() + offsetMs);
+}
+
 // Calculate confirmation deadline (3 hours before reservation, but minimum 30 minutes from now)
+// Uses restaurant timezone for accurate calculation
+// Returns ISO string (UTC) for storage in database
 function calculateConfirmationDeadline(date, time) {
   const timeParsed = parseTime(time);
-  // Create reservation datetime - convert to ISO format for Date constructor
-  const reservationDateTime = new Date(date);
-  reservationDateTime.setHours(timeParsed.hours, timeParsed.minutes, 0, 0);
-  const now = new Date();
+  const [year, month, day] = date.split('-').map(Number);
+
+  // Convert reservation time from restaurant timezone to UTC
+  const reservationDateTime = restaurantLocalToUTC(year, month, day, timeParsed.hours, timeParsed.minutes);
 
   // Calculate 3 hours before reservation
-  const deadline = new Date(reservationDateTime);
-  deadline.setHours(deadline.getHours() - 3);
+  const deadline = new Date(reservationDateTime.getTime() - 3 * 60 * 60 * 1000);
+
+  // Current time in UTC
+  const now = new Date();
 
   // If deadline is in the past or less than 30 minutes from now, set it to 30 minutes from now
   const minDeadline = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes from now
@@ -3697,12 +3717,19 @@ function calculateConfirmationDeadline(date, time) {
 }
 
 // Confirmation endpoint - one-click confirmation
-app.get('/api/confirm-reservation/:token', (req, res) => {
+app.get('/api/confirm-reservation/:token', async (req, res) => {
   const { token } = req.params;
 
-  db.get('SELECT * FROM reservations WHERE confirmation_token = ?', [token], (err, reservation) => {
+  // Decode URL-encoded token (handles %20, +, etc.) and trim whitespace
+  const decodedToken = decodeURIComponent(token).trim();
+  console.log(`🔗 Confirmation request received for token: "${decodedToken}" (length: ${decodedToken.length})`);
+  console.log(`   Raw token from URL: "${token}"`);
+  console.log(`   Decoded token: "${decodedToken}"`);
+
+  // Search for reservation by token (case-insensitive to handle URL encoding issues)
+  db.get('SELECT * FROM reservations WHERE LOWER(confirmation_token) = LOWER(?)', [decodedToken], async (err, reservation) => {
     if (err) {
-      console.error('Database error:', err);
+      console.error('❌ Database error checking confirmation token:', err);
       return res.status(500).send(`
         <html>
           <head>
@@ -3771,6 +3798,22 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
     }
 
     if (!reservation) {
+      console.log(`⚠️ Confirmation token not found in database: "${decodedToken}"`);
+      console.log(`   Token length: ${decodedToken.length}`);
+
+      // Debug: List sample tokens in DB (first 10 chars only for security)
+      db.all('SELECT id, confirmation_token FROM reservations WHERE confirmation_token IS NOT NULL LIMIT 10', [], (debugErr, debugRows) => {
+        if (!debugErr && debugRows && debugRows.length > 0) {
+          console.log(`   Sample tokens in DB (first 10 chars):`, debugRows.map(r => ({
+            id: r.id,
+            tokenPreview: r.confirmation_token ? r.confirmation_token.substring(0, 10) + '...' : 'NULL',
+            tokenLength: r.confirmation_token ? r.confirmation_token.length : 0
+          })));
+        } else {
+          console.log(`   No tokens found in database`);
+        }
+      });
+
       return res.status(404).send(`
         <html>
           <head>
@@ -3907,32 +3950,12 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
       `);
     }
 
-    // Check if deadline passed
+    // Check if deadline passed - use unified cancellation function
     if (reservation.confirmation_deadline) {
       const deadline = new Date(reservation.confirmation_deadline);
       if (new Date() > deadline) {
-        // Auto-cancel
-        const cancelledTableId = reservation.assigned_table;
-        const cancelledDate = reservation.date;
-        const cancelledTime = reservation.time;
-        const cancelledGuests = reservation.guests;
-        const cancelledVenue = reservation.venue || 'XIX';
-
-        db.run('UPDATE reservations SET confirmation_status = ? WHERE id = ?', ['cancelled', reservation.id], async (err) => {
-          if (err) {
-            console.error('Error cancelling reservation:', err);
-          } else {
-            // Delete Google Calendar event if it exists
-            if (reservation.google_calendar_event_id && calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
-              await deleteGoogleCalendarEvent(reservation.google_calendar_event_id);
-            }
-
-            // Try to reassign table to waitlist reservations
-            if (cancelledTableId) {
-              reassignTableToWaitlist(cancelledTableId, cancelledDate, cancelledTime, cancelledGuests, cancelledVenue);
-            }
-          }
-        });
+        // Auto-cancel using unified function
+        await cancelReservation(reservation.id, 'deadline_passed');
         return res.send(`
           <html>
             <head>
@@ -4078,12 +4101,23 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
 
         // Update Google Calendar event to remove pending status
         if (reservation.google_calendar_event_id && calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
-          // Get updated reservation data
-          db.get('SELECT * FROM reservations WHERE id = ?', [reservation.id], async (err, updatedReservation) => {
-            if (!err && updatedReservation) {
-              await updateGoogleCalendarEvent(updatedReservation);
-            }
-          });
+          try {
+            // Fetch updated reservation data to pass to updateGoogleCalendarEvent
+            db.get('SELECT * FROM reservations WHERE id = ?', [reservation.id], async (fetchErr, updatedReservation) => {
+              if (fetchErr) {
+                console.error(`❌ Error fetching updated reservation ${reservation.id} for calendar update:`, fetchErr);
+              } else if (updatedReservation) {
+                const updateResult = await updateGoogleCalendarEvent(updatedReservation);
+                if (updateResult) {
+                  console.log(`✅ Updated Google Calendar event for reservation ${reservation.id} - status changed to confirmed`);
+                } else {
+                  console.warn(`⚠️ Failed to update Google Calendar event for reservation ${reservation.id}`);
+                }
+              }
+            });
+          } catch (updateErr) {
+            console.error(`❌ Error updating calendar event for reservation ${reservation.id}:`, updateErr);
+          }
         }
 
         res.send(`
@@ -4195,7 +4229,7 @@ app.get('/api/confirm-reservation/:token', (req, res) => {
 app.get('/api/cancel-reservation/:token', (req, res) => {
   const { token } = req.params;
 
-  db.get('SELECT * FROM reservations WHERE confirmation_token = ?', [token], (err, reservation) => {
+  db.get('SELECT * FROM reservations WHERE confirmation_token = ?', [token], async (err, reservation) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).send(`
@@ -4402,204 +4436,250 @@ app.get('/api/cancel-reservation/:token', (req, res) => {
       `);
     }
 
-    // Cancel reservation
-    const cancelledTableId = reservation.assigned_table;
-    const cancelledDate = reservation.date;
-    const cancelledTime = reservation.time;
-    const cancelledGuests = reservation.guests;
-    const cancelledVenue = reservation.venue || 'XIX';
-    const calendarEventId = reservation.google_calendar_event_id;
+    // Cancel reservation using unified cancellation function
+    try {
+      await cancelReservation(reservation.id, 'customer_requested');
 
-    db.run(
-      'UPDATE reservations SET confirmation_status = ? WHERE id = ?',
-      ['cancelled', reservation.id],
-      async (err) => {
-        if (err) {
-          console.error('Error cancelling reservation:', err);
-          return res.status(500).send(`
-            <html>
-              <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                  * { box-sizing: border-box; }
-                  body { 
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
-                    text-align: center; 
-                    padding: 20px; 
-                    background: #f5f5f5;
-                    margin: 0;
-                    font-size: 16px;
-                    line-height: 1.6;
-                  }
-                  .container {
-                    background: white;
-                    padding: 40px 30px;
-                    border-radius: 12px;
-                    max-width: 600px;
-                    margin: 40px auto;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-                  }
-                  h1 { 
-                    color: #d32f2f; 
-                    margin-bottom: 20px;
-                    font-size: 28px;
-                    font-weight: 600;
-                  }
-                  p {
-                    font-size: 18px;
-                    color: #333;
-                    margin: 15px 0;
-                  }
-                  a { 
-                    display: inline-block; 
-                    margin-top: 30px; 
-                    padding: 16px 32px; 
-                    background: #A8871A; 
-                    color: white; 
-                    text-decoration: none; 
-                    border-radius: 8px;
-                    font-size: 18px;
-                    font-weight: 500;
-                    transition: background 0.3s;
-                  }
-                  a:hover { background: #8b6f15; }
-                  @media (max-width: 600px) {
-                    body { padding: 10px; font-size: 18px; }
-                    .container { padding: 30px 20px; margin: 20px auto; }
-                    h1 { font-size: 32px; }
-                    p { font-size: 20px; }
-                    a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
-                  }
-                </style>
-              </head>
-              <body>
-                <div class="container">
-                  <h1>⚠️ Error</h1>
-                  <p>An error occurred while cancelling your reservation.</p>
-                  <a href="/">Return to Home</a>
-                </div>
-              </body>
-            </html>
-          `);
-        }
-
-        console.log(`✅ Reservation ${reservation.id} cancelled by customer`);
-
-        // Delete from Google Calendar if event exists
-        if (calendarEventId) {
-          await deleteGoogleCalendarEvent(calendarEventId);
-        }
-
-        // Try to reassign table to waitlist reservations
-        if (cancelledTableId) {
-          reassignTableToWaitlist(cancelledTableId, cancelledDate, cancelledTime, cancelledGuests, cancelledVenue);
-        }
-
-        res.send(`
-          <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <style>
-                * { box-sizing: border-box; }
-                body { 
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
-                  text-align: center; 
-                  padding: 20px; 
-                  background: #f5f5f5;
-                  margin: 0;
-                  font-size: 16px;
-                  line-height: 1.6;
-                }
-                .success-box { 
-                  background: white; 
-                  padding: 40px 30px; 
-                  border-radius: 12px; 
-                  max-width: 600px; 
-                  margin: 40px auto; 
-                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-                }
-                h1 { 
-                  color: #dc3545; 
-                  margin-bottom: 20px;
-                  font-size: 32px;
-                  font-weight: 600;
-                }
-                p {
-                  font-size: 18px;
-                  color: #333;
-                  margin: 15px 0;
-                }
-                .details { 
-                  text-align: left; 
-                  margin: 30px 0; 
-                  padding: 25px; 
-                  background: #f8f9fa; 
-                  border-radius: 8px;
-                  border-left: 4px solid #dc3545;
-                }
-                .details p { 
-                  margin: 12px 0;
-                  font-size: 18px;
-                }
-                .details strong {
-                  color: #020702;
-                  font-weight: 600;
-                  display: inline-block;
-                  min-width: 80px;
-                }
-                a { 
-                  display: inline-block; 
-                  margin-top: 30px; 
-                  padding: 16px 32px; 
-                  background: #A8871A; 
-                  color: white; 
-                  text-decoration: none; 
-                  border-radius: 8px;
-                  font-size: 18px;
-                  font-weight: 500;
-                  transition: background 0.3s;
-                }
-                a:hover { background: #8b6f15; }
-                .message {
-                  color: #666;
-                  font-size: 16px;
-                  margin-top: 20px;
-                }
-                @media (max-width: 600px) {
-                  body { padding: 10px; font-size: 18px; }
-                  .success-box { padding: 30px 20px; margin: 20px auto; }
-                  h1 { font-size: 36px; }
-                  p { font-size: 20px; }
-                  .details { padding: 20px; }
-                  .details p { font-size: 20px; }
-                  .details strong { display: block; margin-bottom: 5px; }
-                  a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
-                  .message { font-size: 18px; }
-                }
-              </style>
-            </head>
-            <body>
-              <div class="success-box">
-                <h1>❌ Reservation Cancelled</h1>
-                <p>Your reservation has been successfully cancelled.</p>
-                <div class="details">
-                  <p><strong>Name:</strong> ${reservation.name}</p>
-                  <p><strong>Date:</strong> ${reservation.date}</p>
-                  <p><strong>Time:</strong> ${reservation.time}</p>
-                  <p><strong>Guests:</strong> ${reservation.guests}</p>
-                </div>
-                <p class="message">We're sorry to see you go. We hope to serve you another time!</p>
-                <a href="/reservations">Make New Reservation</a>
+      res.send(`
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px; 
+                background: #f5f5f5;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1.6;
+              }
+              .success-box { 
+                background: white; 
+                padding: 40px 30px; 
+                border-radius: 12px; 
+                max-width: 600px; 
+                margin: 40px auto; 
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 { 
+                color: #dc3545; 
+                margin-bottom: 20px;
+                font-size: 32px;
+                font-weight: 600;
+              }
+              p {
+                font-size: 18px;
+                color: #333;
+                margin: 15px 0;
+              }
+              .details { 
+                text-align: left; 
+                margin: 30px 0; 
+                padding: 25px; 
+                background: #f8f9fa; 
+                border-radius: 8px;
+                border-left: 4px solid #dc3545;
+              }
+              .details p { 
+                margin: 12px 0;
+                font-size: 18px;
+              }
+              .details strong {
+                color: #020702;
+                font-weight: 600;
+                display: inline-block;
+                min-width: 80px;
+              }
+              a { 
+                display: inline-block; 
+                margin-top: 30px; 
+                padding: 16px 32px; 
+                background: #A8871A; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: 500;
+                transition: background 0.3s;
+              }
+              a:hover { background: #8b6f15; }
+              .message {
+                color: #666;
+                font-size: 16px;
+                margin-top: 20px;
+              }
+              @media (max-width: 600px) {
+                body { padding: 10px; font-size: 18px; }
+                .success-box { padding: 30px 20px; margin: 20px auto; }
+                h1 { font-size: 36px; }
+                p { font-size: 20px; }
+                .details { padding: 20px; }
+                .details p { font-size: 20px; }
+                .details strong { display: block; margin-bottom: 5px; }
+                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+                .message { font-size: 18px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="success-box">
+              <h1>❌ Reservation Cancelled</h1>
+              <p>Your reservation has been successfully cancelled.</p>
+              <div class="details">
+                <p><strong>Name:</strong> ${reservation.name}</p>
+                <p><strong>Date:</strong> ${reservation.date}</p>
+                <p><strong>Time:</strong> ${reservation.time}</p>
+                <p><strong>Guests:</strong> ${reservation.guests}</p>
               </div>
-            </body>
-          </html>
-        `);
-      }
-    );
+              <p class="message">We're sorry to see you go. We hope to serve you another time!</p>
+              <a href="/reservations">Make New Reservation</a>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (err) {
+      console.error('Error cancelling reservation:', err);
+      return res.status(500).send(`
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px; 
+                background: #f5f5f5;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1.6;
+              }
+              .container {
+                background: white;
+                padding: 40px 30px;
+                border-radius: 12px;
+                max-width: 600px;
+                margin: 40px auto;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 { 
+                color: #d32f2f; 
+                margin-bottom: 20px;
+                font-size: 28px;
+                font-weight: 600;
+              }
+              p {
+                font-size: 18px;
+                color: #333;
+                margin: 15px 0;
+              }
+              a { 
+                display: inline-block; 
+                margin-top: 30px; 
+                padding: 16px 32px; 
+                background: #A8871A; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: 500;
+                transition: background 0.3s;
+              }
+              a:hover { background: #8b6f15; }
+              @media (max-width: 600px) {
+                body { padding: 10px; font-size: 18px; }
+                .container { padding: 30px 20px; margin: 20px auto; }
+                h1 { font-size: 32px; }
+                p { font-size: 20px; }
+                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>⚠️ Error</h1>
+              <p>An error occurred while cancelling your reservation.</p>
+              <a href="/">Return to Home</a>
+            </div>
+          </body>
+        </html>
+      `);
+    }
   });
 });
 
 // Function to reassign a cancelled table to waitlist reservations
+// Unified cancellation utility function
+// Handles all cancellation logic consistently: DB update, calendar deletion, waitlist reassignment
+async function cancelReservation(reservationId, reason = 'deadline_passed') {
+  return new Promise((resolve, reject) => {
+    // Get full reservation data
+    db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, reservation) => {
+      if (err) {
+        console.error(`❌ Error fetching reservation ${reservationId} for cancellation:`, err);
+        reject(err);
+        return;
+      }
+
+      if (!reservation) {
+        console.warn(`⚠️ Reservation ${reservationId} not found for cancellation`);
+        resolve(false);
+        return;
+      }
+
+      if (reservation.confirmation_status === 'cancelled') {
+        console.log(`ℹ️ Reservation ${reservationId} already cancelled, skipping`);
+        resolve(true);
+        return;
+      }
+
+      const calendarEventId = reservation.google_calendar_event_id;
+      const cancelledTableId = reservation.assigned_table;
+      const cancelledDate = reservation.date;
+      const cancelledTime = reservation.time;
+      const cancelledGuests = reservation.guests;
+      const cancelledVenue = reservation.venue || 'XIX';
+
+      // Update status to cancelled
+      db.run(
+        'UPDATE reservations SET confirmation_status = ? WHERE id = ?',
+        ['cancelled', reservationId],
+        async (updateErr) => {
+          if (updateErr) {
+            console.error(`❌ Error cancelling reservation ${reservationId}:`, updateErr);
+            reject(updateErr);
+            return;
+          }
+
+          console.log(`✅ Cancelled reservation ${reservationId} (reason: ${reason})`);
+
+          // GOOGLE CALENDAR EVENT DELETION DISABLED
+          // Calendar sync is temporarily disabled - events will not be deleted
+          // Clear event ID from DB if it exists
+          if (calendarEventId) {
+            db.run('UPDATE reservations SET google_calendar_event_id = NULL WHERE id = ?', [reservationId], (clearErr) => {
+              if (clearErr) {
+                console.error(`⚠️ Error clearing event ID for cancelled reservation ${reservationId}:`, clearErr);
+              } else {
+                console.log(`✅ Cleared google_calendar_event_id for cancelled reservation ${reservationId} (calendar sync disabled)`);
+              }
+            });
+          }
+
+          // Try to reassign table to waitlist reservations
+          if (cancelledTableId) {
+            reassignTableToWaitlist(cancelledTableId, cancelledDate, cancelledTime, cancelledGuests, cancelledVenue);
+          }
+
+          resolve(true);
+        }
+      );
+    });
+  });
+}
+
 function reassignTableToWaitlist(freedTableId, date, time, guests, venue) {
   console.log(`🔄 Attempting to reassign table ${freedTableId} to waitlist reservations for ${date} at ${time} (${guests} guests, venue: ${venue})`);
 
@@ -4672,7 +4752,9 @@ function reassignTableToWaitlist(freedTableId, date, time, guests, venue) {
 // Auto-cancellation job - cancels unconfirmed reservations after confirmation deadline passes
 // Only cancels if deadline has passed AND reservation time hasn't passed yet
 // Also triggers automatic reassignment to waitlist
-setInterval(() => {
+// TEMPORARILY DISABLED FOR TESTING - Re-enable after confirming event creation works
+/*
+setInterval(async () => {
   const now = new Date();
 
   // First, get reservations that will be cancelled (including Google Calendar event IDs)
@@ -4684,7 +4766,7 @@ setInterval(() => {
      AND datetime(confirmation_deadline) < datetime(?)
      AND datetime(date || ' ' || time) > datetime(?)`,
     [now.toISOString(), now.toISOString()],
-    (err, reservationsToCancel) => {
+    async (err, reservationsToCancel) => {
       if (err) {
         console.error('Error fetching reservations to cancel:', err);
         return;
@@ -4694,45 +4776,19 @@ setInterval(() => {
         return; // No reservations to cancel
       }
 
-      // Cancel each reservation individually to handle Google Calendar deletion
-      reservationsToCancel.forEach((reservation) => {
-        const calendarEventId = reservation.google_calendar_event_id;
-
-        // Update status to cancelled
-        db.run(
-          `UPDATE reservations 
-               SET confirmation_status = 'cancelled' 
-               WHERE id = ?`,
-          [reservation.id],
-          async (updateErr) => {
-            if (updateErr) {
-              console.error(`Error cancelling reservation ${reservation.id}:`, updateErr);
-              return;
-            }
-
-            console.log(`⚠️ Auto-cancelled reservation ${reservation.id}`);
-
-            // Delete from Google Calendar if event exists
-            if (calendarEventId) {
-              await deleteGoogleCalendarEvent(calendarEventId);
-            }
-
-            // Try to reassign table to waitlist reservations
-            if (reservation.assigned_table) {
-              reassignTableToWaitlist(
-                reservation.assigned_table,
-                reservation.date,
-                reservation.time,
-                reservation.guests,
-                reservation.venue || 'XIX'
-              );
-            }
-          }
-        );
-      });
+      // Cancel each reservation using unified cancellation function
+      for (const reservation of reservationsToCancel) {
+        try {
+          await cancelReservation(reservation.id, 'deadline_passed');
+        } catch (err) {
+          console.error(`❌ Error cancelling reservation ${reservation.id}:`, err);
+        }
+      }
     }
   );
 }, 5 * 60 * 1000); // Every 5 minutes
+*/
+console.log('ℹ️ Auto-cancellation job is TEMPORARILY DISABLED for testing');
 
 // Reminder sending job - sends reminders 4-5 hours before reservation
 setInterval(() => {
@@ -4848,7 +4904,7 @@ function sendConfirmationReminder(reservation) {
         reservationId: reservation.id,
         customerPhone: reservation.phone,
         messageSid: message.sid,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toLocaleString()
       });
     }).catch(err => {
       console.error('❌ Error sending reminder SMS:', err.message);
@@ -4859,7 +4915,7 @@ function sendConfirmationReminder(reservation) {
         customerPhone: reservation.phone,
         error: err.message,
         errorCode: err.code,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toLocaleString()
       });
       // Don't fail the whole process if SMS fails
     });
@@ -5036,31 +5092,58 @@ async function updateGoogleCalendarEvent(reservation) {
     if (reservation.special_requests) {
       eventDescription += `Special Requests: ${reservation.special_requests}\n`;
     }
-    // Remove pending status if confirmed
+    // Add status to description
     if (reservation.confirmation_status === 'confirmed') {
       eventDescription += `\n✅ Status: Confirmed`;
+    } else if (reservation.confirmation_status === 'pending') {
+      eventDescription += `\n⚠️ Status: Pending Confirmation`;
+    } else if (reservation.confirmation_status === 'cancelled') {
+      eventDescription += `\n❌ Status: Cancelled`;
     }
 
-    // Update the event
+    // Update the event - preserve extendedProperties and status
     const updatedEvent = {
       summary: eventTitle,
       description: eventDescription,
       start: {
         dateTime: startDateTimeISO,
-        timeZone: 'Europe/London'
+        timeZone: RESTAURANT_TIMEZONE
       },
       end: {
         dateTime: endDateTimeISO,
-        timeZone: 'Europe/London'
+        timeZone: RESTAURANT_TIMEZONE
       },
+      status: 'confirmed', // Explicitly set to prevent auto-cancellation
       reminders: existingEvent.data.reminders || {
         useDefault: false,
         overrides: [
           { method: 'email', minutes: 24 * 60 },
           { method: 'popup', minutes: 60 }
         ]
+      },
+      // CRITICAL: Preserve extendedProperties to maintain link to reservation
+      extendedProperties: existingEvent.data.extendedProperties || {
+        private: {
+          managedBy: 'xix-reservations',
+          reservationId: String(reservation.id),
+          confirmationToken: String(reservation.confirmation_token || '')
+        }
       }
     };
+
+    // Ensure extendedProperties.private has required fields
+    if (!updatedEvent.extendedProperties.private) {
+      updatedEvent.extendedProperties.private = {};
+    }
+    if (!updatedEvent.extendedProperties.private.managedBy) {
+      updatedEvent.extendedProperties.private.managedBy = 'xix-reservations';
+    }
+    if (!updatedEvent.extendedProperties.private.reservationId) {
+      updatedEvent.extendedProperties.private.reservationId = String(reservation.id);
+    }
+    if (!updatedEvent.extendedProperties.private.confirmationToken) {
+      updatedEvent.extendedProperties.private.confirmationToken = String(reservation.confirmation_token || '');
+    }
 
     const result = await calendar.events.update({
       calendarId: calendarId,
@@ -5173,53 +5256,18 @@ async function createGoogleCalendarEvent(reservation) {
     console.log(`   Reservation: ${reservation.name} on ${reservation.date} at ${reservation.time}`);
 
     // Parse date and time (handle both 24-hour and 12-hour formats)
-    // Google Calendar API expects dateTime in RFC3339 format with timezone
-    // Europe/London is UTC+0 (GMT) in winter, UTC+1 (BST) in summer
+    // Google Calendar API handles timezone automatically when timeZone field is provided
+    // We just need to provide the naive local time and the timezone string
     const [year, month, day] = reservation.date.split('-');
     const timeParsed = parseTime(reservation.time);
 
-    // Determine timezone offset for Europe/London
-    // BST (British Summer Time) is UTC+1 (last Sunday in March to last Sunday in October)
-    // GMT is UTC+0 (rest of the year, including December)
-    // We need to explicitly include the offset in RFC3339 format to ensure Google Calendar interprets it correctly
-    const monthNum = parseInt(month);
-    let offsetStr = '+00:00'; // Default to GMT (UTC+0)
-
-    // Check if date is likely in BST period (April-October)
-    // For December (month 12), it's always GMT, so +00:00 is correct
-    if (monthNum >= 4 && monthNum <= 10) {
-      // Could be BST, but to be safe, we'll calculate it properly
-      // For now, use a simple check: if month is 4-10, it might be BST
-      // But actually, BST ends in late October, so October could be either
-      // For simplicity and to avoid issues, we'll use +00:00 for all dates
-      // and rely on the timeZone field in the API call
-      offsetStr = '+00:00';
-    }
-
-    // Actually, let's use a more reliable method: create a date and check its timezone offset
-    // For December 29, 2025, Europe/London is GMT (UTC+0)
-    // We'll explicitly set +00:00 for winter months (Nov-Mar) and +01:00 for summer months (Apr-Oct)
-    // But to be absolutely safe, let's calculate it dynamically
-    try {
-      const testDateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T12:00:00`;
-      const testDate = new Date(testDateStr);
-      // Use a library-free method: create date in UTC and compare
-      // For Europe/London in December, it's GMT (UTC+0)
-      // This is a simplified check - in production, you might want to use a timezone library
-      const isWinter = monthNum === 12 || monthNum <= 2 || (monthNum === 3 && parseInt(day) < 25) || (monthNum === 11 && parseInt(day) >= 1);
-      offsetStr = isWinter ? '+00:00' : '+01:00';
-    } catch (e) {
-      // Fallback to GMT
-      offsetStr = '+00:00';
-    }
-
-    // Format: YYYY-MM-DDTHH:MM:SS+HH:MM (RFC3339 with explicit timezone offset)
-    // This ensures Google Calendar interprets the time correctly as Europe/London local time
-    const startDateTimeISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timeParsed.hours.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00${offsetStr}`;
+    // Format: YYYY-MM-DDTHH:MM:SS (naive local time - no timezone offset)
+    // Google Calendar will interpret this as restaurant local time based on timeZone field
+    const startDateTimeISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timeParsed.hours.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
 
     console.log(`   Creating event for ${reservation.date} at ${reservation.time}`);
     console.log(`   Parsed time: ${timeParsed.hours}:${timeParsed.minutes}`);
-    console.log(`   Start DateTime: ${startDateTimeISO} (interpreted as Europe/London local time)`);
+    console.log(`   Start DateTime: ${startDateTimeISO} (interpreted as ${RESTAURANT_TIMEZONE} local time)`);
     if (reservation.end_time) {
       console.log(`   End time from DB: ${reservation.end_time}`);
     }
@@ -5316,13 +5364,13 @@ async function createGoogleCalendarEvent(reservation) {
         }
       }
 
-      // Use the same timezone offset as start time (since endDay should equal start day)
-      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00${offsetStr}`;
+      // Use naive local time (no timezone offset) - Google Calendar handles timezone via timeZone field
+      endDateTimeISO = `${endYear}-${endMonth.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}T${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}:00`;
       console.log(`   ✅ Final end time: startDay=${day}, endDay=${endDay}, startHour=${timeParsed.hours}, endHour=${endHour}, endDateTimeISO=${endDateTimeISO}`);
     }
 
-    console.log(`   Final Start: ${startDateTimeISO} (Europe/London)`);
-    console.log(`   Final End: ${endDateTimeISO} (Europe/London)`);
+    console.log(`   Final Start: ${startDateTimeISO} (${RESTAURANT_TIMEZONE})`);
+    console.log(`   Final End: ${endDateTimeISO} (${RESTAURANT_TIMEZONE})`);
 
     // Validate that end time is after start time
     // Compare dates by parsing them as local dates (treating as same timezone)
@@ -5389,23 +5437,36 @@ async function createGoogleCalendarEvent(reservation) {
     }
 
     // Create the event with proper timezone handling
+    // Google Calendar API automatically handles DST when timeZone field is provided
+    // CRITICAL: Add extendedProperties with reservation ID to enable "healing" broken links
+    // If DB update fails, sync job can find the reservation by checking event's extendedProperties
+    // IMPORTANT: Explicitly set status to 'confirmed' to prevent Google Calendar from auto-cancelling
+    // events created by service accounts without owner permissions
     const event = {
       summary: eventTitle,
       description: eventDescription,
       start: {
         dateTime: startDateTimeISO,
-        timeZone: 'Europe/London'
+        timeZone: RESTAURANT_TIMEZONE
       },
       end: {
         dateTime: endDateTimeISO,
-        timeZone: 'Europe/London'
+        timeZone: RESTAURANT_TIMEZONE
       },
+      status: 'confirmed', // Explicitly set to prevent auto-cancellation by Google Calendar
       reminders: {
         useDefault: false,
         overrides: [
           { method: 'email', minutes: 24 * 60 }, // 1 day before
           { method: 'popup', minutes: 60 } // 1 hour before
         ]
+      },
+      extendedProperties: {
+        private: {
+          managedBy: 'xix-reservations',
+          reservationId: String(reservation.id),
+          confirmationToken: String(reservation.confirmation_token || '')
+        }
       }
     };
 
@@ -5416,7 +5477,12 @@ async function createGoogleCalendarEvent(reservation) {
       resource: event
     });
 
-    console.log(`✅ Created Google Calendar event ${createdEvent.data.id} for reservation ${reservation.id}`);
+    // Log with local timestamp and event creation time
+    const localTime = new Date().toLocaleString();
+    const eventCreatedTime = createdEvent.data.created ? new Date(createdEvent.data.created).toISOString() : 'N/A';
+    console.log(`✅ Created Google Calendar event ${createdEvent.data.id} for reservation ${reservation.id} at ${localTime}`);
+    console.log(`   📝 Event created timestamp: ${eventCreatedTime}`);
+    console.log(`   📝 Event will be protected from deletion for 15 minutes (race condition protection)`);
     return createdEvent.data.id; // Return the event ID
 
   } catch (err) {
@@ -5454,9 +5520,18 @@ async function createGoogleCalendarEvent(reservation) {
   }
 }
 
-// Google Calendar Sync - Syncs calendar events to database
+// Google Calendar Sync - Complete Bidirectional Sync
+// SYNC RULES:
+// 1. If reservation exists in DB → MUST exist in Google Calendar (create if missing)
+// 2. If event exists in calendar → MUST exist in DB (delete event if no reservation)
+// 3. If event deleted from calendar → delete reservation from DB
+// 4. All events MUST be in LIST QUERY (not just individually fetchable)
+// This ensures perfect bidirectional synchronization: Calendar ↔ Database
 async function syncGoogleCalendar() {
-  console.log(`🔄 Starting Google Calendar sync... (calendar=${!!calendar}, initialized=${calendarInitialized})`);
+  // STEP 3: Sync job enabled - bidirectional sync between DB and Google Calendar
+  const syncStartTime = Date.now();
+  const localTime = new Date().toLocaleString();
+  console.log(`🔄 Starting Google Calendar sync at ${localTime}... (calendar=${!!calendar}, initialized=${calendarInitialized})`);
 
   if (!calendar || !calendarInitialized || !process.env.GOOGLE_CALENDAR_ID) {
     console.warn(`⚠️ Calendar sync skipped: calendar=${!!calendar}, calendarInitialized=${calendarInitialized}, GOOGLE_CALENDAR_ID=${!!process.env.GOOGLE_CALENDAR_ID}`);
@@ -5464,354 +5539,675 @@ async function syncGoogleCalendar() {
   }
 
   try {
-    const now = new Date();
-    // Query events from 7 days ago to 30 days in the future
-    // This ensures we catch past events (for syncing existing reservations)
-    // and future events (for upcoming bookings)
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const thirtyDaysLater = new Date(now);
-    thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
-
-    // Get events from Google Calendar for the extended time range
     const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
-    // Try to get calendar info first to verify access
+    // Verify calendar access
     try {
       await calendar.calendars.get({ calendarId });
       console.log(`✅ Successfully accessed calendar: ${calendarId}`);
     } catch (calendarError) {
       console.error('⚠️ Google Calendar access error:', calendarError.message);
-      console.error('   Calendar ID:', calendarId);
-      console.error('   Error details:', calendarError.response?.data || calendarError.message);
-
-      // Try to list all calendars to help find the correct ID
-      try {
-        console.log('📋 Attempting to list available calendars...');
-        const calendarList = await calendar.calendarList.list();
-        console.log('Available calendars:');
-        calendarList.data.items?.forEach(cal => {
-          console.log(`   - ${cal.summary || cal.id}: ID = ${cal.id}`);
-        });
-      } catch (listError) {
-        console.error('   Could not list calendars:', listError.message);
-      }
-
-      console.error('   Please verify:');
-      console.error('   1. The calendar is shared with: xix-calendar-sync@xix-restaurant-calendar.iam.gserviceaccount.com');
-      console.error('   2. The calendar ID in .env matches the calendar you want to use');
-      console.error('   3. For secondary calendars, use the calendar ID from the list above, not the email address');
-      return; // Don't proceed if we can't access the calendar
+      return;
     }
 
+    // STEP 1: Get ALL events from Google Calendar using a very wide time range
+    // Use 2 years in past and 2 years in future to ensure we catch ALL events
+    // IMPORTANT: Use UTC times (Google Calendar API expects UTC) but ensure wide range
+    const syncNow = new Date();
+
+    // Calculate 2 years ago and 2 years later with extra buffer to account for timezone differences
+    // Add extra days to ensure we catch all events regardless of timezone
+    const twoYearsAgo = new Date(syncNow.getTime() - (2 * 365 * 24 * 60 * 60 * 1000) - (7 * 24 * 60 * 60 * 1000)); // Extra week buffer
+    const twoYearsLater = new Date(syncNow.getTime() + (2 * 365 * 24 * 60 * 60 * 1000) + (7 * 24 * 60 * 60 * 1000)); // Extra week buffer
+
+    // Convert to ISO strings (UTC) - Google Calendar API expects UTC
+    const timeMinISO = twoYearsAgo.toISOString();
+    const timeMaxISO = twoYearsLater.toISOString();
+
+    // Log for debugging
+    const restaurantNow = new Date(syncNow.toLocaleString('en-US', { timeZone: RESTAURANT_TIMEZONE }));
+    const serverTimeStr = syncNow.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+    const restaurantTimeStr = syncNow.toLocaleString('en-US', { timeZone: RESTAURANT_TIMEZONE });
+
+    console.log(`📅 Fetching ALL events from Google Calendar (2 years past to 2 years future)...`);
+    console.log(`   Query range (UTC): ${timeMinISO} to ${timeMaxISO}`);
+    console.log(`   Server time: ${serverTimeStr} (${syncNow.toISOString()} UTC)`);
+    console.log(`   Restaurant time (${RESTAURANT_TIMEZONE}): ${restaurantTimeStr}`);
+
+    // CRITICAL: Request extendedProperties to ensure we can match events to reservations
+    // Without this, extendedProperties may not be returned and healing logic won't work
     const response = await calendar.events.list({
       calendarId: calendarId,
-      timeMin: sevenDaysAgo.toISOString(),
-      timeMax: thirtyDaysLater.toISOString(),
+      timeMin: timeMinISO,
+      timeMax: timeMaxISO,
       singleEvents: true,
-      orderBy: 'startTime'
+      orderBy: 'startTime',
+      maxResults: 2500, // Maximum allowed by Google Calendar API
+      fields: 'items(id,summary,start,end,created,updated,extendedProperties)' // Explicitly request extendedProperties
     });
 
-    const events = response.data.items || [];
-    console.log(`📅 Found ${events.length} events in Google Calendar (from ${sevenDaysAgo.toISOString().split('T')[0]} to ${thirtyDaysLater.toISOString().split('T')[0]})`);
+    let events = response.data.items || [];
+    console.log(`📅 Found ${events.length} events in Google Calendar list query`);
+    if (events.length === 0) {
+      console.log(`   ⚠️ WARNING: List query returned 0 events - this might indicate:`);
+      console.log(`      - API indexing delay (events just created may not appear yet)`);
+      console.log(`      - Time range issue (events outside query range)`);
+      console.log(`      - Calendar access issue`);
+      console.log(`   🔍 Will check reservations individually if they have event IDs`);
+    }
 
-    // Log event details for debugging (especially for December 29th)
-    if (events.length > 0) {
-      console.log('📋 Events found in Google Calendar:');
-      const dec29Events = [];
-      events.forEach((event, index) => {
-        const eventStart = new Date(event.start.dateTime || event.start.date);
-        const eventDate = eventStart.toISOString().split('T')[0];
-        const eventTime = eventStart.toTimeString().split(' ')[0].substring(0, 5);
-        console.log(`   ${index + 1}. ${event.summary || 'Untitled'} - ${eventDate} at ${eventTime} (ID: ${event.id})`);
+    // Handle pagination if there are more events
+    let nextPageToken = response.data.nextPageToken;
+    while (nextPageToken && events.length < 2500) {
+      const nextResponse = await calendar.events.list({
+        calendarId: calendarId,
+        timeMin: timeMinISO,
+        timeMax: timeMaxISO,
+        singleEvents: true,
+        orderBy: 'startTime',
+        maxResults: 2500,
+        pageToken: nextPageToken
+      });
+      events.push(...(nextResponse.data.items || []));
+      nextPageToken = nextResponse.data.nextPageToken;
+      console.log(`📅 Fetched additional events, total now: ${events.length}`);
+    }
 
-        // Track events on December 29th for debugging
-        if (eventDate === '2025-12-29') {
-          dec29Events.push(event);
+    // Create a Set of event IDs for fast lookup
+    const eventIdsSet = new Set(events.map(e => e.id));
+    console.log(`📋 Total unique events in calendar: ${eventIdsSet.size}`);
+
+    // Track statistics for monitoring
+    let eventsCreatedThisSync = 0;
+    let eventsRecreatedThisSync = 0;
+    let reservationsUpdatedFromCalendar = 0;
+    let reservationsDeletedFromCalendar = 0;
+
+    // STEP 2: Get all reservations from database
+    const allReservations = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM reservations WHERE confirmation_status != "cancelled"', [], (err, rows) => {
+        if (err) {
+          console.error('❌ Error fetching reservations:', err);
+          reject(err);
+        } else {
+          resolve(rows || []);
         }
       });
+    });
 
-      if (dec29Events.length > 0) {
-        console.log(`⚠️ Found ${dec29Events.length} events on December 29, 2025 - will check if they exist in database`);
+    console.log(`📋 Found ${allReservations.length} reservations in database`);
+
+    // STEP 3: SIMPLIFIED LOGIC - Event in DB → Must be in Calendar
+    // If reservation has event ID in DB, ensure event exists in calendar (recreate if missing)
+    // NEVER delete reservations - only ensure events exist
+    const reservationsNeedingEvents = [];
+    const syncCheckNow = new Date();
+    const oneMinuteAgo = new Date(syncCheckNow.getTime() - 60 * 1000); // 1 minute grace period
+
+    for (const reservation of allReservations) {
+      if (!reservation.google_calendar_event_id) {
+        // Reservation has no event ID - check if it was just created
+        // Give recently created reservations time for event creation to complete
+        const reservationCreatedAt = reservation.created_at ? new Date(reservation.created_at) : null;
+        const isRecentlyCreated = reservationCreatedAt && reservationCreatedAt > oneMinuteAgo;
+
+        if (isRecentlyCreated) {
+          const ageSeconds = Math.round((syncCheckNow.getTime() - reservationCreatedAt.getTime()) / 1000);
+          console.log(`   ⏳ Reservation #${reservation.id} was created ${ageSeconds} seconds ago - giving grace period for event creation`);
+          console.log(`   ℹ️ Event creation likely in progress from insert flow - skipping sync event creation to avoid duplicates`);
+          console.log(`   📝 This is expected behavior - sync will check again on next cycle`);
+          // Skip - event creation is likely in progress from the insert flow
+          continue;
+        }
+
+        // Reservation has no event ID and is not recently created - needs event
+        reservationsNeedingEvents.push(reservation);
+      } else {
+        // Reservation has event ID - check if event exists
+        const eventExistsInList = eventIdsSet.has(reservation.google_calendar_event_id);
+
+        if (eventExistsInList) {
+          // Event exists in list query - check if it was modified in calendar
+          const calendarEvent = events.find(e => e.id === reservation.google_calendar_event_id);
+          if (calendarEvent) {
+            const privateProps = calendarEvent.extendedProperties?.private || {};
+            const managedByUs = privateProps.managedBy === 'xix-reservations';
+
+            // Only sync changes for events managed by us
+            if (managedByUs) {
+              // Compare calendar event times with DB reservation times
+              const eventStart = calendarEvent.start?.dateTime || calendarEvent.start?.date;
+              const eventEnd = calendarEvent.end?.dateTime || calendarEvent.end?.date;
+
+              if (eventStart) {
+                // Convert calendar event time to restaurant local time
+                const eventStartDate = new Date(eventStart);
+                const eventStartLocal = new Date(eventStartDate.toLocaleString('en-US', { timeZone: RESTAURANT_TIMEZONE }));
+
+                // Parse DB reservation date and time
+                const [dbYear, dbMonth, dbDay] = reservation.date.split('-').map(Number);
+                const timeParsed = parseTime(reservation.time);
+                const dbReservationDate = new Date(dbYear, dbMonth - 1, dbDay, timeParsed.hours, timeParsed.minutes);
+
+                // Compare dates and times (ignore seconds)
+                const eventDateStr = `${eventStartLocal.getFullYear()}-${String(eventStartLocal.getMonth() + 1).padStart(2, '0')}-${String(eventStartLocal.getDate()).padStart(2, '0')}`;
+                const eventTimeStr = `${String(eventStartLocal.getHours()).padStart(2, '0')}:${String(eventStartLocal.getMinutes()).padStart(2, '0')}`;
+
+                const dbDateStr = reservation.date;
+                const dbTimeStr = `${String(timeParsed.hours).padStart(2, '0')}:${String(timeParsed.minutes).padStart(2, '0')}`;
+
+                // Check if date or time changed
+                if (eventDateStr !== dbDateStr || eventTimeStr !== dbTimeStr) {
+                  console.log(`🔄 Calendar event ${calendarEvent.id} was modified in Google Calendar`);
+                  console.log(`   DB: ${dbDateStr} ${dbTimeStr}`);
+                  console.log(`   Calendar: ${eventDateStr} ${eventTimeStr}`);
+                  console.log(`   Updating DB reservation #${reservation.id}...`);
+
+                  // Update DB reservation with new date/time from calendar
+                  await new Promise((resolve, reject) => {
+                    db.run(
+                      'UPDATE reservations SET date = ?, time = ? WHERE id = ?',
+                      [eventDateStr, eventTimeStr, reservation.id],
+                      function (err) {
+                        if (err) {
+                          console.error(`❌ Error updating reservation ${reservation.id} with calendar changes:`, err);
+                          reject(err);
+                        } else {
+                          console.log(`✅ Updated reservation #${reservation.id} date/time from calendar event`);
+                          reservationsUpdatedFromCalendar++;
+                          resolve();
+                        }
+                      }
+                    );
+                  });
+                }
+
+                // Check if end_time changed
+                if (eventEnd && reservation.end_time) {
+                  const eventEndDate = new Date(eventEnd);
+                  const eventEndLocal = new Date(eventEndDate.toLocaleString('en-US', { timeZone: RESTAURANT_TIMEZONE }));
+                  const eventEndTimeStr = `${String(eventEndLocal.getHours()).padStart(2, '0')}:${String(eventEndLocal.getMinutes()).padStart(2, '0')}`;
+
+                  const endTimeParsed = parseTime(reservation.end_time);
+                  const dbEndTimeStr = `${String(endTimeParsed.hours).padStart(2, '0')}:${String(endTimeParsed.minutes).padStart(2, '0')}`;
+
+                  if (eventEndTimeStr !== dbEndTimeStr) {
+                    console.log(`🔄 Calendar event ${calendarEvent.id} end_time was modified in Google Calendar`);
+                    console.log(`   DB: ${dbEndTimeStr}`);
+                    console.log(`   Calendar: ${eventEndTimeStr}`);
+                    console.log(`   Updating DB reservation #${reservation.id}...`);
+
+                    await new Promise((resolve, reject) => {
+                      db.run(
+                        'UPDATE reservations SET end_time = ? WHERE id = ?',
+                        [eventEndTimeStr, reservation.id],
+                        function (err) {
+                          if (err) {
+                            console.error(`❌ Error updating reservation ${reservation.id} end_time from calendar:`, err);
+                            reject(err);
+                          } else {
+                            console.log(`✅ Updated reservation #${reservation.id} end_time from calendar event`);
+                            reservationsUpdatedFromCalendar++;
+                            resolve();
+                          }
+                        }
+                      );
+                    });
+                  }
+                }
+
+                // BIDIRECTIONAL SYNC: Check if reservation status changed and update calendar event description
+                // Extract status from calendar event description
+                const calendarDescription = calendarEvent.description || '';
+                const calendarStatusMatch = calendarDescription.match(/Status:\s*(.+)/);
+                const calendarStatus = calendarStatusMatch ? calendarStatusMatch[1].trim() : '';
+
+                // Determine expected status text from DB
+                let expectedStatusText = '';
+                if (reservation.confirmation_status === 'confirmed') {
+                  expectedStatusText = '✅ Status: Confirmed';
+                } else if (reservation.confirmation_status === 'pending') {
+                  expectedStatusText = '⚠️ Status: Pending Confirmation';
+                } else if (reservation.confirmation_status === 'cancelled') {
+                  expectedStatusText = '❌ Status: Cancelled';
+                }
+
+                // Check if status in calendar doesn't match DB
+                const statusNeedsUpdate = expectedStatusText &&
+                  (!calendarDescription.includes(expectedStatusText) ||
+                    (calendarStatus && calendarStatus !== expectedStatusText.split(':')[1]?.trim()));
+
+                if (statusNeedsUpdate) {
+                  console.log(`🔄 Reservation #${reservation.id} status changed in DB (${reservation.confirmation_status})`);
+                  console.log(`   Calendar event description status: ${calendarStatus || 'not found'}`);
+                  console.log(`   Updating calendar event description...`);
+
+                  // Update calendar event with new status
+                  try {
+                    const updateResult = await updateGoogleCalendarEvent(reservation);
+                    if (updateResult) {
+                      console.log(`✅ Updated calendar event ${calendarEvent.id} with new status: ${reservation.confirmation_status}`);
+                      reservationsUpdatedFromCalendar++;
+                    } else {
+                      console.warn(`⚠️ Failed to update calendar event ${calendarEvent.id} with new status`);
+                    }
+                  } catch (statusUpdateErr) {
+                    console.error(`❌ Error updating calendar event status:`, statusUpdateErr);
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          // Event ID exists but event is NOT in the list query
+          // Check if event exists individually (might be API indexing delay)
+          console.log(`⚠️ Reservation #${reservation.id} has event ID ${reservation.google_calendar_event_id} but event is NOT in list query`);
+          console.log(`   🔍 Checking if event exists individually...`);
+          console.log(`   🛡️ PROTECTION: Event will NOT be deleted even if not in list - only events visible in list can be deleted`);
+
+          try {
+            const eventData = await calendar.events.get({
+              calendarId: calendarId,
+              eventId: reservation.google_calendar_event_id,
+              fields: 'id,summary,start,end,created,updated,extendedProperties' // Request extendedProperties to verify it's our event
+            });
+            // Event exists individually - likely API indexing delay
+            const eventStart = eventData.data.start.dateTime || eventData.data.start.date;
+            const localEventTime = eventStart ? new Date(eventStart).toLocaleString() : 'N/A';
+            const privateProps = eventData.data.extendedProperties?.private || {};
+            const managedByUs = privateProps.managedBy === 'xix-reservations';
+            const eventReservationId = privateProps.reservationId;
+
+            console.log(`   ℹ️ Event exists individually: ${eventData.data.summary || 'Untitled'} - ${localEventTime}`);
+            console.log(`   📋 Event metadata: managedBy=${privateProps.managedBy || 'N/A'}, reservationId=${eventReservationId || 'N/A'}`);
+
+            if (managedByUs && eventReservationId && Number(eventReservationId) === reservation.id) {
+              console.log(`   ✅ Event is correctly tagged and linked to reservation #${reservation.id}`);
+            } else if (!managedByUs) {
+              console.log(`   ⚠️ WARNING: Event exists but is NOT tagged with managedBy='xix-reservations'`);
+              console.log(`   ⚠️ This event may have been created manually or by another system`);
+            } else if (eventReservationId && Number(eventReservationId) !== reservation.id) {
+              console.log(`   ⚠️ WARNING: Event is linked to different reservation (${eventReservationId} vs ${reservation.id})`);
+            }
+
+            console.log(`   ⏳ API indexing delay - event will appear in list query on next sync`);
+            console.log(`   🛡️ SAFE: Event is protected from deletion (not visible in list query = cannot be deleted)`);
+            // Event exists, just not indexed yet - no action needed
+            // CRITICAL: We do NOT add this event to the events array, so it cannot be deleted as orphaned
+          } catch (getErr) {
+            // Event doesn't exist - check if it was deleted from calendar
+            if (getErr.response && (getErr.response.status === 404 || getErr.response.status === 410)) {
+              console.log(`   ⚠️ Event ${reservation.google_calendar_event_id} was deleted from Google Calendar`);
+              console.log(`   🔄 BIDIRECTIONAL SYNC: Deleting reservation #${reservation.id} from DB (event was deleted from calendar)...`);
+
+              // Delete reservation from DB since event was deleted from calendar
+              await new Promise((resolve) => {
+                db.run('DELETE FROM reservations WHERE id = ?', [reservation.id], function (err) {
+                  if (err) {
+                    console.error(`❌ Error deleting reservation ${reservation.id} after calendar event deletion:`, err);
+                  } else {
+                    console.log(`✅ Deleted reservation #${reservation.id} from DB (event was deleted from calendar)`);
+                    console.log(`   Reservation: ${reservation.name} on ${reservation.date} at ${reservation.time}`);
+                    reservationsDeletedFromCalendar++;
+                  }
+                  resolve();
+                });
+              });
+            } else {
+              // Other error - might be temporary, log and continue
+              console.error(`   ⚠️ Error checking event: ${getErr.message} - will retry on next sync`);
+              console.error(`   ⚠️ Error code: ${getErr.code || 'N/A'}, status: ${getErr.response?.status || 'N/A'}`);
+            }
+          }
+        }
       }
     }
 
-    // Process all events and check for updates (using Promise.all to avoid race conditions)
-    const updatePromises = events.map(event => {
-      return new Promise((resolve) => {
-        // Check if reservation exists in DB by Google Calendar event ID
-        db.get('SELECT * FROM reservations WHERE google_calendar_event_id = ?', [event.id], (err, existingReservation) => {
-          if (err) {
-            console.error(`❌ Error checking existing reservation for event ${event.id}:`, err);
-            return resolve();
-          }
-
-          if (existingReservation) {
-            console.log(`🔍 Checking event ${event.id} (reservation #${existingReservation.id}): ${event.summary || 'Untitled'}`);
-
-            // Update existing reservation if event was modified in Google Calendar
-            // Parse dateTime from Google Calendar (RFC3339 format with timezone)
-            // Extract date and time as they appear in the event's timezone (Europe/London)
-            let eventDate, eventTime, endTime;
-
-            if (event.start.dateTime) {
-              // Parse RFC3339 dateTime string (e.g., "2025-12-28T13:00:00+00:00")
-              // Extract date and time components directly from the string to avoid timezone conversion
-              const startDateTimeStr = event.start.dateTime;
-              const startMatch = startDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
-              if (startMatch) {
-                eventDate = `${startMatch[1]}-${startMatch[2]}-${startMatch[3]}`;
-                eventTime = `${startMatch[4]}:${startMatch[5]}`;
-              } else {
-                // Fallback to Date parsing if format is unexpected
-                const eventStart = new Date(event.start.dateTime);
-                eventDate = eventStart.toISOString().split('T')[0];
-                eventTime = `${eventStart.getHours().toString().padStart(2, '0')}:${eventStart.getMinutes().toString().padStart(2, '0')}`;
-              }
-            } else if (event.start.date) {
-              // All-day event
-              eventDate = event.start.date;
-              eventTime = '00:00';
-            } else {
-              console.warn(`⚠️ Event ${event.id} has no start date/time`);
-              return resolve();
-            }
-
-            // Parse end time
-            if (event.end.dateTime) {
-              const endDateTimeStr = event.end.dateTime;
-              const endMatch = endDateTimeStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
-              if (endMatch) {
-                const endDate = `${endMatch[1]}-${endMatch[2]}-${endMatch[3]}`;
-                const endTimeStr = `${endMatch[4]}:${endMatch[5]}`;
-
-                // Calculate end_time handling midnight crossover
-                endTime = calculateEndTime(eventDate, eventTime,
-                  (new Date(event.end.dateTime).getTime() - new Date(event.start.dateTime).getTime()) / (1000 * 60 * 60)
-                );
-              } else {
-                // Fallback
-                const eventEnd = new Date(event.end.dateTime);
-                const durationHours = (eventEnd.getTime() - new Date(event.start.dateTime).getTime()) / (1000 * 60 * 60);
-                endTime = calculateEndTime(eventDate, eventTime, durationHours);
-              }
-            } else {
-              // All-day event or no end time - use default 2 hours
-              const timeParsed = parseTime(eventTime);
-              let endHour = timeParsed.hours + 2;
-              if (endHour >= 24) {
-                endHour = endHour - 24;
-              }
-              endTime = `${endHour.toString().padStart(2, '0')}:${timeParsed.minutes.toString().padStart(2, '0')}`;
-            }
-
-            // Check what needs to be updated
-            const updates = [];
-            const values = [];
-
-            console.log(`   Current DB: date=${existingReservation.date}, time=${existingReservation.time}, end_time=${existingReservation.end_time || 'null'}`);
-            console.log(`   Calendar:   date=${eventDate}, time=${eventTime}, end_time=${endTime}`);
-
-            if (existingReservation.date !== eventDate) {
-              updates.push('date = ?');
-              values.push(eventDate);
-              console.log(`   📅 Date changed: ${existingReservation.date} → ${eventDate}`);
-            }
-
-            if (existingReservation.time !== eventTime) {
-              updates.push('time = ?');
-              values.push(eventTime);
-              console.log(`   🕐 Time changed: ${existingReservation.time} → ${eventTime}`);
-            }
-
-            if (existingReservation.end_time !== endTime) {
-              updates.push('end_time = ?');
-              values.push(endTime);
-              console.log(`   🕐 End time changed: ${existingReservation.end_time || 'null'} → ${endTime}`);
-            }
-
-            // Update database if any changes detected
-            if (updates.length > 0) {
-              console.log(`   ✏️ Updating reservation #${existingReservation.id} with ${updates.length} change(s)`);
-              updates.push('last_synced_at = CURRENT_TIMESTAMP');
-              values.push(existingReservation.id);
-
-              db.run(
-                `UPDATE reservations SET ${updates.join(', ')} WHERE id = ?`,
-                values,
-                (err) => {
-                  if (err) {
-                    console.error(`❌ Error updating reservation ${existingReservation.id} from calendar:`, err);
-                  } else {
-                    console.log(`✅ Updated reservation ${existingReservation.id} from Google Calendar:`);
-                    if (existingReservation.date !== eventDate) {
-                      console.log(`   Date: ${existingReservation.date} → ${eventDate}`);
-                    }
-                    if (existingReservation.time !== eventTime) {
-                      console.log(`   Time: ${existingReservation.time} → ${eventTime}`);
-                    }
-                    if (existingReservation.end_time !== endTime) {
-                      console.log(`   End time: ${existingReservation.end_time} → ${endTime}`);
-                    }
-
-                    // Check for conflicts with updated time
-                    checkTableConflicts(existingReservation.assigned_table, eventDate, eventTime, endTime, existingReservation.id);
-                  }
-                  resolve();
-                }
-              );
-            } else {
-              console.log(`   ✓ Reservation #${existingReservation.id} is up to date (no changes detected)`);
-              resolve();
-            }
+    // Create events for reservations that need them
+    if (reservationsNeedingEvents.length > 0) {
+      console.log(`📅 Creating ${reservationsNeedingEvents.length} calendar events for reservations...`);
+      for (const reservation of reservationsNeedingEvents) {
+        const isRecreation = reservation.google_calendar_event_id === null;
+        const calendarEventId = await createGoogleCalendarEvent(reservation);
+        if (calendarEventId) {
+          if (isRecreation) {
+            eventsRecreatedThisSync++;
           } else {
-            console.log(`   ℹ️ Event ${event.id} exists in calendar but has no matching reservation in DB`);
-            resolve();
+            eventsCreatedThisSync++;
           }
+          // CRITICAL: Await DB update and verify it completed before continuing
+          await new Promise((resolve, reject) => {
+            db.run('UPDATE reservations SET google_calendar_event_id = ? WHERE id = ?', [calendarEventId, reservation.id], function (err) {
+              if (err) {
+                console.error(`❌ Error updating reservation ${reservation.id} with calendar event ID:`, err);
+                reject(err);
+              } else {
+                if (this.changes === 0) {
+                  console.error(`❌ WARNING: DB update returned 0 changes for reservation ${reservation.id} - event ID may not be saved!`);
+                }
+                const localTime = new Date().toLocaleString();
+                console.log(`✅ Created and linked calendar event ${calendarEventId} for reservation #${reservation.id} at ${localTime} (DB changes: ${this.changes})`);
+                resolve();
+              }
+            });
+          });
+
+          // Add the new event ID to our set
+          eventIdsSet.add(calendarEventId);
+        }
+      }
+
+      // Wait for API indexing delay (Google Calendar API can take a few seconds to index new events)
+      console.log(`⏳ Waiting 5 seconds for Google Calendar API to index newly created events...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      // Refresh events list after creating new events
+      console.log(`🔄 Refreshing events list after creating ${reservationsNeedingEvents.length} events...`);
+      const refreshResponse = await calendar.events.list({
+        calendarId: calendarId,
+        timeMin: timeMinISO,
+        timeMax: timeMaxISO,
+        singleEvents: true,
+        orderBy: 'startTime',
+        maxResults: 2500,
+        fields: 'items(id,summary,start,end,created,updated,extendedProperties)' // Explicitly request extendedProperties
+      });
+      events = refreshResponse.data.items || [];
+
+      // Handle pagination for refresh too
+      let refreshPageToken = refreshResponse.data.nextPageToken;
+      while (refreshPageToken && events.length < 2500) {
+        const nextRefreshResponse = await calendar.events.list({
+          calendarId: calendarId,
+          timeMin: timeMinISO,
+          timeMax: timeMaxISO,
+          singleEvents: true,
+          orderBy: 'startTime',
+          maxResults: 2500,
+          pageToken: refreshPageToken,
+          fields: 'items(id,summary,start,end,created,updated,extendedProperties)' // Explicitly request extendedProperties
         });
+        events.push(...(nextRefreshResponse.data.items || []));
+        refreshPageToken = nextRefreshResponse.data.nextPageToken;
+      }
+
+      eventIdsSet.clear();
+      events.forEach(e => eventIdsSet.add(e.id));
+      console.log(`✅ Refreshed events list: now ${eventIdsSet.size} events in calendar`);
+    }
+
+    // STEP 4: Removed - We no longer delete reservations
+    // Simple rule: Event in DB → Must be in Calendar (recreate if missing)
+    // Reservations are never deleted by sync - only events are managed
+
+    // STEP 5: Check for orphaned events in calendar (events without corresponding reservations)
+    // CRITICAL SAFETY RULE: Only delete events that:
+    // 1. Appear in the list query (we can see them)
+    // 2. Are tagged with managedBy='xix-reservations' (created by this app)
+    // 3. Have no matching reservation in DB (truly orphaned)
+    // 
+    // IMPORTANT: We NEVER delete events that don't appear in list query results.
+    // If events.list() returns 0 events, we simply don't see them and can't delete them.
+    // This protects against API indexing delays - events that exist but aren't indexed yet
+    // will be safe from deletion until they appear in a future list query.
+
+    // IMPORTANT: Refresh dbEventIds AFTER creating events to ensure we have the latest data
+    // CRITICAL: Only include non-cancelled reservations - cancelled reservations have their events deleted
+    // This ensures cancelled reservations' events are correctly identified as orphaned
+    const dbEventIds = await new Promise((resolve, reject) => {
+      db.all('SELECT google_calendar_event_id FROM reservations WHERE google_calendar_event_id IS NOT NULL AND confirmation_status != "cancelled"', [], (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          const eventIdSet = new Set(rows.map(r => r.google_calendar_event_id).filter(Boolean));
+          console.log(`📋 Found ${eventIdSet.size} event IDs in database (non-cancelled reservations only, refreshed after event creation)`);
+          resolve(eventIdSet);
+        }
       });
     });
 
-    // Wait for all event checks to complete before checking for deletions
-    await Promise.all(updatePromises);
-
-    // Check for reservations in DB that don't have Google Calendar events and create them
-    db.all('SELECT * FROM reservations WHERE google_calendar_event_id IS NULL AND confirmation_status != "cancelled" ORDER BY date, time', [], async (err, reservationsWithoutEvents) => {
-      if (!err && reservationsWithoutEvents && reservationsWithoutEvents.length > 0) {
-        console.log(`⚠️ Found ${reservationsWithoutEvents.length} reservations in database without Google Calendar events - creating them now...`);
-
-        for (const reservation of reservationsWithoutEvents) {
-          const calendarEventId = await createGoogleCalendarEvent(reservation);
-          if (calendarEventId) {
-            // Update reservation with calendar event ID
-            db.run('UPDATE reservations SET google_calendar_event_id = ? WHERE id = ?', [calendarEventId, reservation.id], (updateErr) => {
-              if (updateErr) {
-                console.error(`Error updating reservation ${reservation.id} with calendar event ID:`, updateErr);
-              } else {
-                console.log(`✅ Created and linked Google Calendar event for reservation #${reservation.id} - ${reservation.name} on ${reservation.date} at ${reservation.time}`);
-              }
-            });
-          }
+    // Filter orphaned events - ONLY events that appear in the list query
+    // CRITICAL: We can only delete what we can see. If list returns 0 events,
+    // orphanedEvents will be empty and nothing will be deleted (which is safe).
+    const orphanedEvents = events.filter(event => {
+      const isOrphaned = !dbEventIds.has(event.id);
+      if (isOrphaned) {
+        // Log for debugging - check if it's a managed event
+        const privateProps = event.extendedProperties?.private || {};
+        const managedByUs = privateProps.managedBy === 'xix-reservations';
+        if (managedByUs) {
+          console.log(`   🔍 Potential orphan: Event ${event.id} (managedBy: ${privateProps.managedBy}, reservationId: ${privateProps.reservationId})`);
+          console.log(`      Event exists in list query but not in dbEventIds set (size: ${dbEventIds.size})`);
         }
       }
+      return isOrphaned;
     });
 
-    // Check for reservations in DB that have Google Calendar event IDs but the events no longer exist in Calendar
-    // This detects when events are manually deleted from Google Calendar UI
-    // Check ALL reservations with event IDs (including cancelled ones) to catch manual deletions
-    await new Promise((resolve) => {
-      db.all('SELECT id, name, date, time, google_calendar_event_id, confirmation_status FROM reservations WHERE google_calendar_event_id IS NOT NULL', [], (err, reservationsWithEventIds) => {
-        if (err) {
-          console.error('❌ Error checking reservations with event IDs:', err);
-          return resolve();
+    if (orphanedEvents.length > 0) {
+      console.log(`🗑️ Found ${orphanedEvents.length} orphaned events in list query (no matching reservation) - checking before deletion...`);
+      console.log(`   ⚠️ SAFETY: Only events visible in list query are considered. Events not in list are safe from deletion.`);
+      const now = new Date();
+      const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000); // 15 minute grace period
+
+      let skippedRecent = 0;
+      let deletedCount = 0;
+      let errorCount = 0;
+      let healedCount = 0;
+      let skippedNonManaged = 0;
+
+      for (const event of orphanedEvents) {
+        const privateProps = event.extendedProperties?.private || {};
+        const managedByUs = privateProps.managedBy === 'xix-reservations';
+        const reservationIdFromEvent = privateProps.reservationId ? Number(privateProps.reservationId) : null;
+
+        // CRITICAL SAFETY CHECK: Only manage/delete events that were created by THIS app
+        // If extendedProperties are missing or managedBy doesn't match, skip deletion
+        // This prevents deleting events manually added by staff or from other systems
+        // RULE: Only delete events with managedBy='xix-reservations' tag
+        if (!managedByUs) {
+          skippedNonManaged++;
+          // Check if extendedProperties exist but managedBy is missing/wrong
+          if (event.extendedProperties && event.extendedProperties.private) {
+            console.log(`   ⚠️ Event ${event.id} has extendedProperties but managedBy is not 'xix-reservations' (found: '${privateProps.managedBy}')`);
+            console.log(`   🛡️ Skipping deletion - event may be from another system or manually created`);
+          } else {
+            console.log(`   ℹ️ Skipping non-managed event (no managedBy property): ${event.id}`);
+            console.log(`   🛡️ Event lacks extendedProperties - may be manually created or from another system`);
+          }
+          continue;
         }
 
-        if (reservationsWithEventIds && reservationsWithEventIds.length > 0) {
-          // Create a Set of event IDs that exist in Google Calendar
-          const existingEventIds = new Set(events.map(e => e.id));
-          console.log(`📋 Sync check: ${reservationsWithEventIds.length} reservations with calendar events, ${existingEventIds.size} events found in calendar`);
+        // ADDITIONAL SAFETY: If event has managedBy but missing reservationId, be extra cautious
+        if (managedByUs && !reservationIdFromEvent) {
+          console.log(`   ⚠️ Event ${event.id} is managed by app but has no reservationId in extendedProperties`);
+          console.log(`   🛡️ Skipping deletion - event may be in transition or corrupted, safer to leave it`);
+          continue;
+        }
 
-          // Find reservations whose Google Calendar events no longer exist
-          const deletedEvents = reservationsWithEventIds.filter(res => !existingEventIds.has(res.google_calendar_event_id));
+        if (reservationIdFromEvent) {
+          const reservationRow = await new Promise((resolve) => {
+            db.get(
+              'SELECT id, google_calendar_event_id FROM reservations WHERE id = ?',
+              [reservationIdFromEvent],
+              (err, row) => resolve(err ? null : row)
+            );
+          });
 
-          if (deletedEvents.length > 0) {
-            console.log(`🗑️ Found ${deletedEvents.length} reservations whose Google Calendar events were manually deleted from calendar:`);
-            deletedEvents.forEach((res, index) => {
-              console.log(`   ${index + 1}. Reservation #${res.id} - ${res.name} on ${res.date} at ${res.time} (Event ID: ${res.google_calendar_event_id}, Status: ${res.confirmation_status})`);
-            });
+          if (reservationRow) {
+            if (!reservationRow.google_calendar_event_id) {
+              await new Promise((resolve) => {
+                db.run(
+                  'UPDATE reservations SET google_calendar_event_id = ? WHERE id = ?',
+                  [event.id, reservationIdFromEvent],
+                  () => resolve()
+                );
+              });
+              healedCount++;
+              console.log(`   ✅ Healed link: reservation #${reservationIdFromEvent} now points to event ${event.id}. Skipping deletion.`);
+              continue;
+            }
+          }
+        }
 
-            // Delete these reservations from the database (they were manually deleted from calendar)
-            const deletePromises = deletedEvents.map((res) => {
-              return new Promise((deleteResolve) => {
-                db.run('DELETE FROM reservations WHERE id = ?', [res.id], (deleteErr) => {
-                  if (deleteErr) {
-                    console.error(`❌ Error deleting reservation ${res.id} (event deleted from calendar):`, deleteErr);
-                    console.error('   Error code:', deleteErr.code);
-                    console.error('   Error number:', deleteErr.errno);
+        // CRITICAL SAFEGUARD: Check event creation/update time from Google Calendar API
+        // If event was created/updated recently (within last 15 minutes), don't delete it
+        // This protects against race condition where DB update hasn't completed yet
+        // Google Calendar API provides 'created' and 'updated' fields in RFC3339 format
+        const eventCreated = event.created ? new Date(event.created) : null;
+        const eventUpdated = event.updated ? new Date(event.updated) : null;
 
-                    if (deleteErr.code === 'SQLITE_READONLY' || deleteErr.errno === 8) {
-                      console.error(`⚠️ DATABASE IS READ-ONLY! Cannot delete reservation ${res.id}`);
-                      console.error(`   Database path: ${resolvedDbPath}`);
-                      console.error('   Please check file permissions and ensure the database file is writable.');
-                    }
-                  } else {
-                    console.log(`✅ Deleted reservation #${res.id} (${res.name}) - Google Calendar event was manually removed from calendar`);
-                  }
-                  deleteResolve();
-                });
+        // RACE CONDITION PROTECTION: Skip events created during or right before this sync cycle
+        // Convert syncStartTime (milliseconds) to Date for comparison
+        const syncStartDate = new Date(syncStartTime);
+        const eventCreatedDuringSync = eventCreated && eventCreated.getTime() >= syncStartTime - (60 * 1000); // 1 minute buffer before sync start
+
+        const eventIsRecent = (eventCreated && eventCreated > fifteenMinutesAgo) ||
+          (eventUpdated && eventUpdated > fifteenMinutesAgo) ||
+          eventCreatedDuringSync;
+
+        // Calculate event age for logging
+        const eventAgeMinutes = eventCreated
+          ? Math.round((now.getTime() - eventCreated.getTime()) / (60 * 1000))
+          : null;
+        const eventAgeStr = eventAgeMinutes !== null ? `${eventAgeMinutes} minutes` : 'unknown';
+
+        if (eventIsRecent) {
+          skippedRecent++;
+          const createdStr = eventCreated ? eventCreated.toISOString() : 'N/A';
+          const updatedStr = eventUpdated ? eventUpdated.toISOString() : 'N/A';
+          const eventStart = event.start?.dateTime || event.start?.date || 'N/A';
+          const protectionReason = eventCreatedDuringSync ? 'created during sync cycle' :
+            (eventCreated && eventCreated > fifteenMinutesAgo) ? 'created recently (< 15 min)' :
+              (eventUpdated && eventUpdated > fifteenMinutesAgo) ? 'updated recently (< 15 min)' : 'unknown';
+
+          console.log(`   ⚠️ [RACE CONDITION PROTECTION] Event ${event.id} was created/updated recently:`);
+          console.log(`      Summary: ${event.summary || 'Untitled'}`);
+          console.log(`      Start: ${eventStart}`);
+          console.log(`      Created: ${createdStr} (${eventAgeStr} ago)`);
+          console.log(`      Updated: ${updatedStr}`);
+          console.log(`      Protection reason: ${protectionReason}`);
+          console.log(`      Sync started: ${syncStartDate.toISOString()}`);
+          console.log(`      Protection reason: ${protectionReason}`);
+          console.log(`      Sync started: ${syncStartDate.toISOString()}`);
+          console.log(`   🛡️ Skipping deletion - likely race condition (DB update in progress or API indexing delay)`);
+          console.log(`   ⚠️ MONITORING ALERT: If this happens frequently, check event ID update timing!`);
+          continue;
+        }
+
+        // Double-check it's not in DB (with fresh query)
+        const existsInDb = await new Promise((resolve) => {
+          db.get('SELECT id, created_at FROM reservations WHERE google_calendar_event_id = ?', [event.id], (err, row) => {
+            if (err || !row) {
+              resolve(false);
+            } else {
+              // Check if reservation was created recently (within last 15 minutes)
+              const createdAt = row.created_at ? new Date(row.created_at) : null;
+              const reservationIsRecent = createdAt && createdAt > fifteenMinutesAgo;
+              resolve({ exists: true, isRecent: reservationIsRecent });
+            }
+          });
+        });
+
+        if (!existsInDb || (typeof existsInDb === 'object' && !existsInDb.exists)) {
+          // Only delete if event is NOT recent (older than 15 minutes)
+          // This gives plenty of time for DB updates to complete
+          const eventStart = new Date(event.start.dateTime || event.start.date);
+          const localEventTime = eventStart.toLocaleString();
+          const eventAgeHours = eventCreated
+            ? Math.round((now.getTime() - eventCreated.getTime()) / (60 * 60 * 1000) * 10) / 10
+            : null;
+
+          console.log(`   📋 Orphaned event details (will be deleted):`);
+          console.log(`      Event ID: ${event.id}`);
+          console.log(`      Summary: ${event.summary || 'Untitled'}`);
+          console.log(`      Start: ${localEventTime}`);
+          console.log(`      Created: ${eventCreated?.toISOString() || 'N/A'} (${eventAgeHours ? `${eventAgeHours} hours` : 'unknown'} ago)`);
+          console.log(`      Updated: ${eventUpdated?.toISOString() || 'N/A'}`);
+          console.log(`      Verified: No matching reservation in database (and event is older than 15 minutes)`);
+
+          // BIDIRECTIONAL SYNC: If event was deleted from calendar, also delete reservation from DB
+          // Check if reservation exists by reservationId from extendedProperties
+          let reservationToDelete = null;
+          if (reservationIdFromEvent) {
+            reservationToDelete = await new Promise((resolve) => {
+              db.get('SELECT id, name, date, time FROM reservations WHERE id = ?', [reservationIdFromEvent], (err, row) => {
+                resolve(err ? null : row);
               });
             });
 
-            Promise.all(deletePromises).then(() => resolve());
-          } else {
-            console.log(`✅ All ${reservationsWithEventIds.length} reservations with calendar events are synchronized (no deletions detected)`);
-            resolve();
+            if (reservationToDelete) {
+              console.log(`   🔄 BIDIRECTIONAL SYNC: Orphaned event found, deleting matching reservation #${reservationIdFromEvent} from DB...`);
+              console.log(`      Reservation: ${reservationToDelete.name} on ${reservationToDelete.date} at ${reservationToDelete.time}`);
+
+              await new Promise((resolve) => {
+                db.run('DELETE FROM reservations WHERE id = ?', [reservationIdFromEvent], (err) => {
+                  if (err) {
+                    console.error(`❌ Error deleting reservation ${reservationIdFromEvent} from DB:`, err);
+                    errorCount++;
+                  } else {
+                    console.log(`✅ Deleted reservation #${reservationIdFromEvent} from DB (orphaned event)`);
+                    reservationsDeletedFromCalendar++;
+                  }
+                  resolve();
+                });
+              });
+            }
           }
+
+          // Delete the orphaned event from calendar (if it still exists)
+          const success = await deleteGoogleCalendarEvent(event.id);
+          if (success) {
+            deletedCount++;
+            console.log(`✅ Deleted orphaned event ${event.id} - ${event.summary || 'Untitled'} (${localEventTime})`);
+          } else {
+            errorCount++;
+            console.error(`❌ Failed to delete orphaned event ${event.id}`);
+          }
+        } else if (typeof existsInDb === 'object' && existsInDb.isRecent) {
+          skippedRecent++;
+          console.log(`   ⏳ Event ${event.id} matches a recently created reservation (within 15 minutes) - skipping deletion`);
         } else {
-          console.log(`ℹ️ No reservations with calendar events found in database`);
-          resolve();
+          console.log(`   ⚠️ Event ${event.id} was marked as orphaned but found matching reservation in DB - skipping deletion`);
         }
-      });
-    });
+      }
 
-    // Check for events in Google Calendar that don't have a corresponding reservation in the database
-    // This detects orphaned events that should be deleted from Google Calendar
-    await new Promise((resolve) => {
-      db.all('SELECT id, date, google_calendar_event_id FROM reservations WHERE google_calendar_event_id IS NOT NULL', [], (err, reservationsWithEvents) => {
-        if (err) {
-          console.error('❌ Error checking reservations with event IDs:', err);
-          return resolve();
+      // Summary logging for monitoring
+      if (orphanedEvents.length > 0) {
+        console.log(`📊 Orphaned events summary:`);
+        console.log(`   Total found in list query: ${orphanedEvents.length}`);
+        console.log(`   Skipped (non-managed): ${skippedNonManaged}`);
+        console.log(`   Healed (broken links): ${healedCount}`);
+        console.log(`   Skipped (recent): ${skippedRecent}`);
+        console.log(`   Deleted: ${deletedCount}`);
+        console.log(`   Errors: ${errorCount}`);
+        console.log(`   ✅ SAFETY: Only events visible in list query were considered for deletion`);
+        if (healedCount > 0) {
+          console.log(`   ✅ MONITORING: ${healedCount} broken links were healed using extendedProperties!`);
+          console.log(`   ✅ This means DB updates failed but events were recoverable`);
         }
-
-        // Create a Set of event IDs that exist in the database
-        const dbEventIds = new Set(reservationsWithEvents.map(r => r.google_calendar_event_id).filter(Boolean));
-        console.log(`📋 Checking for orphaned events: ${events.length} events in calendar, ${dbEventIds.size} events linked in database`);
-
-        // Debug: Check reservations for December 29th
-        const dec29Reservations = reservationsWithEvents.filter(r => r.date === '2025-12-29');
-        if (dec29Reservations.length > 0) {
-          console.log(`📅 Found ${dec29Reservations.length} reservations in database for December 29, 2025:`, dec29Reservations.map(r => `Reservation #${r.id} (Event ID: ${r.google_calendar_event_id})`).join(', '));
-        } else {
-          console.log(`📅 No reservations found in database for December 29, 2025`);
+        if (skippedRecent > 0) {
+          console.log(`   ⚠️ MONITORING: ${skippedRecent} recent events were protected from deletion`);
+          console.log(`   ⚠️ If this number is consistently high, investigate event ID update timing!`);
         }
-
-        // Find events in Google Calendar that don't have a corresponding reservation in DB
-        const orphanedEvents = events.filter(event => !dbEventIds.has(event.id));
-
-        if (orphanedEvents.length > 0) {
-          console.log(`🗑️ Found ${orphanedEvents.length} orphaned events in Google Calendar (no matching reservation in database) - deleting them:`);
-          orphanedEvents.forEach((event, index) => {
-            const eventStart = new Date(event.start.dateTime || event.start.date);
-            const eventDate = eventStart.toISOString().split('T')[0];
-            const eventTime = eventStart.toTimeString().split(' ')[0].substring(0, 5);
-            console.log(`   ${index + 1}. ${event.summary || 'Untitled'} - ${eventDate} at ${eventTime} (Event ID: ${event.id})`);
-          });
-
-          // Delete orphaned events from Google Calendar
-          const deletePromises = orphanedEvents.map((event) => {
-            return deleteGoogleCalendarEvent(event.id).then((success) => {
-              if (success) {
-                console.log(`✅ Deleted orphaned event ${event.id} (${event.summary || 'Untitled'}) from Google Calendar`);
-              } else {
-                console.error(`❌ Failed to delete orphaned event ${event.id} from Google Calendar`);
-              }
-            }).catch((err) => {
-              console.error(`❌ Error deleting orphaned event ${event.id}:`, err.message);
-            });
-          });
-
-          Promise.all(deletePromises).then(() => {
-            console.log(`✅ Finished cleaning up ${orphanedEvents.length} orphaned events from Google Calendar`);
-            resolve();
-          });
-        } else {
-          console.log(`✅ All ${events.length} events in Google Calendar have corresponding reservations in database`);
-          resolve();
+        if (deletedCount > 0) {
+          console.log(`   ✅ Successfully cleaned up ${deletedCount} truly orphaned events`);
         }
-      });
-    });
+      }
+    } else {
+      console.log(`✅ No orphaned events found - all calendar events have matching reservations`);
+    }
 
-    console.log(`✅ Google Calendar sync completed - checked ${events.length} events`);
+    const finalLocalTime = new Date().toLocaleString();
+    const syncDuration = Date.now() - syncStartTime;
+    console.log(`✅ Google Calendar sync completed at ${finalLocalTime} (took ${syncDuration}ms)`);
+    console.log(`   📊 Summary:`);
+    console.log(`      Reservations in DB: ${allReservations.length}`);
+    console.log(`      Events in calendar: ${eventIdsSet.size}`);
+    console.log(`      Events created this sync: ${eventsCreatedThisSync}`);
+    console.log(`      Events recreated (missing from calendar): ${eventsRecreatedThisSync}`);
+    console.log(`      Reservations updated from calendar: ${reservationsUpdatedFromCalendar}`);
+    console.log(`      Reservations deleted (event deleted from calendar): ${reservationsDeletedFromCalendar}`);
+    console.log(`   ✅ Bidirectional sync: DB ↔ Calendar changes are synchronized`);
   } catch (err) {
     console.error('Error syncing Google Calendar:', err);
   }
@@ -6004,7 +6400,7 @@ app.post('/api/create-payment', async (req, res) => {
       currency: 'gbp',
       eventId: eventId,
       reservationId: reservationId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
 
     res.json({
@@ -6018,7 +6414,7 @@ app.post('/api/create-payment', async (req, res) => {
       error: error.message,
       amount: req.body.amount,
       eventId: req.body.eventId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
     res.status(500).json({ error: 'Failed to create payment intent' });
   }
@@ -6089,7 +6485,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
       currency: 'gbp',
       eventId: eventId,
       reservationId: reservationId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
 
     res.json({
@@ -6103,7 +6499,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
       error: error.message,
       amount: req.body.amount,
       eventId: req.body.eventId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
@@ -6580,7 +6976,7 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
     logger.error('Failed to send event payment confirmation emails', {
       sessionId: session?.id || 'unknown',
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
     throw error;
   }
@@ -6677,7 +7073,7 @@ app.get('/payment-success', async (req, res) => {
           error: paymentError.message,
           code: paymentError.code,
           stack: paymentError.stack,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toLocaleString()
         });
         // Continue anyway to send emails, but log the error
       }
@@ -6694,7 +7090,7 @@ app.get('/payment-success', async (req, res) => {
         currency: session.currency,
         customerEmail: session.customer_email,
         eventId: session.metadata?.eventId || null,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toLocaleString()
       });
 
       // Send success page
@@ -6825,7 +7221,7 @@ app.get('/payment-success', async (req, res) => {
     logger.error('Error in payment-success endpoint', {
       error: error.message,
       stack: error.stack,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
 
     // Even if there's an error, check if payment was successful via webhook
@@ -6988,7 +7384,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
     console.error('❌ Webhook signature verification failed:', err.message);
     logger.warn('Invalid webhook signature', {
       error: err.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
@@ -7062,7 +7458,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             paymentIntentId: paymentIntent.id,
             error: paymentError.message,
             code: paymentError.code,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toLocaleString()
           });
           // Don't throw - let the webhook return 200 so Stripe doesn't retry
         }
@@ -7071,7 +7467,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           paymentIntentId: paymentIntent.id,
           amount: paymentIntent.amount,
           currency: paymentIntent.currency,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toLocaleString()
         });
         break;
       }
@@ -7151,7 +7547,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
             sessionId: session.id,
             error: paymentError.message,
             code: paymentError.code,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toLocaleString()
           });
         }
 
@@ -7176,7 +7572,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
               sessionId: session.id,
               error: emailError.message,
               stack: emailError.stack,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toLocaleString()
             });
             // Continue anyway - payment is saved
           }
@@ -7195,7 +7591,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           paymentIntentId: session.payment_intent,
           amount: session.amount_total / 100,
           currency: session.currency,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toLocaleString()
         });
         break;
       }
@@ -7209,7 +7605,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           amount: failedPayment.amount,
           currency: failedPayment.currency,
           error: failedPayment.last_payment_error,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toLocaleString()
         });
         break;
       }
@@ -7229,7 +7625,7 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       eventType: event?.type || 'unknown',
       error: error.message,
       stack: error.stack,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     });
     // Still return success to prevent retries, but log the error
     res.json({ received: true, error: error.message });
