@@ -5756,51 +5756,10 @@ async function syncGoogleCalendar() {
                   });
                 }
 
-                // Check if end_time changed
-                if (eventEnd && reservation.end_time) {
-                  const eventEndDate = new Date(eventEnd);
-                  const eventEndLocal = new Date(eventEndDate.toLocaleString('en-US', { timeZone: RESTAURANT_TIMEZONE }));
-                  const eventEndTimeStr = `${String(eventEndLocal.getHours()).padStart(2, '0')}:${String(eventEndLocal.getMinutes()).padStart(2, '0')}`;
-
-                  const endTimeParsed = parseTime(reservation.end_time);
-                  const dbEndTimeStr = `${String(endTimeParsed.hours).padStart(2, '0')}:${String(endTimeParsed.minutes).padStart(2, '0')}`;
-
-                  if (eventEndTimeStr !== dbEndTimeStr) {
-                    // IMPORTANT: Only allow calendar modifications if reservation is confirmed
-                    if (reservation.confirmation_status !== 'confirmed') {
-                      console.log(`⚠️ Calendar event ${calendarEvent.id} end_time was modified in Google Calendar, but reservation #${reservation.id} is not confirmed (status: ${reservation.confirmation_status})`);
-                      console.log(`   DB: ${dbEndTimeStr}`);
-                      console.log(`   Calendar: ${eventEndTimeStr}`);
-                      console.log(`   🛡️ Skipping update - calendar modifications only allowed for confirmed reservations`);
-                      console.log(`   💡 Please confirm the reservation first, then modify the calendar event`);
-                      // Don't update DB - calendar changes are ignored for unconfirmed reservations
-                      continue;
-                    }
-
-                    console.log(`🔄 Calendar event ${calendarEvent.id} end_time was modified in Google Calendar`);
-                    console.log(`   DB: ${dbEndTimeStr}`);
-                    console.log(`   Calendar: ${eventEndTimeStr}`);
-                    console.log(`   Reservation status: ${reservation.confirmation_status} ✅`);
-                    console.log(`   Updating DB reservation #${reservation.id}...`);
-
-                    await new Promise((resolve, reject) => {
-                      db.run(
-                        'UPDATE reservations SET end_time = ? WHERE id = ?',
-                        [eventEndTimeStr, reservation.id],
-                        function (err) {
-                          if (err) {
-                            console.error(`❌ Error updating reservation ${reservation.id} end_time from calendar:`, err);
-                            reject(err);
-                          } else {
-                            console.log(`✅ Updated reservation #${reservation.id} end_time from calendar event`);
-                            reservationsUpdatedFromCalendar++;
-                            resolve();
-                          }
-                        }
-                      );
-                    });
-                  }
-                }
+                // NOTE: end_time changes from calendar are NOT synced to DB
+                // end_time can only be modified via database-viewer to prevent calendar "tweaking" issues
+                // The calendar event end_time will be updated when the reservation is updated from DB → Calendar
+                // but calendar → DB sync for end_time is disabled
 
                 // BIDIRECTIONAL SYNC: Check if reservation status changed and update calendar event description
                 // Extract status from calendar event description
