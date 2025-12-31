@@ -1594,100 +1594,110 @@ app.delete('/api/reservations/:id', (req, res) => {
 
 // Update reservation endpoint (for database-viewer)
 app.put('/api/reservations/:id', (req, res) => {
-  const reservationId = parseInt(req.params.id, 10);
+  try {
+    console.log(`🔄 PUT /api/reservations/:id - Request received`);
+    console.log(`   ID param: ${req.params.id}`);
+    console.log(`   Body:`, req.body);
 
-  if (isNaN(reservationId) || reservationId <= 0) {
-    return res.status(400).json({ error: 'Invalid reservation ID' });
-  }
+    const reservationId = parseInt(req.params.id, 10);
 
-  // Get the reservation first to check status
-  db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, reservation) => {
-    if (err) {
-      console.error('Error fetching reservation:', err);
-      return res.status(500).json({ error: 'Failed to fetch reservation: ' + err.message });
+    if (isNaN(reservationId) || reservationId <= 0) {
+      console.log(`❌ Invalid reservation ID: ${req.params.id}`);
+      return res.status(400).json({ error: 'Invalid reservation ID' });
     }
 
-    if (!reservation) {
-      return res.status(404).json({ error: 'Reservation not found' });
-    }
-
-    // Check if end_time is being updated
-    if (req.body.end_time !== undefined) {
-      // IMPORTANT: Only allow end_time updates if reservation is confirmed
-      if (reservation.confirmation_status !== 'confirmed') {
-        return res.status(400).json({
-          error: 'Cannot update end_time - reservation must be confirmed first',
-          currentStatus: reservation.confirmation_status,
-          reservationId: reservationId
-        });
+    // Get the reservation first to check status
+    db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (err, reservation) => {
+      if (err) {
+        console.error('Error fetching reservation:', err);
+        return res.status(500).json({ error: 'Failed to fetch reservation: ' + err.message });
       }
-    }
 
-    // Build update query dynamically based on provided fields
-    const updates = [];
-    const values = [];
+      if (!reservation) {
+        return res.status(404).json({ error: 'Reservation not found' });
+      }
 
-    // Allowed fields that can be updated
-    const allowedFields = ['end_time'];
+      // Check if end_time is being updated
+      if (req.body.end_time !== undefined) {
+        // IMPORTANT: Only allow end_time updates if reservation is confirmed
+        if (reservation.confirmation_status !== 'confirmed') {
+          return res.status(400).json({
+            error: 'Cannot update end_time - reservation must be confirmed first',
+            currentStatus: reservation.confirmation_status,
+            reservationId: reservationId
+          });
+        }
+      }
 
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        // Special handling for end_time - only if confirmed
-        if (field === 'end_time' && reservation.confirmation_status !== 'confirmed') {
-          continue; // Skip if not confirmed
+      // Build update query dynamically based on provided fields
+      const updates = [];
+      const values = [];
+
+      // Allowed fields that can be updated
+      const allowedFields = ['end_time'];
+
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          // Special handling for end_time - only if confirmed
+          if (field === 'end_time' && reservation.confirmation_status !== 'confirmed') {
+            continue; // Skip if not confirmed
+          }
+
+          updates.push(`${field} = ?`);
+          values.push(req.body[field]);
+        }
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'No valid fields to update' });
+      }
+
+      values.push(reservationId);
+
+      const updateQuery = `UPDATE reservations SET ${updates.join(', ')} WHERE id = ?`;
+
+      db.run(updateQuery, values, async function (updateErr) {
+        if (updateErr) {
+          console.error(`❌ Error updating reservation ${reservationId}:`, updateErr);
+          return res.status(500).json({ error: 'Failed to update reservation: ' + updateErr.message });
         }
 
-        updates.push(`${field} = ?`);
-        values.push(req.body[field]);
-      }
-    }
+        if (this.changes === 0) {
+          return res.status(404).json({ error: 'Reservation not found or no changes made' });
+        }
 
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'No valid fields to update' });
-    }
+        console.log(`✅ Updated reservation ${reservationId}: ${updates.join(', ')}`);
 
-    values.push(reservationId);
-
-    const updateQuery = `UPDATE reservations SET ${updates.join(', ')} WHERE id = ?`;
-
-    db.run(updateQuery, values, async function (updateErr) {
-      if (updateErr) {
-        console.error(`❌ Error updating reservation ${reservationId}:`, updateErr);
-        return res.status(500).json({ error: 'Failed to update reservation: ' + updateErr.message });
-      }
-
-      if (this.changes === 0) {
-        return res.status(404).json({ error: 'Reservation not found or no changes made' });
-      }
-
-      console.log(`✅ Updated reservation ${reservationId}: ${updates.join(', ')}`);
-
-      // If calendar event exists and reservation is confirmed, update the calendar event
-      if (reservation.google_calendar_event_id && reservation.confirmation_status === 'confirmed' && calendar && calendarInitialized) {
-        // Fetch updated reservation data
-        db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (fetchErr, updatedReservation) => {
-          if (!fetchErr && updatedReservation) {
-            try {
-              const updateResult = await updateGoogleCalendarEvent(updatedReservation);
-              if (updateResult) {
-                console.log(`✅ Updated Google Calendar event for reservation ${reservationId}`);
-              } else {
-                console.warn(`⚠️ Failed to update Google Calendar event for reservation ${reservationId}`);
+        // If calendar event exists and reservation is confirmed, update the calendar event
+        if (reservation.google_calendar_event_id && reservation.confirmation_status === 'confirmed' && calendar && calendarInitialized) {
+          // Fetch updated reservation data
+          db.get('SELECT * FROM reservations WHERE id = ?', [reservationId], async (fetchErr, updatedReservation) => {
+            if (!fetchErr && updatedReservation) {
+              try {
+                const updateResult = await updateGoogleCalendarEvent(updatedReservation);
+                if (updateResult) {
+                  console.log(`✅ Updated Google Calendar event for reservation ${reservationId}`);
+                } else {
+                  console.warn(`⚠️ Failed to update Google Calendar event for reservation ${reservationId}`);
+                }
+              } catch (calendarErr) {
+                console.error(`❌ Error updating calendar event:`, calendarErr);
               }
-            } catch (calendarErr) {
-              console.error(`❌ Error updating calendar event:`, calendarErr);
             }
-          }
-        });
-      }
+          });
+        }
 
-      res.json({
-        success: true,
-        message: `Reservation ${reservationId} updated successfully`,
-        updatedFields: updates.map(u => u.split(' = ')[0])
+        res.json({
+          success: true,
+          message: `Reservation ${reservationId} updated successfully`,
+          updatedFields: updates.map(u => u.split(' = ')[0])
+        });
       });
     });
-  });
+  } catch (error) {
+    console.error(`❌ Unexpected error in PUT /api/reservations/:id:`, error);
+    return res.status(500).json({ error: 'Internal server error: ' + error.message });
+  }
 });
 
 // Get all payments (for admin)

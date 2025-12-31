@@ -915,9 +915,25 @@
                     })
                 });
 
+                // Check content type before parsing
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Non-JSON response received:', text.substring(0, 200));
+                    throw new Error(`Server returned non-JSON response (${response.status}). The endpoint may not be available.`);
+                }
+
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                    let errorMessage = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (e) {
+                        // If JSON parsing fails, use the text response
+                        const text = await response.text();
+                        errorMessage = text.substring(0, 200) || errorMessage;
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 const result = await response.json();
