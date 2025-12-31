@@ -212,6 +212,50 @@
             background-color: #ccc;
             cursor: not-allowed;
         }
+
+        .editable-cell {
+            cursor: pointer;
+            position: relative;
+            padding: 0.5rem;
+        }
+
+        .editable-cell:hover {
+            background-color: #f0f0f0;
+        }
+
+        .editable-cell.editing {
+            padding: 0;
+        }
+
+        .editable-cell input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 2px solid var(--gold);
+            border-radius: 3px;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+
+        .editable-cell.disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .editable-cell.disabled:hover {
+            background-color: transparent;
+        }
+
+        .edit-icon {
+            margin-left: 0.3rem;
+            font-size: 0.8rem;
+            color: var(--gold);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .editable-cell:hover .edit-icon {
+            opacity: 1;
+        }
     </style>
 </head>
 
@@ -502,6 +546,13 @@
                 // Use table_name (from JOIN) if available, otherwise assigned_table (ID), otherwise table_preference
                 const tableDisplay = reservation.table_name || reservation.assigned_table_display || reservation.assigned_table || reservation.table_preference || '-';
 
+                // Determine if end_time is editable (only if confirmed)
+                const isEndTimeEditable = status === 'confirmed';
+                const endTimeCellClass = isEndTimeEditable ? 'editable-cell' : 'editable-cell disabled';
+                const endTimeDisplay = isEndTimeEditable
+                    ? `<span class="${endTimeCellClass}" data-reservation-id="${reservation.id}" data-field="end_time" data-current-value="${reservation.end_time || ''}" title="Click to edit end time">${endTime}<i class="fas fa-edit edit-icon"></i></span>`
+                    : `<span title="Reservation must be confirmed to edit end time">${endTime}</span>`;
+
                 return `
                     <tr>
                         <td>${reservation.id}</td>
@@ -510,7 +561,7 @@
                         <td>${reservation.phone || '-'}</td>
                         <td>${reservationDate}</td>
                         <td>${time}</td>
-                        <td>${endTime}</td>
+                        <td>${endTimeDisplay}</td>
                         <td>${reservation.guests || '-'}</td>
                         <td>${reservation.venue || '-'}</td>
                         <td>${tableDisplay}</td>
@@ -736,6 +787,118 @@
             URL.revokeObjectURL(url);
         }
 
+        function startEditingEndTime(cell) {
+            const currentValue = cell.getAttribute('data-current-value') || '';
+            const reservationId = cell.getAttribute('data-reservation-id');
+
+            // Convert HH:MM or HH:MM:SS to HH:MM for time input
+            let timeValue = currentValue;
+            if (timeValue && timeValue.includes(':')) {
+                const parts = timeValue.split(':');
+                timeValue = `${parts[0]}:${parts[1]}`; // Take only HH:MM
+            }
+
+            // Create input field
+            const input = document.createElement('input');
+            input.type = 'time';
+            input.value = timeValue || '';
+            input.style.width = '100%';
+            input.required = true;
+
+            // Replace cell content with input
+            cell.classList.add('editing');
+            const originalContent = cell.innerHTML;
+            cell.setAttribute('data-original-content', originalContent);
+            cell.innerHTML = '';
+            cell.appendChild(input);
+
+            // Focus and select
+            input.focus();
+            input.select();
+        }
+
+        function cancelEditingEndTime(cell) {
+            const originalContent = cell.getAttribute('data-original-content');
+            cell.classList.remove('editing');
+            cell.innerHTML = originalContent;
+        }
+
+        async function saveEndTime(cell) {
+            const input = cell.querySelector('input');
+            if (!input) return;
+
+            const newValue = input.value;
+            const reservationId = parseInt(cell.getAttribute('data-reservation-id'), 10);
+            const currentValue = cell.getAttribute('data-current-value') || '';
+
+            if (newValue === currentValue) {
+                // No change, just cancel editing
+                cancelEditingEndTime(cell);
+                return;
+            }
+
+            // Validate time format (HH:MM from time input)
+            if (!newValue || !/^\d{2}:\d{2}$/.test(newValue)) {
+                alert('Invalid time format. Please use HH:MM format (e.g., 20:00)');
+                input.focus();
+                return;
+            }
+
+            // Ensure we store as HH:MM format (time input already provides this)
+            const formattedValue = newValue; // Already HH:MM from time input
+
+            try {
+                const response = await fetch(`/api/reservations/${reservationId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        end_time: formattedValue
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('End time updated:', result);
+
+                // Update the cell's data attribute
+                cell.setAttribute('data-current-value', newValue);
+
+                // Update display
+                const formattedTime = formatEndTime(newValue);
+                cell.classList.remove('editing');
+                cell.innerHTML = `${formattedTime}<i class="fas fa-edit edit-icon"></i>`;
+
+                // Show success message
+                const successMsg = document.createElement('span');
+                successMsg.style.color = 'green';
+                successMsg.style.marginLeft = '0.5rem';
+                successMsg.textContent = '✓';
+                cell.appendChild(successMsg);
+
+                setTimeout(() => {
+                    if (successMsg.parentNode) {
+                        successMsg.remove();
+                    }
+                }, 2000);
+
+                // Reload to ensure sync with calendar
+                setTimeout(() => {
+                    loadCurrentTable();
+                }, 500);
+
+            } catch (error) {
+                console.error('Error updating end time:', error);
+                alert('Error updating end time: ' + error.message);
+                input.focus();
+            }
+        }
+
         async function deleteReservation(id, name) {
             if (!confirm(`Are you sure you want to delete reservation #${id} for ${name}? This action cannot be undone.`)) {
                 return;
@@ -805,6 +968,27 @@
                         e.preventDefault();
                         e.stopPropagation();
                         deleteReservation(parseInt(id), name);
+                    }
+                } else if (e.target.closest('.editable-cell:not(.disabled)')) {
+                    const cell = e.target.closest('.editable-cell');
+                    if (!cell.classList.contains('editing')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        startEditingEndTime(cell);
+                    }
+                }
+            });
+
+            // Handle Enter key to save, Escape to cancel
+            document.addEventListener('keydown', function (e) {
+                const editingCell = document.querySelector('.editable-cell.editing');
+                if (editingCell) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveEndTime(editingCell);
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelEditingEndTime(editingCell);
                     }
                 }
             });
