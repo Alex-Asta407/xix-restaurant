@@ -5719,10 +5719,22 @@ async function syncGoogleCalendar() {
                 const dbTimeStr = `${String(timeParsed.hours).padStart(2, '0')}:${String(timeParsed.minutes).padStart(2, '0')}`;
 
                 // Check if date or time changed
+                // IMPORTANT: Only allow calendar modifications if reservation is confirmed
                 if (eventDateStr !== dbDateStr || eventTimeStr !== dbTimeStr) {
+                  if (reservation.confirmation_status !== 'confirmed') {
+                    console.log(`⚠️ Calendar event ${calendarEvent.id} was modified in Google Calendar, but reservation #${reservation.id} is not confirmed (status: ${reservation.confirmation_status})`);
+                    console.log(`   DB: ${dbDateStr} ${dbTimeStr}`);
+                    console.log(`   Calendar: ${eventDateStr} ${eventTimeStr}`);
+                    console.log(`   🛡️ Skipping update - calendar modifications only allowed for confirmed reservations`);
+                    console.log(`   💡 Please confirm the reservation first, then modify the calendar event`);
+                    // Don't update DB - calendar changes are ignored for unconfirmed reservations
+                    continue;
+                  }
+
                   console.log(`🔄 Calendar event ${calendarEvent.id} was modified in Google Calendar`);
                   console.log(`   DB: ${dbDateStr} ${dbTimeStr}`);
                   console.log(`   Calendar: ${eventDateStr} ${eventTimeStr}`);
+                  console.log(`   Reservation status: ${reservation.confirmation_status} ✅`);
                   console.log(`   Updating DB reservation #${reservation.id}...`);
 
                   // Update DB reservation with new date/time from calendar
@@ -5754,9 +5766,21 @@ async function syncGoogleCalendar() {
                   const dbEndTimeStr = `${String(endTimeParsed.hours).padStart(2, '0')}:${String(endTimeParsed.minutes).padStart(2, '0')}`;
 
                   if (eventEndTimeStr !== dbEndTimeStr) {
+                    // IMPORTANT: Only allow calendar modifications if reservation is confirmed
+                    if (reservation.confirmation_status !== 'confirmed') {
+                      console.log(`⚠️ Calendar event ${calendarEvent.id} end_time was modified in Google Calendar, but reservation #${reservation.id} is not confirmed (status: ${reservation.confirmation_status})`);
+                      console.log(`   DB: ${dbEndTimeStr}`);
+                      console.log(`   Calendar: ${eventEndTimeStr}`);
+                      console.log(`   🛡️ Skipping update - calendar modifications only allowed for confirmed reservations`);
+                      console.log(`   💡 Please confirm the reservation first, then modify the calendar event`);
+                      // Don't update DB - calendar changes are ignored for unconfirmed reservations
+                      continue;
+                    }
+
                     console.log(`🔄 Calendar event ${calendarEvent.id} end_time was modified in Google Calendar`);
                     console.log(`   DB: ${dbEndTimeStr}`);
                     console.log(`   Calendar: ${eventEndTimeStr}`);
+                    console.log(`   Reservation status: ${reservation.confirmation_status} ✅`);
                     console.log(`   Updating DB reservation #${reservation.id}...`);
 
                     await new Promise((resolve, reject) => {
