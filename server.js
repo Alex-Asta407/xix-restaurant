@@ -3989,75 +3989,6 @@ app.get('/api/confirm-reservation/:token', async (req, res) => {
       `);
     }
 
-    // Check if already confirmed
-    if (reservation.confirmation_status === 'confirmed') {
-      return res.send(`
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              * { box-sizing: border-box; }
-              body { 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
-                text-align: center; 
-                padding: 20px; 
-                background: #f5f5f5;
-                margin: 0;
-                font-size: 16px;
-                line-height: 1.6;
-              }
-              .container {
-                background: white;
-                padding: 40px 30px;
-                border-radius: 12px;
-                max-width: 600px;
-                margin: 40px auto;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-              }
-              h1 { 
-                color: #28a745; 
-                margin-bottom: 20px;
-                font-size: 28px;
-                font-weight: 600;
-              }
-              p {
-                font-size: 18px;
-                color: #333;
-                margin: 15px 0;
-              }
-              a { 
-                display: inline-block; 
-                margin-top: 30px; 
-                padding: 16px 32px; 
-                background: #A8871A; 
-                color: white; 
-                text-decoration: none; 
-                border-radius: 8px;
-                font-size: 18px;
-                font-weight: 500;
-                transition: background 0.3s;
-              }
-              a:hover { background: #8b6f15; }
-              @media (max-width: 600px) {
-                body { padding: 10px; font-size: 18px; }
-                .container { padding: 30px 20px; margin: 20px auto; }
-                h1 { font-size: 32px; }
-                p { font-size: 20px; }
-                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>✅ Already Confirmed</h1>
-              <p>Your reservation for <strong>${reservation.date}</strong> at <strong>${reservation.time}</strong> has already been confirmed.</p>
-              <a href="/">Return to Home</a>
-            </div>
-          </body>
-        </html>
-      `);
-    }
-
     // Check if deadline passed - use unified cancellation function
     if (reservation.confirmation_deadline) {
       const deadline = new Date(reservation.confirmation_deadline);
@@ -4133,203 +4064,217 @@ app.get('/api/confirm-reservation/:token', async (req, res) => {
       }
     }
 
-    // Confirm reservation
-    db.run(
-      'UPDATE reservations SET confirmation_status = ?, confirmed_at = CURRENT_TIMESTAMP WHERE id = ?',
-      ['confirmed', reservation.id],
-      async (err) => {
-        if (err) {
-          console.error('Error confirming reservation:', err);
-          return res.status(500).send(`
-            <html>
-              <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                  * { box-sizing: border-box; }
-                  body { 
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
-                    text-align: center; 
-                    padding: 20px; 
-                    background: #f5f5f5;
-                    margin: 0;
-                    font-size: 16px;
-                    line-height: 1.6;
-                  }
-                  .container {
-                    background: white;
-                    padding: 40px 30px;
-                    border-radius: 12px;
-                    max-width: 600px;
-                    margin: 40px auto;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-                  }
-                  h1 { 
-                    color: #d32f2f; 
-                    margin-bottom: 20px;
-                    font-size: 28px;
-                    font-weight: 600;
-                  }
-                  p {
-                    font-size: 18px;
-                    color: #333;
-                    margin: 15px 0;
-                  }
-                  a { 
-                    display: inline-block; 
-                    margin-top: 30px; 
-                    padding: 16px 32px; 
-                    background: #A8871A; 
-                    color: white; 
-                    text-decoration: none; 
-                    border-radius: 8px;
-                    font-size: 18px;
-                    font-weight: 500;
-                    transition: background 0.3s;
-                  }
-                  a:hover { background: #8b6f15; }
-                  @media (max-width: 600px) {
-                    body { padding: 10px; font-size: 18px; }
-                    .container { padding: 30px 20px; margin: 20px auto; }
-                    h1 { font-size: 32px; }
-                    p { font-size: 20px; }
-                    a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
-                  }
-                </style>
-              </head>
-              <body>
-                <div class="container">
-                  <h1>⚠️ Error</h1>
-                  <p>An error occurred while confirming your reservation.</p>
-                  <a href="/">Return to Home</a>
-                </div>
-              </body>
-            </html>
-          `);
-        }
+    // Always show "Reservation Confirmed!" message, even if already confirmed
+    const wasAlreadyConfirmed = reservation.confirmation_status === 'confirmed';
 
-        // Update Google Calendar event to remove pending status
-        if (reservation.google_calendar_event_id && calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
-          try {
-            // Fetch updated reservation data to pass to updateGoogleCalendarEvent
-            db.get('SELECT * FROM reservations WHERE id = ?', [reservation.id], async (fetchErr, updatedReservation) => {
-              if (fetchErr) {
-                console.error(`❌ Error fetching updated reservation ${reservation.id} for calendar update:`, fetchErr);
-              } else if (updatedReservation) {
-                const updateResult = await updateGoogleCalendarEvent(updatedReservation);
-                if (updateResult) {
-                  console.log(`✅ Updated Google Calendar event for reservation ${reservation.id} - status changed to confirmed`);
-                } else {
-                  console.warn(`⚠️ Failed to update Google Calendar event for reservation ${reservation.id}`);
-                }
-              }
-            });
-          } catch (updateErr) {
-            console.error(`❌ Error updating calendar event for reservation ${reservation.id}:`, updateErr);
+    if (wasAlreadyConfirmed) {
+      // Already confirmed - skip database update but show success message
+      console.log(`ℹ️ Reservation ${reservation.id} was already confirmed, showing confirmation page`);
+      showConfirmationSuccessPage();
+    } else {
+      // Confirm reservation - update database
+      db.run(
+        'UPDATE reservations SET confirmation_status = ?, confirmed_at = CURRENT_TIMESTAMP WHERE id = ?',
+        ['confirmed', reservation.id],
+        async (err) => {
+          if (err) {
+            console.error('Error confirming reservation:', err);
+            return res.status(500).send(`
+              <html>
+                <head>
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <style>
+                    * { box-sizing: border-box; }
+                    body { 
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                      text-align: center; 
+                      padding: 20px; 
+                      background: #f5f5f5;
+                      margin: 0;
+                      font-size: 16px;
+                      line-height: 1.6;
+                    }
+                    .container {
+                      background: white;
+                      padding: 40px 30px;
+                      border-radius: 12px;
+                      max-width: 600px;
+                      margin: 40px auto;
+                      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                    }
+                    h1 { 
+                      color: #d32f2f; 
+                      margin-bottom: 20px;
+                      font-size: 28px;
+                      font-weight: 600;
+                    }
+                    p {
+                      font-size: 18px;
+                      color: #333;
+                      margin: 15px 0;
+                    }
+                    a { 
+                      display: inline-block; 
+                      margin-top: 30px; 
+                      padding: 16px 32px; 
+                      background: #A8871A; 
+                      color: white; 
+                      text-decoration: none; 
+                      border-radius: 8px;
+                      font-size: 18px;
+                      font-weight: 500;
+                      transition: background 0.3s;
+                    }
+                    a:hover { background: #8b6f15; }
+                    @media (max-width: 600px) {
+                      body { padding: 10px; font-size: 18px; }
+                      .container { padding: 30px 20px; margin: 20px auto; }
+                      h1 { font-size: 32px; }
+                      p { font-size: 20px; }
+                      a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+                    }
+                  </style>
+                </head>
+                <body>
+                  <div class="container">
+                    <h1>⚠️ Error</h1>
+                    <p>An error occurred while confirming your reservation.</p>
+                    <a href="/">Return to Home</a>
+                  </div>
+                </body>
+              </html>
+            `);
           }
-        }
 
-        res.send(`
-          <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <style>
-                * { box-sizing: border-box; }
-                body { 
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
-                  text-align: center; 
-                  padding: 20px; 
-                  background: #f5f5f5;
-                  margin: 0;
-                  font-size: 16px;
-                  line-height: 1.6;
+          // Update Google Calendar event to remove pending status
+          if (reservation.google_calendar_event_id && calendar && calendarInitialized && process.env.GOOGLE_CALENDAR_ID) {
+            try {
+              // Fetch updated reservation data to pass to updateGoogleCalendarEvent
+              db.get('SELECT * FROM reservations WHERE id = ?', [reservation.id], async (fetchErr, updatedReservation) => {
+                if (fetchErr) {
+                  console.error(`❌ Error fetching updated reservation ${reservation.id} for calendar update:`, fetchErr);
+                } else if (updatedReservation) {
+                  const updateResult = await updateGoogleCalendarEvent(updatedReservation);
+                  if (updateResult) {
+                    console.log(`✅ Updated Google Calendar event for reservation ${reservation.id} - status changed to confirmed`);
+                  } else {
+                    console.warn(`⚠️ Failed to update Google Calendar event for reservation ${reservation.id}`);
+                  }
                 }
-                .success-box { 
-                  background: white; 
-                  padding: 40px 30px; 
-                  border-radius: 12px; 
-                  max-width: 600px; 
-                  margin: 40px auto; 
-                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-                }
-                h1 { 
-                  color: #28a745; 
-                  margin-bottom: 20px;
-                  font-size: 32px;
-                  font-weight: 600;
-                }
-                p {
-                  font-size: 18px;
-                  color: #333;
-                  margin: 15px 0;
-                }
-                .details { 
-                  text-align: left; 
-                  margin: 30px 0; 
-                  padding: 25px; 
-                  background: #f8f9fa; 
-                  border-radius: 8px;
-                  border-left: 4px solid #28a745;
-                }
-                .details p { 
-                  margin: 12px 0;
-                  font-size: 18px;
-                }
-                .details strong {
-                  color: #020702;
-                  font-weight: 600;
-                  display: inline-block;
-                  min-width: 80px;
-                }
-                a { 
-                  display: inline-block; 
-                  margin-top: 30px; 
-                  padding: 16px 32px; 
-                  background: #A8871A; 
-                  color: white; 
-                  text-decoration: none; 
-                  border-radius: 8px;
-                  font-size: 18px;
-                  font-weight: 500;
-                  transition: background 0.3s;
-                }
-                a:hover { background: #8b6f15; }
-                .message {
-                  color: #666;
-                  font-size: 16px;
-                  margin-top: 20px;
-                }
-                @media (max-width: 600px) {
-                  body { padding: 10px; font-size: 18px; }
-                  .success-box { padding: 30px 20px; margin: 20px auto; }
-                  h1 { font-size: 36px; }
-                  p { font-size: 20px; }
-                  .details { padding: 20px; }
-                  .details p { font-size: 20px; }
-                  .details strong { display: block; margin-bottom: 5px; }
-                  a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
-                  .message { font-size: 18px; }
-                }
-              </style>
-            </head>
-            <body>
-              <div class="success-box">
-                <h1>✅ Reservation Confirmed!</h1>
-                <p>Thank you for confirming your reservation.</p>
-                <div class="details">
-                  <p><strong>Name:</strong> ${reservation.name}</p>
-                  <p><strong>Date:</strong> ${reservation.date}</p>
-                  <p><strong>Time:</strong> ${reservation.time}</p>
-                  <p><strong>Guests:</strong> ${reservation.guests}</p>
-                  ${reservation.assigned_table ? `<p><strong>Table:</strong> ${reservation.assigned_table}</p>` : ''}
-                </div>
-                <p class="message">We look forward to seeing you!</p>
-                <a href="/">Return to Home</a>
+              });
+            } catch (updateErr) {
+              console.error(`❌ Error updating calendar event for reservation ${reservation.id}:`, updateErr);
+            }
+          }
+
+          showConfirmationSuccessPage();
+        }
+      );
+    }
+
+    // Function to show the confirmation success page (used for both cases)
+    function showConfirmationSuccessPage() {
+      res.send(`
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px; 
+                background: #f5f5f5;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1.6;
+              }
+              .success-box { 
+                background: white; 
+                padding: 40px 30px; 
+                border-radius: 12px; 
+                max-width: 600px; 
+                margin: 40px auto; 
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 { 
+                color: #28a745; 
+                margin-bottom: 20px;
+                font-size: 32px;
+                font-weight: 600;
+              }
+              p {
+                font-size: 18px;
+                color: #333;
+                margin: 15px 0;
+              }
+              .details { 
+                text-align: left; 
+                margin: 30px 0; 
+                padding: 25px; 
+                background: #f8f9fa; 
+                border-radius: 8px;
+                border-left: 4px solid #28a745;
+              }
+              .details p { 
+                margin: 12px 0;
+                font-size: 18px;
+              }
+              .details strong {
+                color: #020702;
+                font-weight: 600;
+                display: inline-block;
+                min-width: 80px;
+              }
+              a { 
+                display: inline-block; 
+                margin-top: 30px; 
+                padding: 16px 32px; 
+                background: #A8871A; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: 500;
+                transition: background 0.3s;
+              }
+              a:hover { background: #8b6f15; }
+              .message {
+                color: #666;
+                font-size: 16px;
+                margin-top: 20px;
+              }
+              @media (max-width: 600px) {
+                body { padding: 10px; font-size: 18px; }
+                .success-box { padding: 30px 20px; margin: 20px auto; }
+                h1 { font-size: 36px; }
+                p { font-size: 20px; }
+                .details { padding: 20px; }
+                .details p { font-size: 20px; }
+                .details strong { display: block; margin-bottom: 5px; }
+                a { padding: 18px 36px; font-size: 20px; width: 100%; max-width: 300px; }
+                .message { font-size: 18px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="success-box">
+              <h1>✅ Reservation Confirmed!</h1>
+              <p>Thank you for confirming your reservation.</p>
+              <div class="details">
+                <p><strong>Name:</strong> ${reservation.name}</p>
+                <p><strong>Date:</strong> ${reservation.date}</p>
+                <p><strong>Time:</strong> ${reservation.time}</p>
+                <p><strong>Guests:</strong> ${reservation.guests}</p>
+                ${reservation.assigned_table ? `<p><strong>Table:</strong> ${reservation.assigned_table}</p>` : ''}
               </div>
-            </body>
-          </html>
-        `);
-      }
-    );
+              <p class="message">We look forward to seeing you!</p>
+              <a href="/">Return to Home</a>
+            </div>
+          </body>
+        </html>
+      `);
+    }
   });
 });
 
