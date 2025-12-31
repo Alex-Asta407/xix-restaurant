@@ -225,15 +225,50 @@
 
         .editable-cell.editing {
             padding: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .editable-cell input {
-            width: 100%;
+            flex: 1;
             padding: 0.5rem;
             border: 2px solid var(--gold);
             border-radius: 3px;
             font-size: 0.95rem;
             font-family: inherit;
+        }
+
+        .edit-confirm-btn,
+        .edit-cancel-btn {
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            transition: all 0.2s;
+        }
+
+        .edit-confirm-btn {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .edit-confirm-btn:hover {
+            background-color: #218838;
+        }
+
+        .edit-cancel-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .edit-cancel-btn:hover {
+            background-color: #5a6268;
         }
 
         .editable-cell.disabled {
@@ -802,15 +837,37 @@
             const input = document.createElement('input');
             input.type = 'time';
             input.value = timeValue || '';
-            input.style.width = '100%';
             input.required = true;
 
-            // Replace cell content with input
+            // Create confirm button
+            const confirmBtn = document.createElement('button');
+            confirmBtn.className = 'edit-confirm-btn';
+            confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirm';
+            confirmBtn.type = 'button';
+            confirmBtn.onclick = (e) => {
+                e.stopPropagation();
+                saveEndTime(cell);
+            };
+
+            // Create cancel button
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'edit-cancel-btn';
+            cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
+            cancelBtn.type = 'button';
+            cancelBtn.title = 'Cancel';
+            cancelBtn.onclick = (e) => {
+                e.stopPropagation();
+                cancelEditingEndTime(cell);
+            };
+
+            // Replace cell content with input and buttons
             cell.classList.add('editing');
             const originalContent = cell.innerHTML;
             cell.setAttribute('data-original-content', originalContent);
             cell.innerHTML = '';
             cell.appendChild(input);
+            cell.appendChild(confirmBtn);
+            cell.appendChild(cancelBtn);
 
             // Focus and select
             input.focus();
@@ -990,6 +1047,13 @@
                         e.preventDefault();
                         cancelEditingEndTime(editingCell);
                     }
+                }
+            });
+
+            // Prevent clicks on buttons from triggering cell edit
+            document.addEventListener('click', function (e) {
+                if (e.target.closest('.edit-confirm-btn') || e.target.closest('.edit-cancel-btn')) {
+                    e.stopPropagation();
                 }
             });
 
