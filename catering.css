@@ -251,6 +251,7 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     animation: pulse 2s infinite;
     text-decoration: none;
+    color: inherit;
 }
 
 @keyframes pulse {
@@ -310,18 +311,13 @@
 
 @media (max-width: 768px) {
     .catering-slider-section {
-        height: auto;
+        height: calc(100vh - 60px);
         margin-top: 60px;
         min-height: 500px;
-        overflow: visible;
     }
 
     .catering-slide {
-        position: relative;
-        height: auto;
-        min-height: 100%;
         padding-top: 3rem;
-        overflow-y: visible;
     }
 
     .catering-slide-content {
@@ -329,10 +325,6 @@
         padding-top: 3rem;
         border-radius: 15px;
         margin-top: 1rem;
-    }
-
-    .catering-slide:not(.active) {
-        display: none;
     }
 
     .catering-main-title {
@@ -385,14 +377,10 @@
     }
 
     .catering-order-contact {
-        position: relative;
-        left: auto;
-        bottom: auto;
-        transform: none;
-        margin: 2rem auto 1rem;
-        padding: 1rem 1.5rem;
-        width: 92%;
-        max-width: 420px;
+        bottom: 1rem;
+        padding: 0.8rem 1.5rem;
+        width: 90%;
+        max-width: 400px;
     }
 
     .order-contact-content {
@@ -405,8 +393,8 @@
 
 @media (max-width: 480px) {
     .catering-slider-section {
-        height: auto;
-        min-height: 0;
+        height: calc(100vh - 60px);
+        min-height: 450px;
     }
 
     .catering-slide {
