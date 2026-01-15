@@ -380,7 +380,7 @@
 /* Restaurant Info */
 .restaurant-info {
     padding: 4rem 0;
-    background: var(--white);
+    background: var(--coconut);
     position: relative;
     overflow: hidden;
 }
@@ -392,7 +392,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, rgba(168, 135, 26, 0.02) 0%, rgba(168, 135, 26, 0.05) 100%);
+    background: transparent;
     pointer-events: none;
 }
 

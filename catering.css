@@ -250,6 +250,7 @@
     border-radius: 50px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     animation: pulse 2s infinite;
+    text-decoration: none;
 }
 
 @keyframes pulse {
@@ -278,16 +279,8 @@
     font-size: 1.2rem;
 }
 
-.order-phone-link {
-    color: white;
-    text-decoration: none;
-    font-weight: 600;
-    transition: opacity 0.3s ease;
-}
-
-.order-phone-link:hover {
-    opacity: 0.8;
-    text-decoration: underline;
+.catering-order-contact:hover {
+    opacity: 0.9;
 }
 
 /* Responsive Design */
@@ -317,13 +310,18 @@
 
 @media (max-width: 768px) {
     .catering-slider-section {
-        height: calc(100vh - 60px);
+        height: auto;
         margin-top: 60px;
         min-height: 500px;
+        overflow: visible;
     }
 
     .catering-slide {
+        position: relative;
+        height: auto;
+        min-height: 100%;
         padding-top: 3rem;
+        overflow-y: visible;
     }
 
     .catering-slide-content {
@@ -331,6 +329,10 @@
         padding-top: 3rem;
         border-radius: 15px;
         margin-top: 1rem;
+    }
+
+    .catering-slide:not(.active) {
+        display: none;
     }
 
     .catering-main-title {
@@ -383,10 +385,14 @@
     }
 
     .catering-order-contact {
-        bottom: 1rem;
-        padding: 0.8rem 1.5rem;
-        width: 90%;
-        max-width: 400px;
+        position: relative;
+        left: auto;
+        bottom: auto;
+        transform: none;
+        margin: 2rem auto 1rem;
+        padding: 1rem 1.5rem;
+        width: 92%;
+        max-width: 420px;
     }
 
     .order-contact-content {
@@ -399,8 +405,8 @@
 
 @media (max-width: 480px) {
     .catering-slider-section {
-        height: calc(100vh - 60px);
-        min-height: 450px;
+        height: auto;
+        min-height: 0;
     }
 
     .catering-slide {

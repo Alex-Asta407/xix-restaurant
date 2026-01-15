@@ -200,12 +200,12 @@
             </button>
 
             <!-- Order Contact -->
-            <div class="catering-order-contact">
+            <a href="tel:+441234567890" class="catering-order-contact" aria-label="Call to order catering">
                 <div class="order-contact-content">
                     <i class="fas fa-phone"></i>
-                    <span>To Order: <a href="tel:+441234567890" class="order-phone-link">+44 123 456 7890</a></span>
+                    <span>To Order: <strong>+44 123 456 7890</strong></span>
                 </div>
-            </div>
+            </a>
         </div>
     </section>
 
@@ -280,30 +280,7 @@
                 prevSlide();
             });
 
-            // Touch/swipe support
-            let touchStartX = 0;
-            let touchEndX = 0;
-
-            const sliderContainer = document.querySelector('.catering-slider-container');
-
-            sliderContainer.addEventListener('touchstart', (e) => {
-                touchStartX = e.changedTouches[0].screenX;
-            }, { passive: true });
-
-            sliderContainer.addEventListener('touchend', (e) => {
-                touchEndX = e.changedTouches[0].screenX;
-                handleSwipe();
-            }, { passive: true });
-
-            function handleSwipe() {
-                const swipeThreshold = 50;
-                if (touchEndX < touchStartX - swipeThreshold) {
-                    nextSlide();
-                }
-                if (touchEndX > touchStartX + swipeThreshold) {
-                    prevSlide();
-                }
-            }
+            // Swipe disabled on mobile; use arrows only
 
             // Initialize slide indicator
             showSlide(0);
