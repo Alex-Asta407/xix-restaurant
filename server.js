@@ -577,6 +577,10 @@ const eventMapping = {
   'ukrainian-new-year': {
     title: 'Ukrainian New Year Celebration',
     date: '2025-01-15'
+  },
+  'banquet-deposit': {
+    title: 'Banquet Reservation Deposit',
+    date: null
   }
 };
 
@@ -843,6 +847,9 @@ db.serialize(() => {
     event_type TEXT,
     menu_preference TEXT,
     entertainment TEXT,
+    deposit_status TEXT DEFAULT 'not_required',
+    deposit_amount REAL,
+    deposit_session_id TEXT,
     email_sent_to_customer BOOLEAN DEFAULT 0,
     email_sent_to_manager BOOLEAN DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -883,6 +890,24 @@ db.serialize(() => {
   db.run(`ALTER TABLE reservations ADD COLUMN entertainment TEXT`, (err) => {
     if (err && !err.message.includes('duplicate column name')) {
       console.error('Error adding entertainment column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN deposit_status TEXT DEFAULT 'not_required'`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding deposit_status column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN deposit_amount REAL`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding deposit_amount column:', err.message);
+    }
+  });
+
+  db.run(`ALTER TABLE reservations ADD COLUMN deposit_session_id TEXT`, (err) => {
+    if (err && !err.message.includes('duplicate column name')) {
+      console.error('Error adding deposit_session_id column:', err.message);
     }
   });
 
@@ -1761,7 +1786,7 @@ app.get('/api/payments/with-reservations', (req, res) => {
 // Debug endpoint to check payment and reservation data
 app.get('/api/debug/payment-info', async (req, res) => {
   try {
-    const { session_id } = req.query;
+    const { session_id, return_url } = req.query;
 
     if (!session_id) {
       return res.status(400).json({ error: 'Missing session_id parameter' });
@@ -2131,6 +2156,8 @@ app.post('/api/send-reservation-email', async (req, res) => {
     }
 
     // Sanitize all inputs and map field names
+    const isBanquet = reservation.isBanquet === true || reservation.isBanquet === 'true';
+    const depositAmount = reservation.deposit ? parseFloat(reservation.deposit) : null;
     const sanitizedReservation = {
       name: sanitizeInput(reservation.name),
       email: sanitizeInput(reservation.email),
@@ -2144,7 +2171,9 @@ app.post('/api/send-reservation-email', async (req, res) => {
       venue: detectedVenue ? detectedVenue.toUpperCase() : 'XIX', // Normalize to uppercase to match tables
       eventType: sanitizeInput(reservation.eventType || reservation['event-type']),
       menuPreference: sanitizeInput(reservation.menuPreference || reservation['menu-preference']),
-      entertainment: sanitizeInput(reservation.entertainment)
+      entertainment: sanitizeInput(reservation.entertainment),
+      isBanquet,
+      depositAmount
     };
 
     // Comprehensive validation
@@ -2230,8 +2259,9 @@ app.post('/api/send-reservation-email', async (req, res) => {
 
         const stmt = db.prepare(`INSERT INTO reservations 
           (name, email, phone, date, time, guests, table_preference, occasion, special_requests, venue, event_type, menu_preference, entertainment, 
-           assigned_table, end_time, confirmation_status, confirmation_token, confirmation_deadline, email_sent_to_customer, email_sent_to_manager, google_calendar_event_id, created_at) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+           assigned_table, end_time, confirmation_status, confirmation_token, confirmation_deadline, deposit_status, deposit_amount, deposit_session_id,
+           email_sent_to_customer, email_sent_to_manager, google_calendar_event_id, created_at) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
         stmt.run([
           sanitizedReservation.name,
@@ -2252,6 +2282,9 @@ app.post('/api/send-reservation-email', async (req, res) => {
           'pending',
           confirmationToken,
           confirmationDeadline,
+          sanitizedReservation.isBanquet ? 'not_paid' : 'not_required',
+          sanitizedReservation.isBanquet ? (sanitizedReservation.depositAmount || null) : null,
+          null,
           0, // email_sent_to_customer - will be updated after sending
           0, // email_sent_to_manager - will be updated after sending
           null, // google_calendar_event_id - will be set after creating calendar event
@@ -3108,7 +3141,21 @@ app.post('/api/send-payment-email', async (req, res) => {
     const eventId = session.metadata?.eventId || '';
     const eventDetails = eventId ? eventMapping[eventId] : null;
     const eventType = eventDetails ? eventDetails.title : (eventId ? 'event' : null);
-    const eventDate = eventDetails?.date || null;
+    let eventDate = eventDetails?.date || null;
+    if (eventId === 'banquet-deposit' && session.metadata?.reservationId) {
+      const reservationId = parseInt(session.metadata.reservationId, 10);
+      if (!Number.isNaN(reservationId)) {
+        eventDate = await new Promise((resolve) => {
+          db.get('SELECT date FROM reservations WHERE id = ?', [reservationId], (err, row) => {
+            if (err) {
+              resolve(eventDetails?.date || null);
+              return;
+            }
+            resolve(row?.date || eventDetails?.date || null);
+          });
+        });
+      }
+    }
     const paymentIntentId = session.payment_intent || session.id;
 
     // Get customer email - prioritize metadata (from client form) over session.customer_email
@@ -3122,6 +3169,24 @@ app.post('/api/send-payment-email', async (req, res) => {
       eventDate,
       amountPaid
     });
+
+    // Update reservation deposit status when applicable
+    if (session.metadata?.reservationId && eventId === 'banquet-deposit') {
+      const reservationId = parseInt(session.metadata.reservationId, 10);
+      if (!Number.isNaN(reservationId)) {
+        db.run(
+          'UPDATE reservations SET deposit_status = ?, deposit_amount = ?, deposit_session_id = ? WHERE id = ?',
+          ['paid', amountPaid, session.id, reservationId],
+          (updateErr) => {
+            if (updateErr) {
+              console.error('❌ Failed to update reservation deposit status:', updateErr.message);
+            } else {
+              console.log(`✅ Reservation ${reservationId} deposit marked as paid`);
+            }
+          }
+        );
+      }
+    }
 
     // Check if email is configured
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
@@ -6487,7 +6552,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
       return res.status(500).json({ error: 'Payment system not configured. Please contact support.' });
     }
 
-    const { amount, eventId, reservationId, customerEmail, customerName } = req.body;
+    const { amount, eventId, reservationId, customerEmail, customerName, returnUrl } = req.body;
 
     // Validate required fields
     if (!amount || amount <= 0) {
@@ -6502,8 +6567,9 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
     // Get base URL from request
     const baseUrl = req.protocol + '://' + req.get('host');
-    const successUrl = `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${baseUrl}/payment?amount=${amount}&reservationId=${reservationId || ''}&eventId=${eventId || ''}`;
+    const safeReturnUrl = returnUrl && typeof returnUrl === 'string' && returnUrl.startsWith('/') ? returnUrl : '';
+    const successUrl = `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}${safeReturnUrl ? `&return_url=${encodeURIComponent(safeReturnUrl)}` : ''}`;
+    const cancelUrl = `${baseUrl}/payment?amount=${amount}&reservationId=${reservationId || ''}&eventId=${eventId || ''}${safeReturnUrl ? `&returnUrl=${encodeURIComponent(safeReturnUrl)}` : ''}`;
 
     // Create Checkout Session
     // Store customer email in both customer_email and metadata to ensure it's preserved
@@ -6529,6 +6595,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
         reservationId: reservationId || '',
         customerName: customerName || '',
         customerEmail: customerEmail || '', // Store email in metadata as backup - CRITICAL for preserving email
+        returnUrl: safeReturnUrl || ''
       },
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -6560,6 +6627,32 @@ app.post('/api/create-checkout-session', async (req, res) => {
       timestamp: new Date().toLocaleString()
     });
     res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// Verify Stripe Checkout Session (for deposit validation)
+app.get('/api/verify-checkout-session', async (req, res) => {
+  try {
+    if (!stripe) {
+      return res.status(500).json({ error: 'Payment system not configured.' });
+    }
+
+    const { session_id } = req.query;
+    if (!session_id) {
+      return res.status(400).json({ error: 'Missing session_id parameter' });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    res.json({
+      paid: session.payment_status === 'paid',
+      amount: session.amount_total ? session.amount_total / 100 : null,
+      currency: session.currency || 'gbp',
+      metadata: session.metadata || {},
+      sessionId: session.id
+    });
+  } catch (error) {
+    console.error('Error verifying checkout session:', error);
+    res.status(500).json({ error: 'Failed to verify payment session' });
   }
 });
 
@@ -6841,14 +6934,6 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
                   <span class="info-label">Payment Method:</span>
                   <span class="info-value">Stripe (Card Payment)</span>
                 </div>
-                <div class="info-row">
-                  <span class="info-label">Transaction ID:</span>
-                  <span class="info-value">${session.payment_intent || session.id}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Session ID:</span>
-                  <span class="info-value">${session.id}</span>
-                </div>
                 <div class="total-amount">
                   Total Paid: £${amountPaid.toFixed(2)}
                 </div>
@@ -7055,8 +7140,13 @@ app.get('/payment-success', async (req, res) => {
 
     console.log('📥 Retrieving Stripe session:', session_id);
 
+    const safeReturnUrlParam = return_url && typeof return_url === 'string' && return_url.startsWith('/') ? return_url : '';
+
     // Retrieve the Checkout Session
     const session = await stripe.checkout.sessions.retrieve(session_id);
+    const metadataReturnUrl = session?.metadata?.returnUrl || '';
+    const safeReturnUrlMeta = metadataReturnUrl && metadataReturnUrl.startsWith('/') ? metadataReturnUrl : '';
+    const safeReturnUrl = safeReturnUrlParam || safeReturnUrlMeta;
 
     console.log('✅ Session retrieved:', {
       id: session.id,
@@ -7093,13 +7183,30 @@ app.get('/payment-success', async (req, res) => {
       // Get customer name from metadata (may be empty for events)
       const customerName = session.metadata?.customerName || '';
 
+      // Resolve event date for banquet deposits from reservation
+      let resolvedEventDate = eventDate;
+      if (eventId === 'banquet-deposit' && session.metadata?.reservationId) {
+        const reservationId = parseInt(session.metadata.reservationId, 10);
+        if (!Number.isNaN(reservationId)) {
+          resolvedEventDate = await new Promise((resolve) => {
+            db.get('SELECT date FROM reservations WHERE id = ?', [reservationId], (err, row) => {
+              if (err) {
+                resolve(eventDate);
+                return;
+              }
+              resolve(row?.date || eventDate);
+            });
+          });
+        }
+      }
+
       // Save payment to database using helper function
       console.log('💾 Attempting to save payment to database with data:', {
         paymentIntentId,
         amountPaid,
         currency: session.currency || 'gbp',
         eventType,
-        eventDate,
+        eventDate: resolvedEventDate,
         customerEmail,
         customerName,
         stripeSessionId: session.id
@@ -7111,7 +7218,7 @@ app.get('/payment-success', async (req, res) => {
           amountPaid,
           currency: session.currency || 'gbp',
           eventType,
-          eventDate,
+          eventDate: resolvedEventDate,
           customerEmail,
           customerName,
           stripeSessionId: session.id
@@ -7134,6 +7241,24 @@ app.get('/payment-success', async (req, res) => {
           timestamp: new Date().toLocaleString()
         });
         // Continue anyway to send emails, but log the error
+      }
+
+      // Update reservation deposit status when applicable
+      if (session.metadata?.reservationId && session.metadata?.eventId === 'banquet-deposit') {
+        const reservationId = parseInt(session.metadata.reservationId, 10);
+        if (!Number.isNaN(reservationId)) {
+          db.run(
+            'UPDATE reservations SET deposit_status = ?, deposit_amount = ?, deposit_session_id = ? WHERE id = ?',
+            ['paid', amountPaid, session.id, reservationId],
+            (updateErr) => {
+              if (updateErr) {
+                console.error('❌ Failed to update reservation deposit status:', updateErr.message);
+              } else {
+                console.log(`✅ Reservation ${reservationId} deposit marked as paid`);
+              }
+            }
+          );
+        }
       }
 
       // Note: Email sending is now handled by the client-side JavaScript calling /api/send-payment-email
@@ -7211,16 +7336,34 @@ app.get('/payment-success', async (req, res) => {
             <h1 class="success-message">Payment Successful!</h1>
             <p class="success-details" id="status-message">Processing your confirmation email...</p>
             <a href="/xix" class="btn-primary" id="home-button" style="display: none;">Return to Home</a>
+            <a href="${safeReturnUrl || '/xix'}" class="btn-primary" id="continue-button" style="${safeReturnUrl ? 'display: inline-block; margin-left: 10px;' : 'display: none; margin-left: 10px;'}">Continue Reservation</a>
           </div>
           <script>
             // Same pattern as reservations - call API endpoint to send emails
             async function sendPaymentEmail() {
               const urlParams = new URLSearchParams(window.location.search);
               const sessionId = urlParams.get('session_id');
+              const returnUrlParam = urlParams.get('return_url');
+              const returnUrlServer = ${JSON.stringify(safeReturnUrl)};
+              const returnUrl = returnUrlParam && returnUrlParam.length ? returnUrlParam : returnUrlServer;
+              const redirectUrlBase = returnUrl && returnUrl.length ? returnUrl : '';
+              const separator = redirectUrlBase && redirectUrlBase.includes('?') ? '&' : '?';
+              const redirectUrl = redirectUrlBase ? redirectUrlBase + separator + 'deposit=paid&session_id=' + encodeURIComponent(sessionId || '') : '';
+              if (redirectUrl) {
+                const continueButton = document.getElementById('continue-button');
+                continueButton.href = redirectUrl;
+                continueButton.style.display = 'inline-block';
+              }
               
               if (!sessionId) {
                 document.getElementById('status-message').textContent = 'Payment successful, but session ID is missing.';
                 document.getElementById('home-button').style.display = 'inline-block';
+                if (redirectUrl) {
+                  document.getElementById('continue-button').style.display = 'inline-block';
+                  setTimeout(() => {
+                    window.location.href = redirectUrl;
+                  }, 1500);
+                }
                 return;
               }
 
@@ -7251,10 +7394,22 @@ app.get('/payment-success', async (req, res) => {
                 
                 document.getElementById('status-message').textContent = 'Your reservation has been confirmed. You will receive a confirmation email shortly.';
                 document.getElementById('home-button').style.display = 'inline-block';
+                if (redirectUrl) {
+                  document.getElementById('continue-button').style.display = 'inline-block';
+                  setTimeout(() => {
+                    window.location.href = redirectUrl;
+                  }, 1500);
+                }
               } catch (error) {
                 console.error('❌ Failed to send payment email:', error);
                 document.getElementById('status-message').textContent = 'Payment successful! If you do not receive a confirmation email, please contact us.';
                 document.getElementById('home-button').style.display = 'inline-block';
+                if (redirectUrl) {
+                  document.getElementById('continue-button').style.display = 'inline-block';
+                  setTimeout(() => {
+                    window.location.href = redirectUrl;
+                  }, 1500);
+                }
               }
             }
 

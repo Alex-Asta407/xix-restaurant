@@ -518,6 +518,7 @@
                     <th>Venue</th>
                     <th>Table</th>
                     <th>Status</th>
+                    <th>Deposit</th>
                     <th>Occasion</th>
                     <th>Special Requests</th>
                     <th>Created</th>
@@ -526,7 +527,7 @@
             `;
 
             if (reservations.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 2rem;">No reservations found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="16" style="text-align: center; padding: 2rem;">No reservations found</td></tr>';
                 return;
             }
 
@@ -535,10 +536,8 @@
                 let createdDate = '-';
                 if (reservation.created_at) {
                     try {
-                        // Parse the timestamp and format in restaurant timezone
-                        const date = new Date(reservation.created_at);
+                        const date = parseUtcTimestamp(reservation.created_at);
                         if (!isNaN(date.getTime())) {
-                            // Format in restaurant timezone using en-GB locale for consistency
                             createdDate = date.toLocaleString('en-GB', {
                                 timeZone: restaurantTimezone,
                                 year: 'numeric',
@@ -551,7 +550,7 @@
                         }
                     } catch (e) {
                         console.error('Error formatting created_at:', e);
-                        createdDate = reservation.created_at; // Fallback to raw value
+                        createdDate = reservation.created_at;
                     }
                 }
 
@@ -588,6 +587,9 @@
                     ? `<span class="${endTimeCellClass}" data-reservation-id="${reservation.id}" data-field="end_time" data-current-value="${reservation.end_time || ''}" title="Click to edit end time">${endTime}<i class="fas fa-edit edit-icon"></i></span>`
                     : `<span title="Reservation must be confirmed to edit end time">${endTime}</span>`;
 
+                const depositStatus = (reservation.deposit_status || 'not_required').toUpperCase().replace('_', ' ');
+                const depositColor = reservation.deposit_status === 'paid' ? 'green' : (reservation.deposit_status === 'not_paid' ? 'orange' : '#666');
+
                 return `
                     <tr>
                         <td>${reservation.id}</td>
@@ -601,6 +603,7 @@
                         <td>${reservation.venue || '-'}</td>
                         <td>${tableDisplay}</td>
                         <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td><strong style="color: ${depositColor}">${depositStatus}</strong></td>
                         <td>${reservation.occasion || '-'}</td>
                         <td>${(reservation.special_requests || '').substring(0, 50)}${reservation.special_requests && reservation.special_requests.length > 50 ? '...' : ''}</td>
                         <td>${createdDate}</td>
@@ -650,7 +653,7 @@
                 let createdDate = '-';
                 if (payment.created_at) {
                     try {
-                        const date = new Date(payment.created_at);
+                        const date = parseUtcTimestamp(payment.created_at);
                         if (!isNaN(date.getTime())) {
                             createdDate = date.toLocaleString('en-GB', {
                                 timeZone: restaurantTimezone,
@@ -735,6 +738,16 @@
             return formatted; // Removed "(next day)" text as it's obvious from the date
         }
 
+        function parseUtcTimestamp(timestamp) {
+            if (!timestamp) return new Date(NaN);
+            if (timestamp instanceof Date) return timestamp;
+            if (typeof timestamp !== 'string') return new Date(timestamp);
+            const normalized = timestamp.includes('T')
+                ? timestamp
+                : timestamp.replace(' ', 'T');
+            return new Date(normalized + 'Z');
+        }
+
         function exportToCSV() {
             try {
                 if (allData.length === 0) {
@@ -746,7 +759,7 @@
                 const filename = currentTable === 'reservations' ? 'reservations.csv' : 'payments.csv';
 
                 if (currentTable === 'reservations') {
-                    headers = ['ID', 'Name', 'Email', 'Phone', 'Date', 'Time', 'End Time', 'Guests', 'Venue', 'Table', 'Status', 'Occasion', 'Special Requests', 'Created'];
+                    headers = ['ID', 'Name', 'Email', 'Phone', 'Date', 'Time', 'End Time', 'Guests', 'Venue', 'Table', 'Status', 'Deposit', 'Occasion', 'Special Requests', 'Created'];
                     csvContent = [
                         headers.join(','),
                         ...allData.map(r => [
@@ -761,6 +774,7 @@
                             r.venue || '',
                             `"${r.table_name || r.assigned_table_display || r.assigned_table || r.table_preference || ''}"`,
                             r.confirmation_status || 'pending',
+                            r.deposit_status || 'not_required',
                             `"${r.occasion || ''}"`,
                             `"${(r.special_requests || '').replace(/"/g, '""')}"`,
                             `"${r.created_at || ''}"`

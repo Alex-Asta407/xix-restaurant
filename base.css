@@ -177,7 +177,11 @@ textarea {
 }
 
 :root {
-    --primary-green: #E8F5E8;
+    --primary-green: #BB8955;
+    --wood-brown: #BB8955;
+    --dark-camel: #BB8955;
+    --champagne: #F0E6DA;
+    --coconut: #754C33;
     --white: #FFFFFF;
     --light-gray: #F0F0F0;
     --medium-gray: #C2C2C2;
@@ -189,10 +193,10 @@ textarea {
 }
 
 body {
-    font-family: 'Noto Sans', sans-serif;
+    font-family: 'Gilda Display', serif;
     line-height: 1.6;
-    color: var(--very-dark-green);
-    background-color: var(--primary-green);
+    color: var(--white);
+    background-color: var(--coconut);
 }
 
 .container {
@@ -210,7 +214,7 @@ h5,
 h6 {
     font-family: 'Gilda Display', serif;
     font-weight: 400;
-    color: var(--very-dark-green);
+    color: var(--white);
 }
 
 /* Common Button Styles */

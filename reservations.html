@@ -65,8 +65,25 @@
             <div class="reservation-form-container">
                 <form id="reservationForm" class="reservation-form" method="post" action="/api/send-reservation-email">
                     <div class="form-header">
-                        <h2>Make a Reservation</h2>
-                        <p>Please fill out the form below to reserve your table</p>
+                        <h2 id="formTitle">Make a Reservation</h2>
+                        <p id="formSubtitle">Please fill out the form below to reserve your table</p>
+                    </div>
+
+                    <!-- Banquet Menu Selections Display -->
+                    <div id="banquetSelections" class="banquet-selections-display" style="display: none;">
+                        <h3>Your Banquet Menu Selections</h3>
+                        <div id="banquetSelectionsContent"></div>
+                        <div id="banquetSelectionWarning" class="banquet-selection-warning" style="display: none;">
+                            Please complete all banquet menu selections on the Events page before proceeding.
+                            <a href="/events" class="banquet-selection-link">Go back to Events</a>
+                        </div>
+                        <div class="deposit-notice">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Deposit Required:</strong> A £1 deposit is required to confirm your banquet
+                            reservation. After reservation, you will be transfered on payment page. This will be
+                            deducted from your final bill.
+                        </div>
+                        <p id="depositStatus" class="deposit-status">Deposit status: NOT PAID</p>
                     </div>
 
                     <div class="form-grid">
@@ -83,7 +100,8 @@
                         <div class="form-group">
                             <label for="phone">Phone Number *</label>
                             <input type="tel" id="phone" name="phone" required>
-                            <small style="display: block; margin-top: 5px; color: #666;">Required even if all tables are
+                            <small style="display: block; margin-top: 5px; color: var(--white); opacity: 0.8;">Required
+                                even if all tables are
                                 booked - we'll contact you if availability opens up</small>
                         </div>
 
@@ -173,9 +191,9 @@
                     </div>
 
 
-                    <button type="submit" class="submit-button">
+                    <button type="submit" class="submit-button" id="submitButton">
                         <i class="fas fa-calendar-check"></i>
-                        Reserve Table
+                        <span id="submitButtonText">Reserve Table</span>
                     </button>
                 </form>
             </div>
@@ -359,6 +377,37 @@
 
         // Direct form submission handler for XIX reservations
         document.addEventListener('DOMContentLoaded', function () {
+            // Check if this is a banquet reservation
+            const urlParams = new URLSearchParams(window.location.search);
+            const isBanquet = urlParams.get('type') === 'banquet';
+            const depositPaidParam = urlParams.get('deposit') === 'paid';
+            const depositSessionIdParam = urlParams.get('session_id');
+            let banquetSelections = null;
+            let selectionComplete = false;
+
+            if (isBanquet) {
+                // Update form title and subtitle
+                const formTitle = document.getElementById('formTitle');
+                const formSubtitle = document.getElementById('formSubtitle');
+                const submitButtonText = document.getElementById('submitButtonText');
+
+                if (formTitle) formTitle.textContent = 'Book Your Banquet';
+                if (formSubtitle) formSubtitle.textContent = 'Complete your banquet reservation below';
+                if (submitButtonText) submitButtonText.textContent = 'Reserve Banquet';
+
+                // Load and display banquet selections
+                banquetSelections = getBanquetSelections();
+                displayBanquetSelections(banquetSelections);
+                selectionComplete = isSelectionComplete(banquetSelections);
+                updateBanquetSelectionStatus(selectionComplete);
+
+                // Initialize deposit flow (post-submit)
+                initDepositFlow({
+                    depositPaidParam,
+                    depositSessionIdParam
+                });
+            }
+
             // Set minimum date to today
             const dateInput = document.getElementById('date');
             const timeSelect = document.getElementById('time');
@@ -534,6 +583,17 @@
                     e.preventDefault();
                     e.stopPropagation();
 
+                    // Banquet validation: selections required
+                    const submitUrlParams = new URLSearchParams(window.location.search);
+                    const isBanquetReservation = submitUrlParams.get('type') === 'banquet';
+                    const selectionsForSubmit = isBanquetReservation ? getBanquetSelections() : null;
+                    const selectionCompleteForSubmit = isBanquetReservation ? isSelectionComplete(selectionsForSubmit) : true;
+
+                    if (isBanquetReservation && !selectionCompleteForSubmit) {
+                        alert('Please complete all banquet menu selections before submitting.');
+                        return;
+                    }
+
                     // Prevent multiple submissions
                     if (isSubmitting) {
                         console.log('XIX: Form already submitting, ignoring duplicate submission');
@@ -549,6 +609,13 @@
 
                     // Get form data
                     const formData = new FormData(this);
+                    // Check if this is a banquet reservation
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const isBanquet = urlParams.get('type') === 'banquet';
+                    const banquetSelections = isBanquet ? getBanquetSelections() : null;
+                    const depositSessionId = isBanquet ? localStorage.getItem('banquetDepositSession') || null : null;
+                    const depositPaidStatus = isBanquet ? localStorage.getItem('banquetDepositPaid') === 'true' : false;
+
                     const reservation = {
                         name: formData.get('name'),
                         email: formData.get('email'),
@@ -562,12 +629,17 @@
                         venue: 'xix', // Force XIX venue
                         eventType: formData.get('event-type'),
                         menuPreference: formData.get('menu-preference'),
-                        entertainment: formData.get('entertainment')
+                        entertainment: formData.get('entertainment'),
+                        isBanquet: isBanquet,
+                        banquetSelections: banquetSelections,
+                        deposit: isBanquet ? 1 : null,
+                        depositPaid: depositPaidStatus,
+                        depositSessionId: depositSessionId
                     };
 
                     console.log('XIX: Reservation data:', reservation);
                     console.log('XIX: Date from form:', reservation.date, '(should be YYYY-MM-DD format)');
-                    
+
                     // CRITICAL: Ensure date is sent exactly as selected (no conversion)
                     // HTML5 date inputs return YYYY-MM-DD in user's local timezone, which is what we want
                     if (!reservation.date || !/^\d{4}-\d{2}-\d{2}$/.test(reservation.date)) {
@@ -619,6 +691,14 @@
                         console.log('XIX: Reservation data:', result.reservation);
 
                         if (response.ok) {
+                            if (isBanquetReservation && result.reservationId) {
+                                localStorage.setItem('banquetReservationId', result.reservationId.toString());
+                                localStorage.setItem('banquetDepositPaid', 'false');
+                                localStorage.setItem('banquetDepositSession', '');
+                                const returnUrl = '/reservations?type=banquet';
+                                window.location.href = `/payment?amount=1&eventId=banquet-deposit&reservationId=${encodeURIComponent(result.reservationId)}&returnUrl=${encodeURIComponent(returnUrl)}`;
+                                return;
+                            }
                             // Show success modal with reservation data
                             showConfirmationModal(result.reservation);
                             // Reset the form
@@ -923,6 +1003,128 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             if (message) {
                 message.remove();
             }
+        }
+
+        function getBanquetSelections() {
+            return JSON.parse(localStorage.getItem('banquetSelections') || '{}');
+        }
+
+        function isSelectionComplete(selections) {
+            const saladsComplete = Array.isArray(selections.salads) && selections.salads.length === 3;
+            const coldComplete = Array.isArray(selections['cold-appetizers']) && selections['cold-appetizers'].length === 6;
+            const hotAppComplete = !!selections['hot-appetizers'];
+            const hotDishComplete = !!selections['hot-dishes'];
+            return saladsComplete && coldComplete && hotAppComplete && hotDishComplete;
+        }
+
+        function updateBanquetSelectionStatus(isComplete) {
+            const warning = document.getElementById('banquetSelectionWarning');
+            if (warning) {
+                warning.style.display = isComplete ? 'none' : 'block';
+            }
+        }
+
+        async function verifyDepositPayment(sessionId) {
+            try {
+                const response = await fetch(`/api/verify-checkout-session?session_id=${encodeURIComponent(sessionId)}`);
+                if (!response.ok) {
+                    return { paid: false };
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('Deposit verification failed:', error);
+                return { paid: false };
+            }
+        }
+
+        function initDepositFlow({ depositPaidParam, depositSessionIdParam }) {
+            const statusEl = document.getElementById('depositStatus');
+            const storedPaid = localStorage.getItem('banquetDepositPaid') === 'true';
+            const storedSessionId = localStorage.getItem('banquetDepositSession');
+            const reservationId = localStorage.getItem('banquetReservationId');
+
+            if (statusEl) {
+                statusEl.textContent = 'Deposit status: NOT PAID';
+            }
+
+            const markPaid = (sessionId) => {
+                localStorage.setItem('banquetDepositPaid', 'true');
+                if (sessionId) {
+                    localStorage.setItem('banquetDepositSession', sessionId);
+                }
+                if (statusEl) {
+                    statusEl.textContent = 'Deposit paid ✅ Reservation status: PAID';
+                }
+            };
+
+            if (depositPaidParam && depositSessionIdParam) {
+                verifyDepositPayment(depositSessionIdParam).then(result => {
+                    if (result.paid && result.amount === 1) {
+                        markPaid(depositSessionIdParam);
+                    } else {
+                        if (statusEl) {
+                            statusEl.textContent = 'Deposit not verified yet. Please try again.';
+                        }
+                    }
+                });
+                return;
+            }
+
+            if (storedPaid) {
+                markPaid(storedSessionId);
+            }
+        }
+
+        function displayBanquetSelections(selections) {
+            const displayDiv = document.getElementById('banquetSelections');
+            const contentDiv = document.getElementById('banquetSelectionsContent');
+
+            if (!displayDiv || !contentDiv) return;
+
+            let html = '';
+
+            // Display Salads
+            if (selections.salads && selections.salads.length > 0) {
+                html += '<div class="banquet-selection-category">';
+                html += '<h4>Salads (3 selected)</h4>';
+                selections.salads.forEach(salad => {
+                    html += `<div class="banquet-selection-item">${salad}</div>`;
+                });
+                html += '</div>';
+            }
+
+            // Display Cold Appetizers
+            if (selections['cold-appetizers'] && selections['cold-appetizers'].length > 0) {
+                html += '<div class="banquet-selection-category">';
+                html += '<h4>Cold Appetizers (6 selected)</h4>';
+                selections['cold-appetizers'].forEach(app => {
+                    html += `<div class="banquet-selection-item">${app}</div>`;
+                });
+                html += '</div>';
+            }
+
+            // Display Hot Appetizer
+            if (selections['hot-appetizers']) {
+                html += '<div class="banquet-selection-category">';
+                html += '<h4>Hot Appetizer</h4>';
+                html += `<div class="banquet-selection-item">${selections['hot-appetizers']}</div>`;
+                html += '</div>';
+            }
+
+            // Display Hot Dish
+            if (selections['hot-dishes']) {
+                html += '<div class="banquet-selection-category">';
+                html += '<h4>Hot Dish</h4>';
+                html += `<div class="banquet-selection-item">${selections['hot-dishes']}</div>`;
+                html += '</div>';
+            }
+
+            if (!html) {
+                html = '<div class="banquet-selection-item">No selections found yet.</div>';
+            }
+
+            contentDiv.innerHTML = html;
+            displayDiv.style.display = 'block';
         }
     </script>
 

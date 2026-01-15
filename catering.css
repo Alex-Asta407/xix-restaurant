@@ -7,7 +7,7 @@
     min-height: 600px;
     margin-top: 80px;
     overflow: hidden;
-    background: var(--primary-green, #E8F5E8);
+    background: var(--coconut, #754C33);
     background-image: radial-gradient(circle at 20px 20px, rgba(168, 135, 26, 0.1) 1px, transparent 1px);
     background-size: 40px 40px;
 }

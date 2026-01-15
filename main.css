@@ -5,14 +5,14 @@
     min-height: 100vh;
     display: flex;
     align-items: center;
-    background: var(--primary-green);
+    background: var(--coconut);
     padding-top: 80px;
 }
 
 .hero-left {
     flex: 1.2;
     padding: 4rem 2rem;
-    background: var(--primary-green);
+    background: var(--coconut);
     position: relative;
 }
 
@@ -41,14 +41,16 @@
     font-weight: 400;
     margin-bottom: 2rem;
     line-height: 1.2;
-    color: var(--very-dark-green);
+    color: var(--white);
 }
 
 .hero-description {
+    font-family: 'Gilda Display', serif;
     font-size: 1.1rem;
     margin-bottom: 2.5rem;
-    color: var(--very-dark-green);
+    color: var(--white);
     line-height: 1.6;
+    opacity: 0.9;
 }
 
 .hero-buttons {
@@ -60,7 +62,7 @@
     flex: 0.8;
     position: relative;
     min-height: 100vh;
-    background: var(--primary-green);
+    background: var(--coconut);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -96,6 +98,9 @@
     z-index: 1;
     transition: all 0.3s ease;
     cursor: pointer;
+    border: 20px solid var(--coconut);
+    background: var(--coconut);
+    padding: 0;
 }
 
 /* Slider Styles - Override flex display */
@@ -125,7 +130,7 @@
     bottom: 0;
     width: 100%;
     height: 100%;
-    border-radius: 15px;
+    border-radius: 8px;
     overflow: hidden;
     z-index: 2;
     display: block;
@@ -161,7 +166,7 @@
     height: 100%;
     object-fit: cover;
     object-position: center 30%;
-    border-radius: 15px;
+    border-radius: 8px;
     display: block;
     user-select: none;
     -webkit-user-select: none;
@@ -180,6 +185,7 @@
     height: 100%;
     object-fit: cover;
     object-position: center 30%;
+    border-radius: 8px;
     border-radius: 15px;
     position: absolute;
     top: 0;
@@ -204,7 +210,7 @@
     justify-content: center;
     transition: all 0.3s ease;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    color: var(--very-dark-green);
+    color: var(--white);
     font-size: 1.2rem;
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
     touch-action: manipulation;
@@ -317,7 +323,7 @@
 /* Welcome & Features Section */
 .welcome-features-section {
     padding: 8rem 0 10rem 0;
-    background: var(--primary-green);
+    background: var(--coconut);
     min-height: 120vh;
     display: flex;
     flex-direction: column;
@@ -344,13 +350,15 @@
     font-size: 2.5rem;
     font-weight: 400;
     margin-bottom: 1.5rem;
-    color: var(--very-dark-green);
+    color: var(--white);
 }
 
 .welcome-description {
+    font-family: 'Gilda Display', serif;
     font-size: 1.1rem;
-    color: var(--very-dark-green);
+    color: var(--white);
     line-height: 1.6;
+    opacity: 0.9;
 }
 
 .features-grid {
@@ -365,9 +373,10 @@
 .feature-card {
     text-align: center;
     padding: 4rem 3rem;
-    background: var(--white);
+    background: rgba(117, 76, 51, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 20px;
-    box-shadow: 0 15px 40px rgba(2, 7, 2, 0.15);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
     transition: all 0.3s ease;
     height: 100%;
     display: flex;
@@ -578,7 +587,7 @@
 /* Contact Section */
 .contact-section {
     padding: 5rem 0;
-    background: var(--white);
+    background: var(--coconut);
 }
 
 .contact-content {
@@ -596,14 +605,16 @@
     font-family: 'Gilda Display', serif;
     font-size: 2.5rem;
     margin-bottom: 1rem;
-    color: var(--very-dark-green);
+    color: var(--white);
 }
 
 .contact-description {
+    font-family: 'Gilda Display', serif;
     font-size: 1.1rem;
     margin-bottom: 2rem;
-    color: var(--dark-gray);
+    color: var(--white);
     line-height: 1.6;
+    opacity: 0.9;
 }
 
 .book-now-btn {
@@ -632,14 +643,16 @@
 }
 
 .contact-info {
-    background: var(--light-gray);
+    background: var(--coconut);
     padding: 2rem;
     border-radius: 10px;
 }
 
 .connect-text {
+    font-family: 'Gilda Display', serif;
     font-size: 0.9rem;
-    color: var(--dark-gray);
+    color: var(--white);
+    opacity: 0.8;
     margin-bottom: 0.5rem;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -649,12 +662,14 @@
     font-family: 'Gilda Display', serif;
     font-size: 1.8rem;
     margin-bottom: 1rem;
-    color: var(--very-dark-green);
+    color: var(--white);
 }
 
 .contact-message {
+    font-family: 'Gilda Display', serif;
     margin-bottom: 2rem;
-    color: var(--dark-gray);
+    color: var(--white);
+    opacity: 0.9;
 }
 
 .contact-details {
@@ -680,14 +695,18 @@
 }
 
 .contact-label {
-    font-weight: 500;
-    color: var(--very-dark-green);
+    font-family: 'Gilda Display', serif;
+    font-weight: 400;
+    color: var(--white);
+    opacity: 0.9;
     display: block;
     margin-bottom: 0.2rem;
 }
 
 .contact-value {
-    color: var(--dark-gray);
+    font-family: 'Gilda Display', serif;
+    color: var(--white);
+    opacity: 0.8;
     margin-bottom: 0.5rem;
 }
 
@@ -702,11 +721,12 @@
 }
 
 .map-container {
-    background: var(--light-gray);
+    background: rgba(117, 76, 51, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 10px;
     overflow: hidden;
     height: 300px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .map-placeholder {
@@ -1203,6 +1223,7 @@
         height: 70vh;
         min-height: 350px;
         max-height: 550px;
+        border: 15px solid var(--coconut);
     }
 
     .hero-image.hero-slider {
@@ -1250,7 +1271,7 @@
     .slide img.full-size-image {
         object-fit: contain !important;
         object-position: center center !important;
-        background-color: var(--primary-green);
+        background-color: var(--coconut);
     }
 
     .slider-btn {
@@ -1295,6 +1316,7 @@
 
     .slide {
         min-height: 400px !important;
+
     }
 }
 
@@ -1311,6 +1333,8 @@
         display: block;
         position: relative;
         overflow: hidden;
+        border: 15px solid var(--coconut);
+        background: var(--coconut);
     }
 
     .hero-image.hero-slider {
@@ -1369,7 +1393,7 @@
     .slide img.full-size-image {
         object-fit: contain !important;
         object-position: center center !important;
-        background-color: var(--primary-green);
+        background-color: var(--coconut);
     }
 
     .hero-image:hover,
@@ -1396,7 +1420,7 @@
     .slide img.full-size-image {
         object-fit: contain !important;
         object-position: center center !important;
-        background-color: var(--primary-green);
+        background-color: var(--coconut);
     }
 
     /* Touch-friendly buttons for tablets */
@@ -1460,6 +1484,8 @@
         position: relative;
         width: 100%;
         overflow: hidden;
+        border: 12px solid var(--coconut);
+        background: var(--coconut);
     }
 
     .hero-image.hero-slider {
@@ -1518,7 +1544,7 @@
     .slide img.full-size-image {
         object-fit: contain !important;
         object-position: center center !important;
-        background-color: var(--primary-green);
+        background-color: var(--coconut);
     }
 
     /* .hero-img removed - slider uses .slide img instead */
@@ -1539,7 +1565,7 @@
     .slide img.full-size-image {
         object-fit: contain !important;
         object-position: center center !important;
-        background-color: var(--primary-green);
+        background-color: var(--coconut);
     }
 
     .hero-image:hover,
@@ -1675,7 +1701,7 @@
     .slide img.full-size-image {
         object-fit: contain !important;
         object-position: center center !important;
-        background-color: var(--primary-green);
+        background-color: var(--coconut);
     }
 
     .slider-btn {

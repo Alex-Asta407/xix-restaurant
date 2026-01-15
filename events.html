@@ -48,244 +48,233 @@
     <section class="events-hero">
         <div class="container">
             <div class="events-hero-content fade-in">
-                <h1 class="events-title">Upcoming Events</h1>
-                <p class="events-subtitle">Join us for special occasions and exclusive experiences</p>
+                <h1 class="events-title">Banquet Menu</h1>
+                <p class="events-subtitle">Create unforgettable celebrations with our exquisite banquet experience</p>
             </div>
         </div>
     </section>
 
-    <!-- Events Filter -->
-    <section class="events-filter">
-        <div class="container">
-            <div class="filter-tabs fade-in">
-                <button class="filter-tab active" data-filter="all">All Events</button>
-                <button class="filter-tab" data-filter="wine">Wine Tastings</button>
-                <button class="filter-tab" data-filter="live">Live Music</button>
-                <button class="filter-tab" data-filter="special">Special Dinners</button>
-            </div>
-        </div>
-    </section>
-
-    <!-- Events Content -->
+    <!-- Banquet Menu Content -->
     <section class="events-content">
         <div class="container">
-            <div class="events-grid fade-in">
-                <!-- Event 1 -->
-                <div class="event-card fade-in" data-category="wine">
-                    <div class="event-image">
-                        <div class="event-date">
-                            <span class="day">15</span>
-                            <span class="month">JAN</span>
-                        </div>
+            <div class="banquet-intro fade-in">
+                <p class="banquet-description">
+                    Elevate your special occasion with our carefully curated banquet menu, featuring an exceptional selection of traditional and contemporary dishes. Perfect for weddings, corporate events, birthdays, and celebrations of all kinds. Our experienced team ensures every detail is perfected, from the first appetizer to the final toast.
+                </p>
+            </div>
+
+            <div class="banquet-menu-sections fade-in">
+                <!-- Salads Section -->
+                <div class="banquet-section" data-section="salads" data-limit="3">
+                    <h2 class="banquet-section-title">Salads</h2>
+                    <p class="banquet-choice-note">Choose 3 salads</p>
+                    <div class="banquet-items">
+                        <label class="banquet-item">
+                            <input type="checkbox" name="salads" value="Caesar Salad with Chicken">
+                            <span>Caesar Salad with Chicken</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="salads" value="Greek Salad">
+                            <span>Greek Salad</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="salads" value="Olivier Salad">
+                            <span>Olivier Salad</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="salads" value="Shuba Salad (Herring under a Fur Coat)">
+                            <span>Shuba Salad (Herring under a Fur Coat)</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="salads" value="Salad with Salmon or Shrimp">
+                            <span>Salad with Salmon or Shrimp</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="salads" value="Warm Slim Eggplant Salad">
+                            <span>Warm "Slim Eggplant" Salad</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="salads" value="Warm Veal Salad">
+                            <span>Warm Veal Salad</span>
+                        </label>
                     </div>
-                    <div class="event-content">
-                        <h3 class="event-title">Wine & Cheese Evening</h3>
-                        <p class="event-description">Join us for an exclusive wine tasting featuring premium wines
-                            paired with artisanal cheeses from local producers.</p>
-                        <div class="event-details">
-                            <div class="event-detail">
-                                <i class="fas fa-clock"></i>
-                                <span>7:00 PM - 10:00 PM</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-users"></i>
-                                <span>Limited to 30 guests</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-pound-sign"></i>
-                                <span>£45 per person</span>
-                            </div>
-                        </div>
-                        <a href="/payment?amount=45&eventId=wine-cheese-evening" class="event-btn">Book Now</a>
-                    </div>
+                    <p class="selection-counter"><span class="selected-count">0</span> / 3 selected</p>
                 </div>
 
-                <!-- Event 2 -->
-                <div class="event-card fade-in" data-category="live">
-                    <div class="event-image">
-                        <div class="event-date">
-                            <span class="day">22</span>
-                            <span class="month">JAN</span>
-                        </div>
+                <!-- Cold Appetizers Section -->
+                <div class="banquet-section" data-section="cold-appetizers" data-limit="6">
+                    <h2 class="banquet-section-title">Cold Appetizers</h2>
+                    <p class="banquet-choice-note">Choose 6 appetizers</p>
+                    <div class="banquet-items">
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Meat Assortment">
+                            <span>Meat Assortment</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Plate of Noble Cheeses">
+                            <span>Plate of Noble Cheeses</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Herring with Potatoes and Pickled Onions">
+                            <span>Herring with Potatoes and Pickled Onions</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Fish Assortment">
+                            <span>Fish Assortment</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Liver Rolls">
+                            <span>Liver Rolls</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Spinach Rolls with Salmon">
+                            <span>Spinach Rolls with Salmon</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Chicken Aspic">
+                            <span>Chicken Aspic</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Bruschettas (with Salmon, with Prosciutto)">
+                            <span>Bruschettas (with Salmon, with Prosciutto)</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Lard Board (served with Pickled Cucumbers, Garlic, and Mustard)">
+                            <span>Lard Board (served with Pickled Cucumbers, Garlic, and Mustard)</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Marinated Vegetable Assortment">
+                            <span>Marinated Vegetable Assortment</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="checkbox" name="cold-appetizers" value="Tongue with Cheese Filling">
+                            <span>Tongue with Cheese Filling</span>
+                        </label>
                     </div>
-                    <div class="event-content">
-                        <h3 class="event-title">Jazz Night with Sarah Johnson</h3>
-                        <p class="event-description">Experience an intimate evening of live jazz music with acclaimed
-                            vocalist Sarah Johnson and her quartet.</p>
-                        <div class="event-details">
-                            <div class="event-detail">
-                                <i class="fas fa-clock"></i>
-                                <span>8:00 PM - 11:00 PM</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-users"></i>
-                                <span>All tables welcome</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-pound-sign"></i>
-                                <span>£40 per person</span>
-                            </div>
-                        </div>
-                        <a href="/payment?amount=40&eventId=jazz-night" class="event-btn">Book Now</a>
-                    </div>
+                    <p class="selection-counter"><span class="selected-count">0</span> / 6 selected</p>
                 </div>
 
-                <!-- Event 3 -->
-                <div class="event-card fade-in" data-category="special">
-                    <div class="event-image">
-                        <div class="event-date">
-                            <span class="day">28</span>
-                            <span class="month">JAN</span>
-                        </div>
+                <!-- Hot Appetizers Section -->
+                <div class="banquet-section" data-section="hot-appetizers" data-limit="1">
+                    <h2 class="banquet-section-title">Hot Appetizers</h2>
+                    <p class="banquet-choice-note">Choose 1 appetizer</p>
+                    <div class="banquet-items">
+                        <label class="banquet-item">
+                            <input type="radio" name="hot-appetizers" value="Tortilla with Cheese and Herbs">
+                            <span>Tortilla with Cheese and Herbs</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="radio" name="hot-appetizers" value="Julienne in a Pudding with Chicken">
+                            <span>Julienne in a Pudding with Chicken</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="radio" name="hot-appetizers" value="Julienne in a Pudding with Tongue">
+                            <span>Julienne in a Pudding with Tongue</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="radio" name="hot-appetizers" value="Breaded Mozzarella with Sauce">
+                            <span>Breaded Mozzarella with Sauce</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="radio" name="hot-appetizers" value="Golubtsi (Cabbage Rolls)">
+                            <span>Golubtsi (Cabbage Rolls)</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="radio" name="hot-appetizers" value="Seafood Sauté">
+                            <span>Seafood Sauté</span>
+                        </label>
                     </div>
-                    <div class="event-content">
-                        <h3 class="event-title">Valentine's Day Special</h3>
-                        <p class="event-description">Celebrate love with our special 5-course tasting menu designed for
-                            two, complete with champagne and roses.</p>
-                        <div class="event-details">
-                            <div class="event-detail">
-                                <i class="fas fa-clock"></i>
-                                <span>6:00 PM - 11:00 PM</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-users"></i>
-                                <span>Couples only</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-pound-sign"></i>
-                                <span>£120 per couple</span>
-                            </div>
-                        </div>
-                        <a href="/payment?amount=120&eventId=valentines-special" class="event-btn">Book Now</a>
-                    </div>
+                    <p class="selection-counter"><span class="selected-count">0</span> / 1 selected</p>
                 </div>
 
-                <!-- Event 4 -->
-                <div class="event-card fade-in" data-category="wine">
-                    <div class="event-image">
-                        <div class="event-date">
-                            <span class="day">05</span>
-                            <span class="month">FEB</span>
-                        </div>
+                <!-- Hot Dishes Section -->
+                <div class="banquet-section" data-section="hot-dishes" data-limit="1">
+                    <h2 class="banquet-section-title">Hot Dishes</h2>
+                    <p class="banquet-choice-note">Choose 1 dish</p>
+                    <div class="banquet-items">
+                        <label class="banquet-item">
+                            <input type="radio" name="hot-dishes" value="Baked Pork Neck (served with Dijon Sauce and Country-Style Potatoes)">
+                            <span>Baked Pork Neck (served with Dijon Sauce and Country-Style Potatoes)</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="radio" name="hot-dishes" value="Salmon Steaks with Grilled Vegetables">
+                            <span>Salmon Steaks with Grilled Vegetables</span>
+                        </label>
+                        <label class="banquet-item">
+                            <input type="radio" name="hot-dishes" value="Mixed Meats (Chicken, Pork, Lamb) served with Baked Potatoes">
+                            <span>Mixed Meats (Chicken, Pork, Lamb) served with Baked Potatoes</span>
+                        </label>
                     </div>
-                    <div class="event-content">
-                        <h3 class="event-title">Burgundy Wine Masterclass</h3>
-                        <p class="event-description">Learn about the finest Burgundy wines with our sommelier, featuring
-                            rare vintages and perfect food pairings.</p>
-                        <div class="event-details">
-                            <div class="event-detail">
-                                <i class="fas fa-clock"></i>
-                                <span>6:30 PM - 9:30 PM</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-users"></i>
-                                <span>Limited to 20 guests</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-pound-sign"></i>
-                                <span>£65 per person</span>
-                            </div>
-                        </div>
-                        <a href="/payment?amount=65&eventId=burgundy-masterclass" class="event-btn">Book Now</a>
-                    </div>
+                    <p class="selection-counter"><span class="selected-count">0</span> / 1 selected</p>
                 </div>
 
-                <!-- Event 5 -->
-                <div class="event-card fade-in" data-category="live">
-                    <div class="event-image">
-                        <div class="event-date">
-                            <span class="day">12</span>
-                            <span class="month">FEB</span>
-                        </div>
-                    </div>
-                    <div class="event-content">
-                        <h3 class="event-title">Acoustic Sessions</h3>
-                        <p class="event-description">Relax with acoustic performances by local artists in our intimate
-                            bar area. Perfect for a laid-back evening.</p>
-                        <div class="event-details">
-                            <div class="event-detail">
-                                <i class="fas fa-clock"></i>
-                                <span>7:30 PM - 10:30 PM</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-users"></i>
-                                <span>All tables welcome</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-pound-sign"></i>
-                                <span>£80 per person</span>
-                            </div>
-                        </div>
-                        <a href="/payment?amount=80&eventId=acoustic-sessions" class="event-btn">Book Now</a>
-                    </div>
+                <!-- Beverages Section -->
+                <div class="banquet-section">
+                    <h2 class="banquet-section-title">Beverages</h2>
+                    <p class="banquet-beverages">Unlimited soft drinks included: Water, Juice, Cola, Coffee, Tea</p>
                 </div>
+            </div>
 
-                <!-- Event 6 -->
-                <div class="event-card fade-in" data-category="special">
-                    <div class="event-image">
-                        <div class="event-date">
-                            <span class="day">18</span>
-                            <span class="month">FEB</span>
-                        </div>
-                    </div>
-                    <div class="event-content">
-                        <h3 class="event-title">Chef's Table Experience</h3>
-                        <p class="event-description">Join our head chef for an exclusive 7-course tasting menu with wine
-                            pairings and behind-the-scenes kitchen access.</p>
-                        <div class="event-details">
-                            <div class="event-detail">
-                                <i class="fas fa-clock"></i>
-                                <span>7:00 PM - 11:00 PM</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-users"></i>
-                                <span>Limited to 8 guests</span>
-                            </div>
-                            <div class="event-detail">
-                                <i class="fas fa-pound-sign"></i>
-                                <span>£95 per person</span>
-                            </div>
-                        </div>
-                        <a href="/payment?amount=95&eventId=chefs-table" class="event-btn">Book Now</a>
-                    </div>
+            <!-- Pricing Section -->
+            <div class="banquet-pricing fade-in">
+                <div class="pricing-card">
+                    <h2 class="pricing-title">£95</h2>
+                    <p class="pricing-subtitle">per person</p>
+                    <p class="pricing-note">Including service charge</p>
+                    <a href="/reservations?type=banquet" class="banquet-btn" id="bookBanquetBtn">Book Your Banquet</a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Private Events Section -->
+    <!-- Contact Information Section -->
     <section class="private-events">
         <div class="container">
             <div class="private-events-content">
                 <div class="private-events-text fade-in">
-                    <h2>Host Your Private Event</h2>
-                    <p>From intimate celebrations to corporate gatherings, XIX provides the perfect setting for your
-                        special occasion. Our dedicated events team will work with you to create an unforgettable
-                        experience.</p>
+                    <h2>Plan Your Perfect Celebration</h2>
+                    <p>Let our dedicated events team help you create an unforgettable experience. Whether it's an intimate gathering or a grand celebration, we'll work with you to customize every detail of your banquet.</p>
                     <div class="private-events-features">
                         <div class="feature">
                             <i class="fas fa-utensils"></i>
-                            <span>Custom Menus</span>
+                            <span>Customizable Menu Selection</span>
                         </div>
                         <div class="feature">
                             <i class="fas fa-wine-glass-alt"></i>
-                            <span>Premium Bar Service</span>
+                            <span>Premium Bar Service Available</span>
                         </div>
                         <div class="feature">
-                            <i class="fas fa-music"></i>
-                            <span>Live Music Options</span>
+                            <i class="fas fa-calendar-check"></i>
+                            <span>Flexible Date & Time Options</span>
                         </div>
                         <div class="feature">
                             <i class="fas fa-users"></i>
-                            <span>Up to 50 Guests</span>
+                            <span>Accommodates Any Group Size</span>
                         </div>
                     </div>
-                    <a href="/payment?amount=0&eventId=private-event" class="private-events-btn">Plan Your Event</a>
+                    <div class="contact-info-banquet">
+                        <div class="contact-detail-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>369 High Street, E15 4QZ</span>
+                        </div>
+                        <div class="contact-detail-item">
+                            <i class="fas fa-phone"></i>
+                            <span>+44 7798 317690</span>
+                        </div>
+                        <div class="contact-detail-item">
+                            <i class="fas fa-envelope"></i>
+                            <span>XIXFOOD@gmail.com</span>
+                        </div>
+                        <div class="contact-detail-item">
+                            <i class="fab fa-instagram"></i>
+                            <span>@XIX_NINETEEN</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="private-events-image fade-in">
                     <div class="image-placeholder">
                         <i class="fas fa-calendar-plus"></i>
-                        <p>Private Events</p>
+                        <p>Banquet Events</p>
                     </div>
                 </div>
             </div>
@@ -329,6 +318,120 @@
 
     <script src="script.js"></script>
     <script src="offline.js"></script>
+
+    <script>
+        // Banquet Menu Selection Handler
+        document.addEventListener('DOMContentLoaded', function() {
+            const sections = document.querySelectorAll('.banquet-section[data-limit]');
+            
+            // Initialize selection counters
+            sections.forEach(section => {
+                updateSelectionCounter(section);
+                
+                // Handle checkbox selections (salads, cold appetizers)
+                const checkboxes = section.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        handleCheckboxSelection(section, this);
+                    });
+                });
+                
+                // Handle radio selections (hot appetizers, hot dishes)
+                const radios = section.querySelectorAll('input[type="radio"]');
+                radios.forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        handleRadioSelection(section);
+                    });
+                });
+            });
+            
+            // Handle "Book Your Banquet" button click
+            const bookBtn = document.getElementById('bookBanquetBtn');
+            if (bookBtn) {
+                bookBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    saveBanquetSelections();
+                    window.location.href = '/reservations?type=banquet';
+                });
+            }
+        });
+        
+        function handleCheckboxSelection(section, checkbox) {
+            const limit = parseInt(section.dataset.limit);
+            const checked = section.querySelectorAll('input[type="checkbox"]:checked');
+            
+            if (checked.length > limit) {
+                checkbox.checked = false;
+                alert(`Please select only ${limit} item(s) from this section.`);
+                return;
+            }
+            
+            // Update visual state
+            updateItemState(section);
+            updateSelectionCounter(section);
+        }
+        
+        function handleRadioSelection(section) {
+            updateItemState(section);
+            updateSelectionCounter(section);
+        }
+        
+        function updateItemState(section) {
+            const items = section.querySelectorAll('.banquet-item');
+            items.forEach(item => {
+                const input = item.querySelector('input[type="checkbox"], input[type="radio"]');
+                if (input && input.checked) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+        }
+        
+        function updateSelectionCounter(section) {
+            const limit = parseInt(section.dataset.limit);
+            const checked = section.querySelectorAll('input[type="checkbox"]:checked, input[type="radio"]:checked');
+            const counter = section.querySelector('.selected-count');
+            
+            if (counter) {
+                counter.textContent = checked.length;
+            }
+        }
+        
+        function saveBanquetSelections() {
+            const selections = {
+                salads: [],
+                'cold-appetizers': [],
+                'hot-appetizers': null,
+                'hot-dishes': null
+            };
+            
+            // Get salads
+            document.querySelectorAll('input[name="salads"]:checked').forEach(cb => {
+                selections.salads.push(cb.value);
+            });
+            
+            // Get cold appetizers
+            document.querySelectorAll('input[name="cold-appetizers"]:checked').forEach(cb => {
+                selections['cold-appetizers'].push(cb.value);
+            });
+            
+            // Get hot appetizer
+            const hotAppetizer = document.querySelector('input[name="hot-appetizers"]:checked');
+            if (hotAppetizer) {
+                selections['hot-appetizers'] = hotAppetizer.value;
+            }
+            
+            // Get hot dish
+            const hotDish = document.querySelector('input[name="hot-dishes"]:checked');
+            if (hotDish) {
+                selections['hot-dishes'] = hotDish.value;
+            }
+            
+            // Store in localStorage
+            localStorage.setItem('banquetSelections', JSON.stringify(selections));
+        }
+    </script>
 
 </body>
 

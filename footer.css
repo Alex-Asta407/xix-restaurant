@@ -2,7 +2,7 @@
 
 /* Footer */
 .footer {
-    background: var(--very-dark-green);
+    background: var(--dark-camel);
     color: var(--white);
     padding: 3rem 0;
 }
@@ -37,7 +37,7 @@
 }
 
 .footer-links a:hover {
-    color: var(--gold);
+    color: var(--champagne);
 }
 
 .footer-social {

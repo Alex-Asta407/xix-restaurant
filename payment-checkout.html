@@ -17,27 +17,42 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .payment-container {
-            max-width: 600px;
+            max-width: 640px;
             margin: 4rem auto;
-            padding: 2rem;
-            background: var(--white);
-            border-radius: 12px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            padding: 2.5rem;
+            background: rgba(117, 76, 51, 0.4);
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             text-align: center;
         }
 
         .payment-header h1 {
             font-family: 'Gilda Display', serif;
-            color: var(--very-dark-green);
+            color: var(--white);
             margin-bottom: 1rem;
         }
 
+        .payment-header p {
+            color: var(--white);
+            opacity: 0.9;
+            margin: 0 auto;
+            max-width: 480px;
+        }
+
         .payment-summary {
-            background: #f8f9fa;
+            background: rgba(117, 76, 51, 0.25);
             padding: 1.5rem;
             border-radius: 8px;
             margin-bottom: 2rem;
             text-align: left;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--white);
+        }
+
+        .payment-summary h3 {
+            color: var(--white);
+            margin-bottom: 1rem;
         }
 
         .summary-item {
@@ -82,6 +97,7 @@
             display: none;
             text-align: center;
             margin: 1rem 0;
+            color: var(--white);
         }
 
         .spinner {
@@ -101,6 +117,66 @@
 
             100% {
                 transform: rotate(360deg);
+            }
+        }
+
+        .payment-form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .payment-form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--white);
+            font-family: 'Gilda Display', serif;
+        }
+
+        .payment-form-group input {
+            width: 100%;
+            padding: 0.9rem 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            font-size: 1rem;
+            color: var(--white);
+            background: rgba(117, 76, 51, 0.35);
+            font-family: 'Gilda Display', serif;
+        }
+
+        .payment-form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        @media (max-width: 768px) {
+            .payment-container {
+                margin: 5.5rem 1rem 2.5rem;
+                padding: 2rem 1.5rem;
+            }
+
+            .payment-header h1 {
+                font-size: 1.8rem;
+            }
+
+            .payment-summary {
+                padding: 1.25rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .payment-container {
+                margin: 5rem 0.75rem 2rem;
+                padding: 1.5rem 1.25rem;
+            }
+
+            .payment-header h1 {
+                font-size: 1.6rem;
+            }
+
+            .summary-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.25rem;
             }
         }
     </style>
@@ -152,13 +228,9 @@
         </div>
 
         <form id="checkout-form">
-            <div style="margin-bottom: 1.5rem;">
-                <label for="customer-email"
-                    style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--very-dark-green);">
-                    Email Address
-                </label>
-                <input type="email" id="customer-email" name="customerEmail" required
-                    style="width: 100%; padding: 0.75rem; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+            <div class="payment-form-group">
+                <label for="customer-email">Email Address</label>
+                <input type="email" id="customer-email" name="customerEmail" required placeholder="you@example.com">
             </div>
 
             <button type="submit" id="checkout-button" class="checkout-button">
@@ -213,11 +285,16 @@
         const amount = parseFloat(urlParams.get('amount')) || 0;
         const reservationId = urlParams.get('reservationId');
         const eventId = urlParams.get('eventId');
+        const returnUrl = urlParams.get('returnUrl');
 
         // Update payment summary
         document.getElementById('reservationFee').textContent = `£${amount.toFixed(2)}`;
         document.getElementById('serviceCharge').textContent = '£0.00';
         document.getElementById('totalAmount').textContent = `£${amount.toFixed(2)}`;
+
+        if (eventId === 'banquet-deposit') {
+            document.querySelector('.payment-header p').textContent = 'Pay your £100 banquet deposit to confirm your reservation';
+        }
 
         // Handle form submission - Redirect to Stripe Checkout
         const form = document.getElementById('checkout-form');
@@ -247,7 +324,8 @@
                         eventId: eventId,
                         reservationId: reservationId,
                         customerEmail: customerEmail,
-                        customerName: '' // Optional - can be added later
+                        customerName: '', // Optional - can be added later
+                        returnUrl: returnUrl
                     })
                 });
 
