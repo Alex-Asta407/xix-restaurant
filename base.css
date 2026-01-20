@@ -231,8 +231,8 @@ h6 {
 
 .btn-primary {
     background: transparent;
-    color: var(--very-dark-green);
-    border: 2px solid var(--very-dark-green);
+    color: var(--white);
+    border: 2px solid var(--white);
     transition: all 0.4s ease;
 }
 
@@ -246,8 +246,8 @@ h6 {
 
 .btn-secondary {
     background: transparent;
-    color: var(--very-dark-green);
-    border: 2px solid var(--very-dark-green);
+    color: var(--white);
+    border: 2px solid var(--white);
     transition: all 0.4s ease;
 }
 
