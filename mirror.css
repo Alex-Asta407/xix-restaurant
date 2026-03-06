@@ -1751,6 +1751,10 @@ legend {
     padding: 0 !important;
 }
 
+.contact-left {
+    padding-left: 3rem;
+}
+
 .contact-description {
     color: #2d1f15;
     opacity: 0.8;

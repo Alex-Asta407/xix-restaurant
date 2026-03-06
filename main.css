@@ -1788,3 +1788,23 @@
         box-sizing: border-box;
     }
 }
+
+/* XIX Home - Mirror layout (spacing only) */
+.contact-section-home .contact-content {
+    gap: 5rem;
+}
+
+.contact-section-home .contact-right {
+    padding-left: 4rem;
+    margin-top: -0.5rem;
+}
+
+.contact-section-home .contact-info {
+    margin: 0 0 2rem 0;
+}
+
+@media (max-width: 768px) {
+    .contact-section-home .contact-right {
+        padding-left: 0;
+    }
+}
