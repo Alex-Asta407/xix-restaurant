@@ -1,5 +1,10 @@
 /* Events Page Styles */
 
+/* Footer matches page background */
+.events-page .footer {
+    background: var(--coconut);
+}
+
 /* Events Hero Section */
 .events-hero {
     background: var(--coconut);
