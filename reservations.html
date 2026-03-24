@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="base.css">
     <link rel="stylesheet" href="navigation.css">
     <link rel="stylesheet" href="reservations.css">
+    <link rel="stylesheet" href="main.css">
     <link rel="stylesheet" href="footer.css">
     <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Noto+Sans:wght@400;500&display=swap"
         rel="stylesheet">
@@ -60,7 +61,7 @@
     </section>
 
     <!-- Reservation Form Section -->
-    <section class="reservation-form-section">
+    <section id="reservation-form-section" class="reservation-form-section">
         <div class="container">
             <div class="reservation-form-container">
                 <form id="reservationForm" class="reservation-form" method="post" action="/api/send-reservation-email">
@@ -253,42 +254,46 @@
         </div>
     </section>
 
-    <!-- Contact Section -->
-    <section class="contact-section">
+    <!-- Contact Section (same layout as XIX home / index.html) -->
+    <section class="contact-section contact-section-home">
         <div class="container">
             <div class="contact-content fade-in">
                 <div class="contact-left">
-                    <h2>Get in Touch</h2>
-                    <p>Have questions about your reservation or need assistance? We're here to help!</p>
-
-                    <div class="contact-details">
-                        <div class="contact-item">
-                            <i class="fas fa-phone"></i>
-                            <div>
-                                <h4>Phone</h4>
-                                <p>+44 7796 817690</p>
-                            </div>
-                        </div>
-
-                        <div class="contact-item">
-                            <i class="fas fa-envelope"></i>
-                            <div>
-                                <h4>Email</h4>
-                                <p>reservations@xixlondon.com</p>
-                            </div>
-                        </div>
-
-                        <div class="contact-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <div>
-                                <h4>Address</h4>
-                                <p>123 King's Road<br>London SW3 4RD</p>
-                            </div>
-                        </div>
-                    </div>
+                    <h2 class="contact-title">Reserve Your Table</h2>
+                    <p class="contact-description">Experience the vibrant atmosphere at XIX. Secure your spot now and
+                        indulge in our exquisite menu.</p>
+                    <a href="#reservation-form-section" class="book-now-btn">
+                        <i class="fas fa-heart"></i>
+                        Book Now
+                    </a>
                 </div>
 
                 <div class="contact-right">
+                    <div class="contact-info">
+                        <p class="connect-text">Connect</p>
+                        <h3 class="contact-subtitle">Get in Touch</h3>
+                        <p class="contact-message">We'd love to hear from you!</p>
+
+                        <div class="contact-details">
+                            <div class="contact-item">
+                                <i class="fas fa-envelope"></i>
+                                <div class="contact-item-content">
+                                    <span class="contact-label">Email</span>
+                                    <p class="contact-value">Reach us anytime</p>
+                                    <a href="mailto:info@xixlondon.com" class="contact-link">info@xixlondon.com</a>
+                                </div>
+                            </div>
+
+                            <div class="contact-item">
+                                <i class="fas fa-phone"></i>
+                                <div class="contact-item-content">
+                                    <span class="contact-label">Phone</span>
+                                    <p class="contact-value">+44 7796 817690</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="map-container">
                         <iframe
                             src="https://maps.google.com/maps?q=369+High+St,+Greater,+London+E15+4QZ,+United+Kingdom&hl=en&z=14&output=embed"
@@ -328,7 +333,7 @@
                     <a href="menu.html">Menu</a>
                     <a href="events.html">Events</a>
                     <a href="reservations.html">Reservations</a>
-                    <a href="mirror.html">Mirror</a>
+                    <a href="/mirror">Mirror</a>
                 </div>
                 <div class="footer-social">
                     <a href="https://www.instagram.com/xix_nineteen/" target="_blank" class="social-link">
@@ -341,7 +346,7 @@
                     <a href="https://www.tiktok.com/@xix_nineteen" target="_blank" class="social-link">
                         <i class="fab fa-tiktok"></i>
                     </a>
-                    <a href="https://www.ubereats.com/store/xix-nineteen-ukrainian-kitchen/Qb_tE0nYX0G5Xol7_t3LZA?diningMode=DELIVERY"
+                    <a href="https://xix-nineteen-london.nextorder.com/"
                         target="_blank" class="social-link">
                         <i class="fas fa-utensils"></i>
                     </a>

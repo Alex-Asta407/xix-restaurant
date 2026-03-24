@@ -535,6 +535,11 @@ app.get('/mirror', (req, res) => {
   res.sendFile(__dirname + '/mirror/mirror.html');
 });
 
+// Legacy / mistaken relative links use mirror.html; app routes use /mirror
+app.get('/mirror.html', (req, res) => {
+  res.redirect(301, '/mirror');
+});
+
 app.get('/mirror/events', (req, res) => {
   res.sendFile(__dirname + '/mirror/events.html');
 });

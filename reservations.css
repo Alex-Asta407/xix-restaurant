@@ -389,6 +389,10 @@
     background: #A8871A;
 }
 
+.reservation-form .submit-button {
+    margin-top: 1.75rem;
+}
+
 /* Restaurant Info */
 .restaurant-info {
     padding: 4rem 0;

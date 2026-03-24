@@ -17,21 +17,13 @@ body {
 }
 
 .menu-hero {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
     position: relative;
     overflow: hidden;
 }
 
 .menu-hero::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-    opacity: 0.3;
-    z-index: 1;
+    display: none;
 }
 
 /* Main Menu Title Styles */
@@ -69,21 +61,21 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    background: rgba(255, 255, 255, 0.8);
+    background: transparent;
     padding: 0.8rem 1.5rem;
     border-radius: 25px;
-    backdrop-filter: blur(15px);
-    border: 1px solid rgba(255, 192, 203, 0.3);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    backdrop-filter: none;
+    border: 1px solid rgba(45, 31, 21, 0.12);
+    box-shadow: none;
     transition: all 0.3s ease;
     font-family: 'Noto Sans', sans-serif !important;
 }
 
 .highlight-item:hover {
     transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-    border-color: rgba(255, 192, 203, 0.5);
+    background: rgba(235, 230, 217, 0.6);
+    box-shadow: none;
+    border-color: rgba(45, 31, 21, 0.18);
 }
 
 .highlight-item i {
@@ -107,9 +99,9 @@ body {
 }
 
 .menu-tab {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+    background: #f5f2e8;
     color: #2d1f15;
-    border: 2px solid rgba(255, 192, 203, 0.3);
+    border: 2px solid rgba(45, 31, 21, 0.12);
     padding: 1.5rem 2rem;
     border-radius: 15px;
     cursor: pointer;
@@ -119,21 +111,21 @@ body {
     align-items: center;
     gap: 0.5rem;
     min-width: 200px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: none;
 }
 
 .menu-tab:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     border-color: rgba(255, 192, 203, 0.6);
-    background: linear-gradient(135deg, #fefefe, #f8f6f0);
+    background: #ebe6d9;
 }
 
 .menu-tab.active {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+    background: #ebe6d9;
     transform: translateY(-5px);
-    border-color: rgba(255, 192, 203, 0.8);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    border-color: rgba(212, 165, 116, 0.55);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .menu-tab i {
@@ -156,10 +148,10 @@ body {
     align-items: center;
     margin-bottom: 3rem;
     padding: 2rem;
-    background: white;
+    background: transparent;
     border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(255, 192, 203, 0.2);
+    box-shadow: none;
+    border: 1px solid rgba(45, 31, 21, 0.1);
 }
 
 .menu-title-section {
@@ -254,17 +246,18 @@ body {
     align-items: center;
     gap: 1rem;
     padding: 1.5rem;
-    background: white;
+    background: transparent;
     border-radius: 15px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    box-shadow: none;
     transition: all 0.3s ease;
-    border: 1px solid rgba(255, 192, 203, 0.2);
+    border: 1px solid rgba(45, 31, 21, 0.08);
 }
 
 .menu-item:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    border-color: rgba(255, 192, 203, 0.6);
+    box-shadow: none;
+    border-color: rgba(212, 165, 116, 0.35);
+    background: rgba(235, 230, 217, 0.35);
 }
 
 .item-icon {
@@ -294,9 +287,8 @@ body {
 
 /* Menu Section Transitions */
 .menu-section {
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-    opacity: 0.3;
-    z-index: 1;
+    background: transparent;
+    opacity: 1;
 }
 
 .menu-section.active {
@@ -421,7 +413,7 @@ body {
 /* Mirror-specific styles for all pages */
 /* Apply menu section colors to all Mirror pages */
 .hero {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
     position: relative;
     overflow: hidden;
 }
@@ -642,7 +634,7 @@ body {
 
 /* Footer Overrides */
 .footer {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
     border-top: 1px solid rgba(255, 192, 203, 0.2);
 }
 
@@ -662,6 +654,112 @@ body {
 
 .footer a:hover {
     color: #d4a574;
+}
+
+.footer .footer-logo h2 {
+    font-size: 2.35rem;
+}
+
+.footer .footer-logo p {
+    font-size: 1.05rem;
+}
+
+.footer .footer-links a {
+    font-size: 1.1rem;
+}
+
+.footer .social-link {
+    width: 44px;
+    height: 44px;
+    font-size: 1.3rem;
+}
+
+/* Mirror footer: compact row (not edge-to-edge), match XIX feel; mobile-friendly */
+.footer.footer-mirror .footer-content {
+    max-width: 920px;
+    margin-left: auto;
+    margin-right: auto;
+    justify-content: center;
+    gap: 1.25rem 1.75rem;
+    flex-wrap: wrap;
+}
+
+.footer.footer-mirror .footer-links {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.15rem;
+}
+
+@media (min-width: 769px) {
+    .footer.footer-mirror .footer-content {
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .footer.footer-mirror .footer-logo {
+        text-align: left;
+    }
+}
+
+@media (max-width: 768px) {
+    .footer.footer-mirror {
+        padding: 2.25rem 0 2.5rem;
+    }
+
+    .footer.footer-mirror .footer-content {
+        flex-direction: column;
+        gap: 1.35rem;
+        max-width: 100%;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+
+    .footer.footer-mirror .footer-logo {
+        text-align: center;
+    }
+
+    .footer.footer-mirror .footer-links {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.45rem 0.85rem;
+        max-width: 100%;
+    }
+
+    .footer.footer-mirror .footer-social {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        row-gap: 0.65rem;
+        max-width: 100%;
+    }
+
+    .footer.footer-mirror .footer-links a {
+        padding: 0.2rem 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .footer.footer-mirror .footer-logo h2 {
+        font-size: 2rem;
+    }
+
+    .footer.footer-mirror .footer-logo p {
+        font-size: 0.98rem;
+    }
+
+    .footer.footer-mirror .footer-links a {
+        font-size: 1rem;
+    }
+
+    .footer.footer-mirror .social-link {
+        width: 46px;
+        height: 46px;
+        min-width: 46px;
+        min-height: 46px;
+        font-size: 1.2rem;
+    }
 }
 
 /* Events Page Specific Styling */
@@ -1369,7 +1467,7 @@ fieldset {
     border-radius: 15px;
     padding: 1.5rem;
     margin: 1.5rem 0;
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+    background: #f5f2e8;
 }
 
 legend {
@@ -1456,7 +1554,7 @@ legend {
 
 /* Contact Info */
 .contact-info {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+    background: #f5f2e8;
     border-radius: 15px;
     padding: 2rem;
     margin: 2rem 0;
@@ -1739,7 +1837,7 @@ legend {
 
 /* Contact Section */
 .contact-section {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%);
+    background: #f5f2e8;
     position: relative;
 }
 
@@ -2818,7 +2916,7 @@ ol {
 }
 
 .hero-left {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
     flex: 1.2 !important;
     padding: 4rem 2rem !important;
 }
@@ -2882,32 +2980,32 @@ section {
 }
 
 footer {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 /* Specific Mirror page sections */
 .welcome-features-section {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 .experience-section {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 .gallery-section {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 .contact-section {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 .events-content {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 .private-events {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 .reservation-form-section {
@@ -2915,15 +3013,15 @@ footer {
 }
 
 .restaurant-info {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 .menu-content {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 .menu-nav {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 /* Universal overrides to ensure green background for menu page */
@@ -2941,7 +3039,7 @@ nav,
 header,
 footer,
 main {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 /* Override any remaining peach/green backgrounds - REMOVED: Conflicted with transparent button style */
@@ -2991,7 +3089,7 @@ footer * {
 
 /* Keep hero section background but remove text backgrounds */
 .hero-left {
-    background: linear-gradient(135deg, #f5f2e8 0%, #f8f6f0 50%, #fefefe 100%) !important;
+    background: #f5f2e8 !important;
 }
 
 .hero-content {
@@ -3750,4 +3848,20 @@ a {
     .container {
         padding: 0 0.3rem;
     }
+}
+
+/* Mirror menu page: bottom info grid + tab strip sit on same solid beige (no white cards) */
+.menu-navigation {
+    background: #f5f2e8 !important;
+}
+
+.menu-info {
+    background: #f5f2e8 !important;
+    padding: 4rem 0;
+}
+
+.menu-info .info-card {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
 }
