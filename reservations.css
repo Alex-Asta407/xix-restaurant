@@ -561,11 +561,16 @@
 }
 
 #reservationDetails {
-    background: var(--light-gray);
+    background: rgba(0, 0, 0, 0.18);
+    color: var(--white);
     padding: 1.5rem;
     border-radius: 10px;
     margin: 1rem 0;
     text-align: left;
+}
+
+#reservationDetails strong {
+    color: var(--white);
 }
 
 .calendar-button {
