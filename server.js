@@ -965,6 +965,24 @@ db.serialize(() => {
     }
   });
 
+  // Create reservation_blocks table (admin-defined blackout periods per venue)
+  db.run(`CREATE TABLE IF NOT EXISTS reservation_blocks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venue TEXT NOT NULL,
+    date TEXT NOT NULL,
+    block_type TEXT NOT NULL,
+    start_time TEXT,
+    end_time TEXT,
+    reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`, (err) => {
+    if (err) {
+      console.error('Error creating reservation_blocks table:', err.message);
+    } else {
+      console.log('Reservation blocks table created/verified');
+    }
+  });
+
   // Create tables reference table (22 tables with capacity 2-6 people)
   db.run(`CREATE TABLE IF NOT EXISTS tables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2238,6 +2256,31 @@ app.post('/api/send-reservation-email', async (req, res) => {
       });
     }
 
+    // Reject reservations that fall within an admin-configured blackout period
+    const blockedCheck = await new Promise((resolve) => {
+      getBlocksForDate(sanitizedReservation.venue, sanitizedReservation.date, (blockErr, blocks) => {
+        if (blockErr) {
+          console.error('Error checking reservation blocks:', blockErr.message);
+          return resolve(null);
+        }
+        const blockStatus = getBlockStatus(sanitizedReservation.venue, sanitizedReservation.date, blocks || []);
+        if (blockStatus.blockType === 'full_day') {
+          return resolve(blockStatus.message);
+        }
+        if (blockStatus.hourBlocks.length > 0 && isTimeWithinHourBlocks(sanitizedReservation.time, blockStatus.hourBlocks)) {
+          return resolve(blockStatus.message);
+        }
+        resolve(null);
+      });
+    });
+
+    if (blockedCheck) {
+      return res.status(400).json({
+        error: blockedCheck,
+        details: [blockedCheck]
+      });
+    }
+
     let reservationId; // Store reservation ID for updating email status
 
     // Save reservation to database with venue-specific fields
@@ -3262,6 +3305,155 @@ app.post('/api/send-payment-email', async (req, res) => {
 
 // API endpoint to check available times for a specific date
 // Optimized: Only queries for specific date/venue instead of all reservations
+// Helper: format "HH:MM" (24h) into a friendly 12h string, e.g. "14:30" -> "2:30 PM"
+function formatTime12h(time24) {
+  if (!time24) return '';
+  const [hoursStr, minutes] = time24.split(':');
+  let hour = parseInt(hoursStr, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  hour = hour % 12 || 12;
+  return `${hour}:${minutes} ${ampm}`;
+}
+
+// Helper: fetch all reservation blocks for a venue/date
+function getBlocksForDate(venue, date, callback) {
+  db.all(
+    `SELECT * FROM reservation_blocks WHERE UPPER(venue) = UPPER(?) AND date = ?`,
+    [venue, date],
+    callback
+  );
+}
+
+// Helper: determine block status for a venue/date, and optionally a specific time
+// Returns { blocked, blockType, message, reopensMessage, blocks }
+function getBlockStatus(venue, date, blocks) {
+  const fullDayBlock = blocks.find(b => b.block_type === 'full_day');
+  if (fullDayBlock) {
+    return {
+      blocked: true,
+      blockType: 'full_day',
+      message: 'Reservations cannot be made on this date. Please check back tomorrow.',
+      hourBlocks: []
+    };
+  }
+
+  const hourBlocks = blocks.filter(b => b.block_type === 'hours' && b.start_time && b.end_time);
+  if (hourBlocks.length === 0) {
+    return { blocked: false, blockType: null, message: null, hourBlocks: [] };
+  }
+
+  // Sort so the message reflects the latest reopening time
+  const latestReopen = hourBlocks.reduce((latest, b) => (!latest || b.end_time > latest.end_time ? b : latest), null);
+
+  return {
+    blocked: false, // whole day isn't blocked, only specific hour ranges
+    blockType: 'hours',
+    message: `Reservations are currently unavailable from ${formatTime12h(hourBlocks[0].start_time)} to ${formatTime12h(latestReopen.end_time)}. Reservations can be made again after ${formatTime12h(latestReopen.end_time)}.`,
+    hourBlocks
+  };
+}
+
+function isTimeWithinHourBlocks(time, hourBlocks) {
+  return hourBlocks.some(b => time >= b.start_time && time < b.end_time);
+}
+
+// ==================== Admin: Reservation Blocks ====================
+
+// List reservation blocks (optionally filtered by venue), upcoming/today first
+app.get('/api/admin/blocks', (req, res) => {
+  const { venue } = req.query;
+  const today = new Date().toLocaleDateString('en-CA');
+
+  let query = `SELECT * FROM reservation_blocks WHERE date >= ?`;
+  const params = [today];
+
+  if (venue) {
+    query += ` AND UPPER(venue) = UPPER(?)`;
+    params.push(venue);
+  }
+
+  query += ` ORDER BY date ASC, start_time ASC`;
+
+  db.all(query, params, (err, rows) => {
+    if (err) {
+      console.error('Error fetching reservation blocks:', err.message);
+      return res.status(500).json({ error: 'Failed to fetch reservation blocks' });
+    }
+    res.json(rows);
+  });
+});
+
+// Create a reservation block
+app.post('/api/admin/blocks', (req, res) => {
+  const { venue, date, blockType, startTime, endTime, reason } = req.body;
+
+  const normalizedVenue = (venue || '').toUpperCase();
+  if (!['XIX', 'MIRROR'].includes(normalizedVenue)) {
+    return res.status(400).json({ error: 'Venue must be XIX or MIRROR' });
+  }
+
+  if (!date || !validator.isDate(date, { format: 'YYYY-MM-DD', strictMode: true })) {
+    return res.status(400).json({ error: 'A valid date (YYYY-MM-DD) is required' });
+  }
+
+  if (!['full_day', 'hours'].includes(blockType)) {
+    return res.status(400).json({ error: 'blockType must be full_day or hours' });
+  }
+
+  let sanitizedStart = null;
+  let sanitizedEnd = null;
+
+  if (blockType === 'hours') {
+    const timePattern = /^([01]\d|2[0-3]):(00|30)$/;
+    if (!startTime || !endTime || !timePattern.test(startTime) || !timePattern.test(endTime)) {
+      return res.status(400).json({ error: 'startTime and endTime are required and must be in HH:MM format' });
+    }
+    if (endTime <= startTime) {
+      return res.status(400).json({ error: 'endTime must be after startTime' });
+    }
+    sanitizedStart = startTime;
+    sanitizedEnd = endTime;
+  }
+
+  const sanitizedReason = sanitizeInput(reason) || null;
+
+  db.run(
+    `INSERT INTO reservation_blocks (venue, date, block_type, start_time, end_time, reason) VALUES (?, ?, ?, ?, ?, ?)`,
+    [normalizedVenue, date, blockType, sanitizedStart, sanitizedEnd, sanitizedReason],
+    function (err) {
+      if (err) {
+        console.error('Error creating reservation block:', err.message);
+        return res.status(500).json({ error: 'Failed to create reservation block' });
+      }
+      res.status(201).json({
+        id: this.lastID,
+        venue: normalizedVenue,
+        date,
+        block_type: blockType,
+        start_time: sanitizedStart,
+        end_time: sanitizedEnd,
+        reason: sanitizedReason
+      });
+    }
+  );
+});
+
+// Remove a reservation block
+app.delete('/api/admin/blocks/:id', (req, res) => {
+  const { id } = req.params;
+
+  db.run(`DELETE FROM reservation_blocks WHERE id = ?`, [id], function (err) {
+    if (err) {
+      console.error('Error deleting reservation block:', err.message);
+      return res.status(500).json({ error: 'Failed to delete reservation block' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Reservation block not found' });
+    }
+    res.json({ success: true });
+  });
+});
+
 app.get('/api/available-times', (req, res) => {
   const { date, venue } = req.query;
 
@@ -3288,14 +3480,43 @@ app.get('/api/available-times', (req, res) => {
 
   const allTimeSlots = generateAllTimeSlots();
 
-  // Return all time slots - table availability is checked separately via /api/table-availability
-  // This endpoint should show all possible times, and the frontend will check table availability
-  // for each time slot based on guest count
-  res.json({
-    date: date,
-    venue: detectedVenue,
-    availableTimes: allTimeSlots,
-    totalReservations: 0 // Not needed, but kept for compatibility
+  // Check for admin-configured reservation blocks (full-day or specific hours)
+  getBlocksForDate(detectedVenue, date, (blockErr, blocks) => {
+    if (blockErr) {
+      console.error('Error checking reservation blocks:', blockErr.message);
+      blocks = [];
+    }
+
+    const blockStatus = getBlockStatus(detectedVenue, date, blocks || []);
+
+    if (blockStatus.blockType === 'full_day') {
+      return res.json({
+        date: date,
+        venue: detectedVenue,
+        availableTimes: [],
+        totalReservations: 0,
+        blocked: true,
+        blockType: 'full_day',
+        blockMessage: blockStatus.message
+      });
+    }
+
+    // Table availability is checked separately via /api/table-availability
+    // This endpoint should show all possible times (minus any blocked hour ranges),
+    // and the frontend will check table availability for each time slot based on guest count
+    const availableTimes = blockStatus.hourBlocks.length > 0
+      ? allTimeSlots.filter(time => !isTimeWithinHourBlocks(time, blockStatus.hourBlocks))
+      : allTimeSlots;
+
+    res.json({
+      date: date,
+      venue: detectedVenue,
+      availableTimes: availableTimes,
+      totalReservations: 0, // Not needed, but kept for compatibility
+      blocked: false,
+      blockType: blockStatus.hourBlocks.length > 0 ? 'hours' : null,
+      blockMessage: blockStatus.hourBlocks.length > 0 ? blockStatus.message : null
+    });
   });
 });
 

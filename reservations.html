@@ -912,6 +912,13 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             // Clear existing options
             timeSelect.innerHTML = '';
 
+            // Show/hide the partial-hours blackout banner independent of remaining availability
+            if (data.blockType === 'hours' && data.blockMessage) {
+                showBlockedHoursMessage(data.blockMessage);
+            } else {
+                hideBlockedHoursMessage();
+            }
+
             if (data.availableTimes.length === 0) {
                 console.log('No available times');
                 // No available times
@@ -921,8 +928,8 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 option.disabled = true;
                 timeSelect.appendChild(option);
 
-                // Show message
-                showNoAvailabilityMessage();
+                // Show message (use the block's custom message if this date is fully blocked)
+                showNoAvailabilityMessage(data.blocked ? data.blockMessage : undefined);
             } else {
                 console.log('Available times:', data.availableTimes);
                 // Add available times
@@ -980,7 +987,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             }
         }
 
-        function showNoAvailabilityMessage() {
+        function showNoAvailabilityMessage(customMessage) {
             // Remove existing message if any
             hideNoAvailabilityMessage();
 
@@ -996,7 +1003,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 text-align: center;
                 font-weight: 500;
             `;
-            message.textContent = 'Sorry, no available time slots for this date. Please choose another date.';
+            message.textContent = customMessage || 'Sorry, no available time slots for this date. Please choose another date.';
 
             const form = document.getElementById('reservationForm');
             if (form) {
@@ -1006,6 +1013,36 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
 
         function hideNoAvailabilityMessage() {
             const message = document.getElementById('no-availability-message');
+            if (message) {
+                message.remove();
+            }
+        }
+
+        function showBlockedHoursMessage(text) {
+            hideBlockedHoursMessage();
+
+            const message = document.createElement('div');
+            message.id = 'blocked-hours-message';
+            message.style.cssText = `
+                background: #fff3cd;
+                color: #856404;
+                padding: 1rem;
+                margin: 1rem 0;
+                border-radius: 8px;
+                border: 1px solid #ffc107;
+                text-align: center;
+                font-weight: 500;
+            `;
+            message.textContent = text;
+
+            const form = document.getElementById('reservationForm');
+            if (form) {
+                form.insertBefore(message, form.querySelector('.form-group'));
+            }
+        }
+
+        function hideBlockedHoursMessage() {
+            const message = document.getElementById('blocked-hours-message');
             if (message) {
                 message.remove();
             }
