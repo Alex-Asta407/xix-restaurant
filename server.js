@@ -3359,8 +3359,22 @@ function isTimeWithinHourBlocks(time, hourBlocks) {
 
 // ==================== Admin: Reservation Blocks ====================
 
+// Shared admin-key check, matching the pattern used by /admin, /admin/today, etc.
+function requireAdminKey(req, res) {
+  const secretKey = req.query.key;
+  const expectedKey = process.env.ADMIN_SECRET_KEY;
+
+  if (!expectedKey || !secretKey || secretKey !== expectedKey) {
+    res.status(403).json({ error: 'Unauthorized access' });
+    return false;
+  }
+  return true;
+}
+
 // List reservation blocks (optionally filtered by venue), upcoming/today first
 app.get('/api/admin/blocks', (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+
   const { venue } = req.query;
   const today = new Date().toLocaleDateString('en-CA');
 
@@ -3385,6 +3399,8 @@ app.get('/api/admin/blocks', (req, res) => {
 
 // Create a reservation block
 app.post('/api/admin/blocks', (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+
   const { venue, date, blockType, startTime, endTime, reason } = req.body;
 
   const normalizedVenue = (venue || '').toUpperCase();
@@ -3440,6 +3456,8 @@ app.post('/api/admin/blocks', (req, res) => {
 
 // Remove a reservation block
 app.delete('/api/admin/blocks/:id', (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+
   const { id } = req.params;
 
   db.run(`DELETE FROM reservation_blocks WHERE id = ?`, [id], function (err) {

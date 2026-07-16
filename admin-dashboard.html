@@ -149,6 +149,142 @@
             border-radius: 8px;
             margin: 1rem 0;
         }
+
+        .blocks-section {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .blocks-section h2 {
+            font-family: 'Gilda Display', serif;
+            color: var(--very-dark-green);
+            margin-bottom: 1rem;
+        }
+
+        .venue-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .venue-tab {
+            flex: 1;
+            padding: 0.8rem;
+            text-align: center;
+            border: 2px solid var(--very-dark-green);
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--very-dark-green);
+            background: var(--white);
+        }
+
+        .venue-tab.active {
+            background: var(--very-dark-green);
+            color: var(--white);
+        }
+
+        .block-type-toggle {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .block-type-toggle label {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-row .field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .form-row label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--very-dark-green);
+        }
+
+        .form-row input,
+        .form-row select {
+            padding: 0.6rem;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            font-size: 0.95rem;
+        }
+
+        .block-submit-btn {
+            background: var(--gold);
+            color: var(--white);
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .block-submit-btn:hover {
+            opacity: 0.9;
+        }
+
+        .block-feedback {
+            margin-top: 0.8rem;
+            font-weight: 500;
+        }
+
+        .block-feedback.error {
+            color: #c62828;
+        }
+
+        .block-feedback.success {
+            color: #2e7d32;
+        }
+
+        .blocks-list {
+            margin-top: 1.5rem;
+        }
+
+        .block-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1rem;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            margin-bottom: 0.6rem;
+        }
+
+        .block-item .block-info strong {
+            color: var(--very-dark-green);
+        }
+
+        .block-remove-btn {
+            background: #e74c3c;
+            color: var(--white);
+            border: none;
+            border-radius: 5px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+        }
+
+        .block-remove-btn:hover {
+            background: #c0392b;
+        }
     </style>
 </head>
 
@@ -175,6 +311,60 @@
             <div class="stat-card">
                 <div class="stat-number" id="pendingEmails">-</div>
                 <div class="stat-label">Pending Emails</div>
+            </div>
+        </div>
+
+        <div class="blocks-section">
+            <h2>Pause Reservations</h2>
+            <p>Stop new reservations for XIX or Mirror, for a whole day or a set number of hours.</p>
+
+            <div class="venue-tabs">
+                <div class="venue-tab active" id="venueTabXix" data-venue="XIX">XIX</div>
+                <div class="venue-tab" id="venueTabMirror" data-venue="MIRROR">Mirror</div>
+            </div>
+
+            <div class="block-type-toggle">
+                <label><input type="radio" name="blockType" value="full_day" checked> Block the whole day</label>
+                <label><input type="radio" name="blockType" value="hours"> Block specific hours</label>
+            </div>
+
+            <div class="form-row">
+                <div class="field">
+                    <label for="blockDate">Date</label>
+                    <input type="date" id="blockDate">
+                </div>
+            </div>
+
+            <div class="form-row" id="hoursFields" style="display: none;">
+                <div class="field">
+                    <label for="blockDuration">How many hours</label>
+                    <select id="blockDuration">
+                        <option value="">Custom (use From/Till)</option>
+                        <option value="1">1 hour</option>
+                        <option value="2">2 hours</option>
+                        <option value="3">3 hours</option>
+                        <option value="4">4 hours</option>
+                        <option value="5">5 hours</option>
+                        <option value="6">6 hours</option>
+                        <option value="8">8 hours</option>
+                        <option value="12">12 hours</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="blockFrom">From</label>
+                    <input type="time" id="blockFrom" step="1800">
+                </div>
+                <div class="field">
+                    <label for="blockTill">Till</label>
+                    <input type="time" id="blockTill" step="1800">
+                </div>
+            </div>
+
+            <button class="block-submit-btn" id="submitBlockBtn">Block Reservations</button>
+            <div class="block-feedback" id="blockFeedback"></div>
+
+            <div class="blocks-list" id="blocksList">
+                <p style="color: #888;">Loading active blocks...</p>
             </div>
         </div>
 
@@ -297,11 +487,177 @@
                     loadTodayReservations();
                 });
             }
+            if (secretKey) {
+                initBlocksSection();
+            }
         });
 
         // Load reservations on page load
         if (secretKey) {
             loadTodayReservations();
+        }
+
+        // ==================== Reservation Blocks ====================
+
+        let selectedVenue = 'XIX';
+
+        function initBlocksSection() {
+            const venueTabXix = document.getElementById('venueTabXix');
+            const venueTabMirror = document.getElementById('venueTabMirror');
+            const blockDate = document.getElementById('blockDate');
+            const blockDuration = document.getElementById('blockDuration');
+            const blockFrom = document.getElementById('blockFrom');
+            const blockTill = document.getElementById('blockTill');
+            const hoursFields = document.getElementById('hoursFields');
+            const submitBtn = document.getElementById('submitBlockBtn');
+
+            const today = new Date().toLocaleDateString('en-CA');
+            if (blockDate) blockDate.min = today;
+
+            [venueTabXix, venueTabMirror].forEach(tab => {
+                tab.addEventListener('click', () => {
+                    selectedVenue = tab.dataset.venue;
+                    [venueTabXix, venueTabMirror].forEach(t => t.classList.toggle('active', t === tab));
+                    loadBlocks();
+                });
+            });
+
+            document.querySelectorAll('input[name="blockType"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    const isHours = document.querySelector('input[name="blockType"]:checked').value === 'hours';
+                    hoursFields.style.display = isHours ? 'flex' : 'none';
+                });
+            });
+
+            if (blockDuration) {
+                blockDuration.addEventListener('change', () => {
+                    const hours = parseInt(blockDuration.value, 10);
+                    if (!hours || !blockFrom.value) return;
+                    const [h, m] = blockFrom.value.split(':').map(Number);
+                    const totalMinutes = h * 60 + m + hours * 60;
+                    const endH = Math.floor(totalMinutes / 60) % 24;
+                    const endM = totalMinutes % 60;
+                    blockTill.value = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+                });
+            }
+
+            if (blockFrom) {
+                blockFrom.addEventListener('change', () => {
+                    if (blockDuration.value) {
+                        blockDuration.dispatchEvent(new Event('change'));
+                    }
+                });
+            }
+
+            if (submitBtn) {
+                submitBtn.addEventListener('click', submitBlock);
+            }
+
+            loadBlocks();
+        }
+
+        async function submitBlock() {
+            const feedback = document.getElementById('blockFeedback');
+            feedback.textContent = '';
+            feedback.className = 'block-feedback';
+
+            const blockType = document.querySelector('input[name="blockType"]:checked').value;
+            const date = document.getElementById('blockDate').value;
+
+            if (!date) {
+                feedback.textContent = 'Please select a date.';
+                feedback.classList.add('error');
+                return;
+            }
+
+            const payload = { venue: selectedVenue, date, blockType };
+
+            if (blockType === 'hours') {
+                const startTime = document.getElementById('blockFrom').value;
+                const endTime = document.getElementById('blockTill').value;
+                if (!startTime || !endTime) {
+                    feedback.textContent = 'Please provide both a From and Till time (or pick how many hours).';
+                    feedback.classList.add('error');
+                    return;
+                }
+                payload.startTime = startTime;
+                payload.endTime = endTime;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/blocks?key=${encodeURIComponent(secretKey)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (!response.ok) {
+                    feedback.textContent = result.error || 'Failed to create block';
+                    feedback.classList.add('error');
+                    return;
+                }
+
+                feedback.textContent = blockType === 'full_day'
+                    ? `Reservations blocked for ${selectedVenue} on ${date}.`
+                    : `Reservations blocked for ${selectedVenue} on ${date} from ${payload.startTime} to ${payload.endTime}.`;
+                feedback.classList.add('success');
+                loadBlocks();
+            } catch (error) {
+                console.error('Error creating block:', error);
+                feedback.textContent = 'Error creating block. Please try again.';
+                feedback.classList.add('error');
+            }
+        }
+
+        async function loadBlocks() {
+            const listEl = document.getElementById('blocksList');
+            listEl.innerHTML = '<p style="color: #888;">Loading active blocks...</p>';
+
+            try {
+                const response = await fetch(`/api/admin/blocks?venue=${selectedVenue}&key=${encodeURIComponent(secretKey)}`);
+                const blocks = await response.json();
+
+                if (!Array.isArray(blocks) || blocks.length === 0) {
+                    listEl.innerHTML = '<p style="color: #888;">No upcoming blocks for this venue.</p>';
+                    return;
+                }
+
+                listEl.innerHTML = blocks.map(block => {
+                    const description = block.block_type === 'full_day'
+                        ? `<strong>${block.date}</strong> — Whole day blocked`
+                        : `<strong>${block.date}</strong> — Blocked ${formatTime(block.start_time)} to ${formatTime(block.end_time)}`;
+
+                    return `
+                        <div class="block-item">
+                            <div class="block-info">${description}</div>
+                            <button class="block-remove-btn" data-id="${block.id}">Remove</button>
+                        </div>
+                    `;
+                }).join('');
+
+                listEl.querySelectorAll('.block-remove-btn').forEach(btn => {
+                    btn.addEventListener('click', () => removeBlock(btn.dataset.id));
+                });
+            } catch (error) {
+                console.error('Error loading blocks:', error);
+                listEl.innerHTML = '<p style="color: #e74c3c;">Error loading blocks.</p>';
+            }
+        }
+
+        async function removeBlock(id) {
+            try {
+                const response = await fetch(`/api/admin/blocks/${id}?key=${encodeURIComponent(secretKey)}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    const result = await response.json();
+                    alert(result.error || 'Failed to remove block');
+                    return;
+                }
+                loadBlocks();
+            } catch (error) {
+                console.error('Error removing block:', error);
+                alert('Error removing block. Please try again.');
+            }
         }
     </script>
 </body>
