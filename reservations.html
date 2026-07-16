@@ -845,6 +845,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
         // Cache for availability checks to reduce API calls
         const availabilityCache = {};
         const CACHE_DURATION = 60000; // 1 minute cache
+        let lastAlertedBlockedDate = null; // Prevents re-popping the alert for the same blocked date
 
         async function checkAvailableTimes(date, venue) {
             if (!date) return;
@@ -917,6 +918,14 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 showBlockedHoursMessage(data.blockMessage);
             } else {
                 hideBlockedHoursMessage();
+            }
+
+            // Pop up an alert the first time a fully-blocked date is selected
+            if (data.blocked && data.blockMessage && lastAlertedBlockedDate !== data.date) {
+                lastAlertedBlockedDate = data.date;
+                alert(data.blockMessage);
+            } else if (!data.blocked) {
+                lastAlertedBlockedDate = null;
             }
 
             if (data.availableTimes.length === 0) {
