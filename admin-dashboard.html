@@ -119,6 +119,48 @@
             color: #721c24;
         }
 
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-confirmed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-cancelled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .venue-badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .venue-xix {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .venue-mirror {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
         .refresh-btn {
             background: var(--gold);
             color: var(--white);
@@ -422,6 +464,8 @@
                 <table>
                     <thead>
                         <tr>
+                            <th>Venue</th>
+                            <th>Status</th>
                             <th>Time</th>
                             <th>Name</th>
                             <th>Email</th>
@@ -440,9 +484,13 @@
             data.reservations.forEach(reservation => {
                 const time = formatTime(reservation.time);
                 const created = new Date(reservation.created_at).toLocaleString();
+                const venue = (reservation.venue || 'XIX').toUpperCase();
+                const status = (reservation.confirmation_status || 'pending').toLowerCase();
 
                 tableHTML += `
                     <tr>
+                        <td><span class="venue-badge ${venue === 'MIRROR' ? 'venue-mirror' : 'venue-xix'}">${venue}</span></td>
+                        <td><span class="status-badge status-${status}">${status}</span></td>
                         <td><strong>${time}</strong></td>
                         <td>${reservation.name}</td>
                         <td>${reservation.email}</td>

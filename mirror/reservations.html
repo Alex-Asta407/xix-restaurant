@@ -334,6 +334,8 @@
     <script src="../offline.js"></script>
 
     <script>
+        let lastAlertedBlockedDate = null; // Prevents re-popping the alert for the same blocked date
+
         // Direct form submission handler for Mirror reservations
         document.addEventListener('DOMContentLoaded', function () {
             // Set minimum date to today
@@ -584,6 +586,14 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                     showBlockedHoursMessage(data.blockMessage);
                 } else {
                     hideBlockedHoursMessage();
+                }
+
+                // Pop up an alert the first time a fully-blocked date is selected
+                if (data.blocked && data.blockMessage && lastAlertedBlockedDate !== data.date) {
+                    lastAlertedBlockedDate = data.date;
+                    alert(data.blockMessage);
+                } else if (!data.blocked) {
+                    lastAlertedBlockedDate = null;
                 }
 
                 if (data.availableTimes.length === 0) {
