@@ -889,11 +889,57 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             }
         }
 
+        // Fallback list matching the page's original static <option> set (9:00 AM - 1:00 AM,
+        // 30-minute increments). Used if anything above throws, so the field is never left empty.
+        function generateDefaultTimeSlots() {
+            const slots = [];
+            for (let hour = 9; hour < 24; hour++) {
+                slots.push(`${hour.toString().padStart(2, '0')}:00`);
+                slots.push(`${hour.toString().padStart(2, '0')}:30`);
+            }
+            slots.push('00:00', '00:30', '01:00');
+            return slots;
+        }
+
+        function populateFallbackTimeOptions(timeSelect) {
+            timeSelect.innerHTML = '';
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select Time';
+            timeSelect.appendChild(defaultOption);
+
+            generateDefaultTimeSlots().forEach(time => {
+                const option = document.createElement('option');
+                option.value = time;
+                const [h, m] = time.split(':');
+                const hour = parseInt(h, 10);
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const displayHour = hour % 12 || 12;
+                option.textContent = `${displayHour}:${m} ${ampm}`;
+                timeSelect.appendChild(option);
+            });
+        }
+
         function updateTimeOptions(data) {
             const timeSelect = document.getElementById('time');
             if (!timeSelect) {
                 console.error('Time select element not found');
                 return;
+            }
+
+            try {
+                renderTimeOptions(timeSelect, data);
+            } catch (error) {
+                // Never leave the field with zero options - fall back to the full default list
+                // and let table/availability checks (which run independently) catch real conflicts.
+                console.error('Error rendering time options, falling back to default list:', error);
+                populateFallbackTimeOptions(timeSelect);
+            }
+        }
+
+        function renderTimeOptions(timeSelect, data) {
+            if (!Array.isArray(data.availableTimes)) {
+                throw new Error('availableTimes missing or not an array in response');
             }
 
             // Get selected date
@@ -996,6 +1042,20 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             }
         }
 
+        // Places a banner right under the Preferred Time field (falls back to the top
+        // of the form) so it's visible without scrolling back up past Name/Email/etc.
+        function insertNearTimeField(message) {
+            const timeGroup = document.getElementById('time')?.closest('.form-group');
+            if (timeGroup) {
+                timeGroup.appendChild(message);
+                return;
+            }
+            const form = document.getElementById('reservationForm');
+            if (form) {
+                form.insertBefore(message, form.querySelector('.form-group'));
+            }
+        }
+
         function showNoAvailabilityMessage(customMessage) {
             // Remove existing message if any
             hideNoAvailabilityMessage();
@@ -1006,7 +1066,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 background: #ffebee;
                 color: #c62828;
                 padding: 1rem;
-                margin: 1rem 0;
+                margin-top: 1rem;
                 border-radius: 8px;
                 border: 1px solid #ffcdd2;
                 text-align: center;
@@ -1014,10 +1074,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             `;
             message.textContent = customMessage || 'Sorry, no available time slots for this date. Please choose another date.';
 
-            const form = document.getElementById('reservationForm');
-            if (form) {
-                form.insertBefore(message, form.querySelector('.form-group'));
-            }
+            insertNearTimeField(message);
         }
 
         function hideNoAvailabilityMessage() {
@@ -1036,7 +1093,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 background: #fff3cd;
                 color: #856404;
                 padding: 1rem;
-                margin: 1rem 0;
+                margin-top: 1rem;
                 border-radius: 8px;
                 border: 1px solid #ffc107;
                 text-align: center;
@@ -1044,10 +1101,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             `;
             message.textContent = text;
 
-            const form = document.getElementById('reservationForm');
-            if (form) {
-                form.insertBefore(message, form.querySelector('.form-group'));
-            }
+            insertNearTimeField(message);
         }
 
         function hideBlockedHoursMessage() {
