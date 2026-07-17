@@ -3420,7 +3420,7 @@ app.post('/api/admin/blocks', (req, res) => {
   let sanitizedEnd = null;
 
   if (blockType === 'hours') {
-    const timePattern = /^([01]\d|2[0-3]):(00|30)$/;
+    const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
     if (!startTime || !endTime || !timePattern.test(startTime) || !timePattern.test(endTime)) {
       return res.status(400).json({ error: 'startTime and endTime are required and must be in HH:MM format' });
     }
