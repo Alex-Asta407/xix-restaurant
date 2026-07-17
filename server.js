@@ -3420,9 +3420,9 @@ app.post('/api/admin/blocks', (req, res) => {
   let sanitizedEnd = null;
 
   if (blockType === 'hours') {
-    const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const timePattern = /^([01]\d|2[0-3]):(00|30)$/;
     if (!startTime || !endTime || !timePattern.test(startTime) || !timePattern.test(endTime)) {
-      return res.status(400).json({ error: 'startTime and endTime are required and must be in HH:MM format' });
+      return res.status(400).json({ error: 'startTime and endTime must be on the hour or half hour (HH:00 or HH:30), matching reservation slots' });
     }
     if (endTime <= startTime) {
       return res.status(400).json({ error: 'endTime must be after startTime' });

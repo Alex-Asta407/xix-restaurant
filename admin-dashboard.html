@@ -278,10 +278,18 @@
             border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
+            transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
         }
 
         .block-submit-btn:hover {
-            opacity: 0.9;
+            background: #8f7016;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .block-submit-btn:active {
+            background: #715713;
+            transform: scale(0.97);
+            box-shadow: none;
         }
 
         .block-feedback {
@@ -394,11 +402,11 @@
                 </div>
                 <div class="field">
                     <label for="blockFrom">From</label>
-                    <input type="time" id="blockFrom" step="1800">
+                    <select id="blockFrom"></select>
                 </div>
                 <div class="field">
                     <label for="blockTill">Till</label>
-                    <input type="time" id="blockTill" step="1800">
+                    <select id="blockTill"></select>
                 </div>
             </div>
 
@@ -549,6 +557,22 @@
 
         let selectedVenue = 'XIX';
 
+        // Reservations only ever land on the hour or half-hour, so blocks are restricted
+        // to the same :00/:30 slots - no reason to allow anything finer-grained.
+        function populateHalfHourOptions(selectEl) {
+            for (let hour = 0; hour < 24; hour++) {
+                for (const minute of ['00', '30']) {
+                    const value = `${String(hour).padStart(2, '0')}:${minute}`;
+                    const ampmHour = hour % 12 || 12;
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = `${ampmHour}:${minute} ${ampm}`;
+                    selectEl.appendChild(option);
+                }
+            }
+        }
+
         function initBlocksSection() {
             const venueTabXix = document.getElementById('venueTabXix');
             const venueTabMirror = document.getElementById('venueTabMirror');
@@ -558,6 +582,10 @@
             const blockTill = document.getElementById('blockTill');
             const hoursFields = document.getElementById('hoursFields');
             const submitBtn = document.getElementById('submitBlockBtn');
+
+            populateHalfHourOptions(blockFrom);
+            populateHalfHourOptions(blockTill);
+            blockTill.value = '00:30'; // Sane default so From !== Till out of the box
 
             const today = new Date().toLocaleDateString('en-CA');
             if (blockDate) blockDate.min = today;
