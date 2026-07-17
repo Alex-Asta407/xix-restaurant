@@ -561,10 +561,46 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             window.open(googleCalendarUrl, '_blank');
         }
 
+        // Fallback list matching the page's original static <option> set.
+        // Used if anything below throws, so the field is never left empty.
+        const DEFAULT_MIRROR_TIME_SLOTS = [
+            ['12:00', '12:00 PM (Lunch)'],
+            ['13:00', '1:00 PM (Lunch)'],
+            ['14:00', '2:00 PM (Lunch)'],
+            ['15:00', '3:00 PM (Afternoon)'],
+            ['16:00', '4:00 PM (Afternoon)'],
+            ['17:00', '5:00 PM (Evening)'],
+            ['18:00', '6:00 PM (Evening)'],
+            ['19:00', '7:00 PM (Evening)'],
+            ['20:00', '8:00 PM (Evening)'],
+            ['21:00', '9:00 PM (Evening)']
+        ];
+
+        function populateFallbackTimeOptions(timeSelect) {
+            timeSelect.innerHTML = '';
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Select Time';
+            timeSelect.appendChild(defaultOption);
+
+            DEFAULT_MIRROR_TIME_SLOTS.forEach(([value, label]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                timeSelect.appendChild(option);
+            });
+        }
+
         async function checkAvailableTimes(date, venue) {
             if (!date) return;
 
             console.log('Checking available times for:', date, venue);
+
+            const timeSelect = document.getElementById('time');
+            if (!timeSelect) {
+                console.error('Time select element not found');
+                return;
+            }
 
             try {
                 const response = await fetch(`/api/available-times?date=${date}&venue=${venue}`);
@@ -572,61 +608,83 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
 
                 console.log('Available times response:', data);
 
-                const timeSelect = document.getElementById('time');
-                if (!timeSelect) {
-                    console.error('Time select element not found');
-                    return;
-                }
-
-                // Clear existing options
-                timeSelect.innerHTML = '';
-
-                // Show/hide the partial-hours blackout banner independent of remaining availability
-                if (data.blockType === 'hours' && data.blockMessage) {
-                    showBlockedHoursMessage(data.blockMessage);
-                } else {
-                    hideBlockedHoursMessage();
-                }
-
-                // Pop up an alert the first time a fully-blocked date is selected
-                if (data.blocked && data.blockMessage && lastAlertedBlockedDate !== data.date) {
-                    lastAlertedBlockedDate = data.date;
-                    alert(data.blockMessage);
-                } else if (!data.blocked) {
-                    lastAlertedBlockedDate = null;
-                }
-
-                if (data.availableTimes.length === 0) {
-                    console.log('No available times');
-                    // No available times
-                    const option = document.createElement('option');
-                    option.value = '';
-                    option.textContent = 'No available times for this date';
-                    option.disabled = true;
-                    timeSelect.appendChild(option);
-
-                    // Show message (use the block's custom message if this date is fully blocked)
-                    showNoAvailabilityMessage(data.blocked ? data.blockMessage : undefined);
-                } else {
-                    console.log('Available times:', data.availableTimes);
-                    // Add available times
-                    const defaultOption = document.createElement('option');
-                    defaultOption.value = '';
-                    defaultOption.textContent = 'Select Time';
-                    timeSelect.appendChild(defaultOption);
-
-                    data.availableTimes.forEach(time => {
-                        const option = document.createElement('option');
-                        option.value = time;
-                        option.textContent = time;
-                        timeSelect.appendChild(option);
-                    });
-
-                    // Hide no availability message if it exists
-                    hideNoAvailabilityMessage();
+                try {
+                    renderTimeOptions(timeSelect, data);
+                } catch (renderError) {
+                    // Never leave the field with zero options - fall back to the full default list
+                    console.error('Error rendering time options, falling back to default list:', renderError);
+                    populateFallbackTimeOptions(timeSelect);
                 }
             } catch (error) {
                 console.error('Error checking available times:', error);
+            }
+        }
+
+        function renderTimeOptions(timeSelect, data) {
+            if (!Array.isArray(data.availableTimes)) {
+                throw new Error('availableTimes missing or not an array in response');
+            }
+
+            // Clear existing options
+            timeSelect.innerHTML = '';
+
+            // Show/hide the partial-hours blackout banner independent of remaining availability
+            if (data.blockType === 'hours' && data.blockMessage) {
+                showBlockedHoursMessage(data.blockMessage);
+            } else {
+                hideBlockedHoursMessage();
+            }
+
+            // Pop up an alert the first time a fully-blocked date is selected
+            if (data.blocked && data.blockMessage && lastAlertedBlockedDate !== data.date) {
+                lastAlertedBlockedDate = data.date;
+                alert(data.blockMessage);
+            } else if (!data.blocked) {
+                lastAlertedBlockedDate = null;
+            }
+
+            if (data.availableTimes.length === 0) {
+                console.log('No available times');
+                // No available times
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No available times for this date';
+                option.disabled = true;
+                timeSelect.appendChild(option);
+
+                // Show message (use the block's custom message if this date is fully blocked)
+                showNoAvailabilityMessage(data.blocked ? data.blockMessage : undefined);
+            } else {
+                console.log('Available times:', data.availableTimes);
+                // Add available times
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select Time';
+                timeSelect.appendChild(defaultOption);
+
+                data.availableTimes.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    timeSelect.appendChild(option);
+                });
+
+                // Hide no availability message if it exists
+                hideNoAvailabilityMessage();
+            }
+        }
+
+        // Places a banner right under the Preferred Time field (falls back to the top
+        // of the form) so it's visible without scrolling back up past Name/Email/etc.
+        function insertNearTimeField(message) {
+            const timeGroup = document.getElementById('time')?.closest('.form-group');
+            if (timeGroup) {
+                timeGroup.appendChild(message);
+                return;
+            }
+            const form = document.getElementById('reservationForm');
+            if (form) {
+                form.insertBefore(message, form.querySelector('.form-group'));
             }
         }
 
@@ -640,7 +698,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 background: #ffebee;
                 color: #c62828;
                 padding: 1rem;
-                margin: 1rem 0;
+                margin-top: 1rem;
                 border-radius: 8px;
                 border: 1px solid #ffcdd2;
                 text-align: center;
@@ -648,10 +706,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             `;
             message.textContent = customMessage || 'Sorry, no available time slots for this date. Please choose another date.';
 
-            const form = document.getElementById('reservationForm');
-            if (form) {
-                form.insertBefore(message, form.querySelector('.form-group'));
-            }
+            insertNearTimeField(message);
         }
 
         function hideNoAvailabilityMessage() {
@@ -670,7 +725,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
                 background: #fff3cd;
                 color: #856404;
                 padding: 1rem;
-                margin: 1rem 0;
+                margin-top: 1rem;
                 border-radius: 8px;
                 border: 1px solid #ffc107;
                 text-align: center;
@@ -678,10 +733,7 @@ Special Requests: ${reservationData.specialRequests || 'None'}`;
             `;
             message.textContent = text;
 
-            const form = document.getElementById('reservationForm');
-            if (form) {
-                form.insertBefore(message, form.querySelector('.form-group'));
-            }
+            insertNearTimeField(message);
         }
 
         function hideBlockedHoursMessage() {
