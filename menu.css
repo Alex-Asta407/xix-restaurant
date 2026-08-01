@@ -199,6 +199,13 @@
     margin-bottom: 3rem;
 }
 
+.subsection-note {
+    color: var(--white);
+    opacity: 0.8;
+    text-align: center;
+    margin-top: -1rem;
+}
+
 .menu-subsection:last-child {
     margin-bottom: 0;
 }
