@@ -7138,7 +7138,7 @@ async function sendEventPaymentConfirmationEmails(session, eventType, eventDate,
     }
 
     const venueName = 'XIX Restaurant';
-    const venueAddress = 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
+    const venueAddress = 'XIX Restaurant, 403 High St, London E15 4QZ';
 
     // Generate invoice number (using session ID)
     const invoiceNumber = `INV-${session.id.substring(0, 12).toUpperCase()}`;
