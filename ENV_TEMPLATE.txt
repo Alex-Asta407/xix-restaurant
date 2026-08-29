@@ -44,5 +44,3 @@ ENABLE_SMS_REMINDERS=false
 # Note: SMTP_PASS should be your Gmail App Password, not your regular password
 # Get your App Password from: https://myaccount.google.com/apppasswords
 # Get your Stripe keys from: https://dashboard.stripe.com/apikeys
-# Google Calendar setup: See GOOGLE_CALENDAR_SMS_SETUP.md
-# Twilio setup: See GOOGLE_CALENDAR_SMS_SETUP.md
