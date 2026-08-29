@@ -31,7 +31,7 @@ BASE_URL=http://localhost:3001
 
 # Google Calendar Integration (Optional)
 # See GOOGLE_CALENDAR_SMS_SETUP.md for setup instructions
-GOOGLE_CALENDAR_ID=akonstantinov582@gmail.com
+GOOGLE_CALENDAR_ID=calendarid@gmail.com
 GOOGLE_CALENDAR_CREDENTIALS_PATH=./google-calendar-credentials.json
 
 # Twilio SMS Integration (Optional - costs money)
