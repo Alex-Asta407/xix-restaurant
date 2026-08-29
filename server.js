@@ -1352,6 +1352,24 @@ app.get('/api/debug/env', (req, res) => {
     envFilePath: envPath,
     currentDir: __dirname,
     workingDir: process.cwd(),
+    // When the running process actually started - compare this against when
+    // you last saved .env / restarted, to confirm a restart really happened
+    processStartedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(),
+    processUptimeSeconds: Math.round(process.uptime()),
+    // Non-sensitive email/SMS config currently loaded into this process
+    // (never includes SMTP_PASS, TWILIO_AUTH_TOKEN, or other secrets)
+    email: {
+      MAIL_FROM: process.env.MAIL_FROM || 'NOT SET',
+      MANAGER_EMAIL: process.env.MANAGER_EMAIL || 'NOT SET',
+      SMTP_USER: process.env.SMTP_USER || 'NOT SET',
+      SMTP_HOST: process.env.SMTP_HOST || 'NOT SET'
+    },
+    sms: {
+      TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER || 'NOT SET',
+      TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID
+        ? `${process.env.TWILIO_ACCOUNT_SID.slice(0, 6)}...${process.env.TWILIO_ACCOUNT_SID.slice(-4)}`
+        : 'NOT SET'
+    },
     allEnvKeys: Object.keys(process.env).filter(key =>
       key.includes('BASE') || key.includes('NODE') || key.includes('URL')
     ).reduce((acc, key) => {
@@ -5580,17 +5598,18 @@ async function deleteGoogleCalendarEvent(calendarEventId) {
     console.log(`✅ Successfully deleted Google Calendar event ${calendarEventId}`);
     return true;
   } catch (err) {
+    // Event not found (404) or already deleted (410) is not a real failure -
+    // the end state (event gone) is what we wanted, so log it as info, not error.
+    if (err.response && (err.response.status === 404 || err.response.status === 410)) {
+      const statusMsg = err.response.status === 410 ? 'already deleted' : 'not found';
+      console.log(`ℹ️ Event ${calendarEventId} ${statusMsg} in calendar (may have been already deleted)`);
+      return true;
+    }
+
     console.error(`❌ Error deleting Google Calendar event ${calendarEventId}:`, err.message);
     if (err.response) {
       console.error(`   API Status: ${err.response.status}`);
       console.error(`   API Data: ${JSON.stringify(err.response.data, null, 2)}`);
-
-      // If event not found (404) or already deleted (410), consider it successful
-      if (err.response.status === 404 || err.response.status === 410) {
-        const statusMsg = err.response.status === 410 ? 'already deleted' : 'not found';
-        console.log(`ℹ️ Event ${calendarEventId} ${statusMsg} in calendar (may have been already deleted)`);
-        return true;
-      }
     }
     if (err.code) {
       console.error(`   Error Code: ${err.code}`);
