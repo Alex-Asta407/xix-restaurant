@@ -611,11 +611,19 @@ app.get('/api/stripe-config', (req, res) => {
   });
 });
 
+// Extracts the bare address from a "Display Name <email@domain>" string,
+// or returns the input unchanged if it's already a bare address.
+function extractEmailAddress(fromString) {
+  if (!fromString) return '';
+  const match = fromString.match(/<([^>]+)>/);
+  return match ? match[1] : fromString;
+}
+
 // Public contact info endpoint - lets the frontend display the contact
 // email from .env instead of it being hardcoded in the HTML pages
 app.get('/api/contact-info', (req, res) => {
   res.json({
-    email: process.env.CONTACT_EMAIL || process.env.MANAGER_EMAIL || process.env.SMTP_USER || ''
+    email: extractEmailAddress(process.env.MAIL_FROM) || process.env.MANAGER_EMAIL || process.env.SMTP_USER || ''
   });
 });
 
