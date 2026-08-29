@@ -2630,7 +2630,7 @@ app.post('/api/send-reservation-email', async (req, res) => {
         // Determine venue details
         const isMirror = reservationData.venue === 'Mirror';
         const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
-        const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
+        const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 403 High St, London E15 4QZ';
         const eventDuration = isMirror ? 8 : 2;
 
         // Create Google Calendar event URL
@@ -3087,7 +3087,7 @@ async function sendWaitlistAssignmentEmail(resId, tableId, confirmationToken, re
     // Determine venue details
     const isMirror = reservationData.venue === 'Mirror';
     const venueName = isMirror ? 'Mirror Ukrainian Banquet Hall' : 'XIX Restaurant';
-    const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 123 King\'s Road, London SW3 4RD';
+    const venueAddress = isMirror ? 'Mirror Ukrainian Banquet Hall, 123 King\'s Road, London SW3 4RD' : 'XIX Restaurant, 403 High St, London E15 4QZ';
     const eventDuration = isMirror ? 8 : 2;
 
     // Create Google Calendar event URL

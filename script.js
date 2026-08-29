@@ -385,7 +385,7 @@ if (addToCalendarBtn) {
         const eventDetails = {
             title: `Restaurant Reservation - ${reservation.name}`,
             description: `Restaurant reservation for ${reservation.guests} guests${reservation.specialRequests ? `\n\nSpecial Requests: ${reservation.specialRequests}` : ''}`,
-            location: 'XIX Restaurant, 123 King\'s Road, London SW3 4RD',
+            location: 'XIX Restaurant, 403 High St, London E15 4QZ',
             startTime: formatDate(startDate),
             endTime: formatDate(endDate)
         };
