@@ -952,3 +952,23 @@ async function sendReservationEmail(reservation) {
     console.log('Email sent successfully:', data);
     return data;
 }
+
+// Populate contact email from server-side .env config (CONTACT_EMAIL)
+// instead of relying on the hardcoded text left in the HTML.
+(function loadContactEmail() {
+    const emailEls = document.querySelectorAll('[data-contact-email]');
+    if (!emailEls.length) return;
+
+    fetch('/api/contact-info')
+        .then(res => res.json())
+        .then(data => {
+            if (!data || !data.email) return;
+            emailEls.forEach(el => {
+                el.textContent = data.email;
+                if (el.tagName === 'A') {
+                    el.href = `mailto:${data.email}`;
+                }
+            });
+        })
+        .catch(err => console.error('Failed to load contact info:', err));
+})();
