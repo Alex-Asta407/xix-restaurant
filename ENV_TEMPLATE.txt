@@ -16,6 +16,11 @@ SMTP_PASS=your-app-password-here
 MAIL_FROM="XIX Restaurant <your-email@gmail.com>"
 MANAGER_EMAIL=your-email@gmail.com
 
+# Public contact email shown on the website (Home/Reservations/Events pages).
+# Kept separate from SMTP_USER so it can be changed without touching SMTP
+# login credentials. Falls back to MANAGER_EMAIL, then SMTP_USER, if unset.
+CONTACT_EMAIL=xixfoodbookings@gmail.com
+
 # Stripe Payment Configuration
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
 STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here

@@ -611,6 +611,14 @@ app.get('/api/stripe-config', (req, res) => {
   });
 });
 
+// Public contact info endpoint - lets the frontend display the contact
+// email from .env instead of it being hardcoded in the HTML pages
+app.get('/api/contact-info', (req, res) => {
+  res.json({
+    email: process.env.CONTACT_EMAIL || process.env.MANAGER_EMAIL || process.env.SMTP_USER || ''
+  });
+});
+
 // Debug middleware to log all requests
 app.use((req, res, next) => {
   // Use local time for request logging
